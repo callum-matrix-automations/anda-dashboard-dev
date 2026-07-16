@@ -1,2 +1,3 @@
-import { ForgotPasswordScreen } from "@/components/auth/ForgotPasswordScreen";
-export default function ForgotPasswordPage() { return <ForgotPasswordScreen />; }
+import { redirect } from "next/navigation";
+
+export default function ForgotPasswordPage() { redirect("/app/dashboard"); }

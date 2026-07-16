@@ -1,2 +1,3 @@
-import { TwoFactorScreen } from "@/components/auth/TwoFactorScreen";
-export default function VerifyPage() { return <TwoFactorScreen />; }
+import { redirect } from "next/navigation";
+
+export default function VerifyPage() { redirect("/app/dashboard"); }
