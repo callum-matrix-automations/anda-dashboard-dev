@@ -1,0 +1,2 @@
+-- Shared, non-sensitive development data belongs in this file.
+-- It is applied after all migrations by `npm run supabase:reset`.
