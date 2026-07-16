@@ -1,0 +1,2 @@
+-- Initial migration marker for the ANDA dashboard.
+-- Add project schema changes in new timestamped migrations.
