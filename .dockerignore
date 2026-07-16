@@ -1,0 +1,7 @@
+node_modules
+.next
+.netlify
+next-env.d.ts
+.git
+coverage
+artifacts

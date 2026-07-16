@@ -1,0 +1,8 @@
+[build]
+command = "npm run build"
+publish = ".next"
+
+# AIDEV-NOTE: Explicitly install the Next.js adapter for Git-connected builds;
+# API-linked private repositories do not inherit the CLI's auto-detected plugin.
+[[plugins]]
+package = "@netlify/plugin-nextjs"

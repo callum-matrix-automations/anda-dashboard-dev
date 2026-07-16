@@ -1,0 +1,7 @@
+import type { Meeting } from "@/domain/types";
+export function MeetingTabs({ meeting, tab }: { meeting: Meeting; tab: string }) {
+  if (tab === "Transcript") return <pre className="whitespace-pre-wrap font-sans text-sm leading-7">{meeting.transcript}</pre>;
+  if (tab === "Attendance") return <div className="grid gap-2 sm:grid-cols-2">{meeting.attendees.map(a=><div className="card card-compact bg-base-200" key={a.memberId}><div className="card-body flex-row justify-between"><div><strong>{a.name}</strong><div className="text-xs opacity-55">{a.role}</div></div><span className={`badge ${a.present?"badge-success":"badge-ghost"}`}>{a.present?"Present":"Absent"}</span></div></div>)}</div>;
+  if (tab === "Motions") return <div className="space-y-3">{meeting.motions.map(m=><div className="card border border-base-300 bg-base-200" key={m.id}><div className="card-body"><h3 className="font-medium">{m.title}</h3><div className="flex flex-wrap gap-2">{m.votes.map(v=><span className={`badge ${v.result==="unresolved"?"badge-warning":"badge-outline"}`} key={v.memberId}>{v.memberName}: {v.result}</span>)}</div></div></div>)}{!meeting.motions.length&&<p className="opacity-55">No motions recorded.</p>}</div>;
+  return <div className="space-y-4">{meeting.minutes.map(section=><section key={section.id}><h3 className="font-semibold">{section.heading}</h3><p className="mt-1 text-sm leading-6 opacity-80">{section.body}</p></section>)}{!meeting.minutes.length&&<p className="opacity-55">Minutes are not available yet.</p>}</div>;
+}
