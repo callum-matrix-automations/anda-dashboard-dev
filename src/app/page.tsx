@@ -1,4 +1,4 @@
 import { redirect } from "next/navigation";
 
-// The demo has no backend authentication or session, so open it directly.
+// Authentication will be enforced by the future backend boundary.
 export default function Page() { redirect("/app/dashboard"); }
