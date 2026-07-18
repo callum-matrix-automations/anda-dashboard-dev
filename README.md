@@ -29,6 +29,44 @@ and intentionally show an unavailable state until those endpoints are built.
 The `supabase/` directory remains as database infrastructure for the later
 backend implementation; no application code currently connects to it.
 
+## Dummy transcript sender
+
+The first transcript-intake stage is a provider-neutral HTTPS sender. It combines
+the committed metadata fixture in `fixtures/transcripts/dummy-transcript-packet.json`
+with the transcript in `fixtures/transcripts/anda-board-meeting.txt` and sends the
+complete JSON packet with an HTTPS POST request.
+
+Inspect the packet without sending it:
+
+```powershell
+npm.cmd run mock:transcript -- --dry-run
+```
+
+Send it to an HTTPS webhook receiver:
+
+```powershell
+npm.cmd run mock:transcript -- https://your-webhook.example/transcripts
+```
+
+Alternatively, set `MOCK_TRANSCRIPT_WEBHOOK_URL` in `.env.local` or the current
+shell environment and run `npm.cmd run mock:transcript`. HTTPS is required for
+remote endpoints; local loopback URLs may use HTTP for development.
+
+The sender and receiver must share `TRANSCRIPT_WEBHOOK_SECRET`. The sender signs
+the exact JSON body and current timestamp with HMAC-SHA256; the receiver rejects
+missing, invalid, or stale signatures.
+
+The Next.js backend receives the packet at `POST /api/webhooks/transcripts` and
+returns HTTP `202` with the event, meeting, and transcript identifiers. This
+first receiver stage validates and acknowledges the transcript but does not
+persist or process it.
+
+Successful source transcript identifiers are idempotent while the current
+Next.js process is running. Receipt processing makes one initial attempt and up
+to three retries. Exhausted retries return a structured `failed` response and
+write a metadata-only failure log. Durable idempotency across restarts or
+multiple server instances will be added with the persistence repository.
+
 ## Local development
 
 Requirements:
