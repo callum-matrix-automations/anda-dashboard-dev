@@ -1,12 +1,221 @@
-Chair: Good afternoon. I call the July ANDA board meeting to order at 6:02 PM.
-Secretary: Attendance has been recorded. Five board members are present and quorum is confirmed.
-Chair: The first agenda item is approval of the June meeting minutes.
-Member Patel: I move that the June minutes be approved as circulated.
-Member Jones: I second the motion.
-Chair: All in favour?
-Secretary: The motion passes with five votes in favour, none against, and no abstentions.
-Treasurer: The operating account closed June within budget. The roof reserve remains fully funded for the scheduled inspection.
-Member Garcia: The property committee recommends requesting three quotes for the north building roof inspection.
-Chair: Please record that recommendation as an action for the property committee before the August meeting.
-Secretary: The action has been recorded.
-Chair: There being no further business, the meeting is adjourned at 6:41 PM.
+Eleanor Hughes: Good evening. It is 5:30 PM on Saturday 25 July 2026, and I call the monthly ANDA board meeting to order. I am Eleanor Hughes, Chair for this meeting. Before we begin, I confirm that this meeting is being transcribed for the preparation of the draft minutes.
+
+Marcus Patel: I am Marcus Patel, acting as Secretary. The members present are Eleanor Hughes, Marcus Patel, Priya Shah, Daniel Brooks, and Amelia Clarke. All five are attending for the full meeting. Five voting members are present, so the meeting is quorate.
+
+Eleanor Hughes: Thank you. For clarity, Oliver Grant sent comments about the maintenance programme by email, but he is not attending tonight and is not a member of this board. His email may be discussed as correspondence, but he must not be recorded as an attendee or voter.
+
+Marcus Patel: The agenda was circulated on Monday. It contains approval of the June minutes, declarations of interest, the financial report, the north roof inspection, the courtyard garden proposal, procurement policy, officer training, and any other business.
+
+Eleanor Hughes: Does anyone wish to change the order of business?
+
+Daniel Brooks: No changes from me.
+
+Amelia Clarke: The order is fine.
+
+Eleanor Hughes: We will proceed as circulated. The first item is approval of the minutes from 20 June. Everyone received the corrected copy yesterday. The correction changed the date of the lift inspection from 12 June to 21 June, but it did not change any decision.
+
+Marcus Patel: I have compared the corrected copy with my notes. No other amendments were requested.
+
+Priya Shah: The financial figures in the corrected minutes now agree with the ledger.
+
+Daniel Brooks: I move that the minutes of the meeting held on 20 June 2026 be approved as corrected.
+
+Amelia Clarke: I second the motion.
+
+Eleanor Hughes: The motion is to approve the June minutes as corrected. We will take a recorded vote. Eleanor Hughes votes for. Marcus Patel?
+
+Marcus Patel: For.
+
+Priya Shah: For.
+
+Daniel Brooks: For.
+
+Amelia Clarke: For.
+
+Eleanor Hughes: That is five votes for, none against, and no abstentions. The motion is carried. Marcus, please mark the June minutes approved.
+
+Marcus Patel: Recorded as carried unanimously.
+
+Eleanor Hughes: Next are declarations of interest. I have no declaration relating to tonight's agenda.
+
+Marcus Patel: None.
+
+Priya Shah: None.
+
+Daniel Brooks: I use the courtyard regularly, but I have no financial interest in any garden supplier.
+
+Amelia Clarke: I have no declaration.
+
+Eleanor Hughes: Thank you. We move to the Treasurer's report.
+
+Priya Shah: The operating account balance at the end of June was £84,620. Income was £3,180 above budget because two annual subscriptions were paid earlier than expected. General expenditure was £1,940 below budget. The roof reserve stands at £46,500 and remains ring-fenced. There are no overdue tax filings and no invoices more than thirty days late.
+
+Marcus Patel: Were the accessibility consultancy costs included in that expenditure figure?
+
+Priya Shah: Yes. The first consultancy invoice of £2,400 was paid on 29 June. A second invoice is expected after the access audit in August. Both are covered by the approved professional-services budget.
+
+Daniel Brooks: The report mentions an increase in electricity costs. Is that likely to continue?
+
+Priya Shah: Usage has not increased materially. The increase is mainly the tariff change that began in May. I have asked our broker to compare fixed-rate offers before the current agreement reaches its review window. I will bring options to the September meeting rather than recommend a change tonight.
+
+Amelia Clarke: Is any decision required on the financial report?
+
+Priya Shah: No new spending authority is required. I am asking the board to receive the report and note the forecast.
+
+Eleanor Hughes: The report is received. There is no motion on this item. The action is for Priya to bring energy tariff options to the September meeting. We now turn to the north building roof inspection.
+
+Amelia Clarke: The property working group reviewed the maintenance log. There were two minor leaks during heavy rain, one above the north stairwell and one near the archive room. Temporary repairs are holding, but the last full condition survey was four years ago. The group recommends commissioning an independent roof survey before winter.
+
+Marcus Patel: What would the survey cost?
+
+Amelia Clarke: We received three indicative prices. Northside Surveying quoted £3,600, Apex Building Consultants quoted £4,150, and Hartwell Inspection Services quoted £3,850. Those figures include the written condition report but exclude any repair work.
+
+Priya Shah: The property inspection budget has £5,000 available. A contract up to £4,250 would fit within the existing allocation, although I would still like the selection documented against the procurement policy.
+
+Daniel Brooks: Did Oliver Grant's email recommend one of the firms?
+
+Amelia Clarke: Oliver said he had previously seen a useful report from Hartwell, but he has no connection with the firm and is not making a formal recommendation. The working group preferred Northside because its proposal included thermal imaging and the earliest inspection date.
+
+Eleanor Hughes: We need a clear decision. Amelia, would you like to put the recommendation as a motion?
+
+Amelia Clarke: I move that ANDA appoint Northside Surveying to conduct the north building roof condition survey for a fee not exceeding £3,600, with the survey to be completed by 30 September 2026.
+
+Marcus Patel: I second the motion.
+
+Eleanor Hughes: Discussion on the motion?
+
+Priya Shah: I support carrying out the survey, but I will abstain because I have not reviewed Northside's insurance certificate. That can be checked before the contract is signed.
+
+Daniel Brooks: I prefer Hartwell because of the previous positive experience, although I accept that Northside's proposal is less expensive.
+
+Eleanor Hughes: The insurance check can be a condition of issuing the purchase order without changing the motion. We will take a recorded vote. Eleanor Hughes votes for.
+
+Marcus Patel: For.
+
+Priya Shah: Abstain.
+
+Daniel Brooks: Against.
+
+Amelia Clarke: For.
+
+Eleanor Hughes: There are three votes for, one against, and one abstention. The motion is carried. Amelia will obtain the insurance certificate and Priya will issue the purchase order once it is verified.
+
+Marcus Patel: Recorded: motion carried, with Daniel against and Priya abstaining.
+
+Eleanor Hughes: The next item is the courtyard garden proposal.
+
+Daniel Brooks: I circulated a short proposal for converting the unused paved corner into a community garden. The initial estimate is £7,500, including raised beds, accessible paths, water storage, and the first year of plants. Volunteers have offered to help with planting, but the estimate assumes contractors will prepare the ground.
+
+Amelia Clarke: I like the idea, but the access audit may recommend changes to the same route through the courtyard. Starting construction before that report could mean doing work twice.
+
+Priya Shah: There is £4,000 in the community programme budget. The remainder would need either a new allocation from reserves or external funding. I would not recommend using unrestricted reserves until we see the August forecast.
+
+Marcus Patel: Could the proposal be developed without committing the construction money?
+
+Daniel Brooks: We could, but I would prefer a decision in principle so volunteers know the board supports the project. I move that ANDA approve the courtyard community garden project and allocate up to £7,500 from unrestricted reserves for delivery during autumn 2026.
+
+Eleanor Hughes: Is there a seconder?
+
+Marcus Patel: I second the motion so that it can be debated.
+
+Eleanor Hughes: The motion is to approve the garden and allocate up to £7,500 from unrestricted reserves this autumn. Further discussion?
+
+Amelia Clarke: I cannot support the timing. I would support bringing it back after the access report, but the motion commits us now.
+
+Priya Shah: I agree. The proposal may be worthwhile, but the funding source and access implications are unresolved.
+
+Daniel Brooks: I understand the concern, but delaying until September probably means missing the autumn planting window.
+
+Marcus Patel: That is a risk, although approving expenditure before the access work is also a risk.
+
+Eleanor Hughes: We will vote on the motion as stated. Eleanor Hughes votes against.
+
+Marcus Patel: Against.
+
+Priya Shah: Against.
+
+Daniel Brooks: For.
+
+Amelia Clarke: For.
+
+Eleanor Hughes: The result is two votes for and three against, with no abstentions. The motion is failed. This does not prevent Daniel from revising the proposal after the access report, but no money has been allocated tonight.
+
+Marcus Patel: Recorded as failed, three against and two for.
+
+Eleanor Hughes: We now move to procurement policy. Marcus circulated draft version four.
+
+Marcus Patel: The principal change raises the requirement for three written quotations from £2,500 to £5,000. Purchases below £5,000 would still require evidence of value, but officers could use catalogue comparisons or previous rates rather than obtain three formal quotations. The draft also introduces a conflict declaration for anyone evaluating bids.
+
+Priya Shah: I support the conflict declaration. I am less certain about moving the quotation threshold directly to £5,000. A threshold of £4,000 might be more proportionate for an organisation of our size.
+
+Amelia Clarke: The property working group often loses time seeking formal quotes for specialist inspections where only two qualified firms are available. Could the policy permit an exception with a written reason?
+
+Daniel Brooks: Yes, but the exception should be visible in the meeting record or purchase file.
+
+Marcus Patel: I move that the board adopt procurement policy version four with the three-quotation threshold set at £5,000 and with documented exceptions permitted where fewer than three suitable suppliers are available.
+
+Amelia Clarke: I second the motion.
+
+Eleanor Hughes: Before we vote, Priya has proposed a different threshold. Is that a formal amendment?
+
+Priya Shah: I would like more time to compare the last twelve months of purchases before proposing an exact figure. I suggest tabling the motion until August rather than amending it tonight.
+
+Daniel Brooks: I support tabling it. The current policy can remain in force for another month.
+
+Marcus Patel: I agree. I withdraw any expectation of a vote tonight and consent to the motion being tabled.
+
+Amelia Clarke: Agreed.
+
+Eleanor Hughes: By agreement of the mover and seconder, the procurement-policy motion is tabled until the August meeting. Marcus will provide a comparison of purchases between £2,500 and £5,000. No vote was taken on the substantive motion.
+
+Marcus Patel: Recorded as tabled, with an action for me to circulate the comparison.
+
+Eleanor Hughes: The next item is officer training.
+
+Daniel Brooks: The governance network is offering a two-day course in October. The cost would be £400 per person plus travel. I believe it would be useful for officers and committee leads. I move that we allocate up to £2,000 for five people to attend the governance course.
+
+Amelia Clarke: I support the idea of training, but I am not sure whether travel is included in Daniel's £2,000 limit or would be additional.
+
+Daniel Brooks: My intention was that the £2,000 cover course fees. Travel would come from the existing travel budget.
+
+Priya Shah: That would make the total commitment unclear. I need the expected travel cost and confirmation of which five people are eligible before advising on affordability.
+
+Eleanor Hughes: I heard a motion from Daniel, but I did not hear an unambiguous second. Amelia expressed support for training while questioning the terms, which I do not treat as a formal second. The amount and scope also remain unclear.
+
+Marcus Patel: Shall I record the proposed motion as unresolved rather than carried, failed, or tabled?
+
+Eleanor Hughes: Yes. Record that Daniel moved a proposal to allocate up to £2,000 for governance training, that no clear seconder was identified, and that no vote or outcome was reached. Priya and Daniel will clarify the total cost before August. We must not invent a seconder or decision.
+
+Daniel Brooks: That accurately reflects the discussion.
+
+Amelia Clarke: Agreed. I did not formally second the motion.
+
+Eleanor Hughes: We move to any other business. First, the lift inspection.
+
+Amelia Clarke: The contractor completed the quarterly inspection yesterday. No safety defects were found. The door sensor is becoming noisy, and the contractor recommends replacement during the next planned service. The estimated cost is £480 and is within the maintenance delegation, so no board motion is required.
+
+Priya Shah: Please send me the inspection certificate and estimate for the asset file.
+
+Amelia Clarke: I will send both on Monday.
+
+Marcus Patel: The second item is the annual member survey. We have received sixty-three responses so far, compared with seventy-eight last year. The survey closes on 31 July. I will circulate a summary before the August meeting.
+
+Daniel Brooks: Could the summary separate responses from residents who attended an event this year from those who did not?
+
+Marcus Patel: Yes, that question is included, so I can provide the comparison without identifying individuals.
+
+Eleanor Hughes: Finally, dates. The next regular board meeting is scheduled for 22 August at 5:30 PM. The access consultant will attend the first thirty minutes. Is anyone unable to attend?
+
+Priya Shah: I can attend.
+
+Daniel Brooks: I can attend remotely.
+
+Amelia Clarke: I will be present.
+
+Marcus Patel: I will send the agenda and papers by 17 August.
+
+Eleanor Hughes: To summarise the actions: Priya will bring energy tariff options in September; Amelia will verify Northside's insurance; Priya will issue the roof survey purchase order after verification; Daniel may revise the garden proposal after the access report; Marcus will analyse recent purchases for the procurement policy; Daniel and Priya will clarify the training proposal; Amelia will file the lift documents; and Marcus will circulate the member survey summary.
+
+Marcus Patel: Those actions are recorded. For the decision record, the June minutes motion was carried unanimously, the Northside roof survey motion was carried by three votes to one with one abstention, the courtyard garden motion failed by three votes to two, the procurement policy motion was tabled without a vote, and the officer training motion remains unresolved with no clear seconder or vote.
+
+Eleanor Hughes: Thank you. There is no further business. I declare the meeting closed at 7:00 PM. The meeting duration is ninety minutes.

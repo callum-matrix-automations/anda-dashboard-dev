@@ -19,7 +19,12 @@ const validPacket = {
     title: "Test meeting",
     startedAt: "2026-07-18T17:00:00.000Z",
     endedAt: "2026-07-18T17:41:00.000Z",
+    durationMinutes: 41,
   },
+  attendees: [
+    { displayName: "Eleanor Hughes" },
+    { displayName: "Marcus Patel" },
+  ],
   transcript: {
     sourceTranscriptId: "transcript_api_test_001",
     contentType: "text/plain",
@@ -154,6 +159,37 @@ describe("POST /api/webhooks/transcripts", () => {
     const rawBody = JSON.stringify({ ...validPacket, eventId: "evt_invalid_contract", transcript: { ...validPacket.transcript, content: "" } });
     const response = await POST(signedRequest(rawBody));
     expect(response.status).toBe(422);
+  });
+
+  it("rejects a missing or invalid meeting duration", async () => {
+    const rawBody = JSON.stringify({
+      ...validPacket,
+      eventId: "evt_invalid_duration",
+      meeting: { ...validPacket.meeting, durationMinutes: 0 },
+    });
+    const response = await POST(signedRequest(rawBody));
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      issues: expect.arrayContaining([expect.objectContaining({ path: "meeting.durationMinutes" })]),
+    });
+  });
+
+  it("rejects duplicate attendee names after case and whitespace normalization", async () => {
+    const rawBody = JSON.stringify({
+      ...validPacket,
+      eventId: "evt_duplicate_attendees",
+      attendees: [
+        { displayName: "Eleanor Hughes" },
+        { displayName: "  ELEANOR   HUGHES " },
+      ],
+    });
+    const response = await POST(signedRequest(rawBody));
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      issues: expect.arrayContaining([expect.objectContaining({ path: "attendees.1.displayName" })]),
+    });
   });
 
   it("rejects oversized payloads", async () => {

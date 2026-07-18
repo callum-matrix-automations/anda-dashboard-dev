@@ -8,8 +8,13 @@ const record = {
   sourceMeetingId: "meeting_repository_test_001",
   title: "Repository test meeting",
   meetingDate: "2026-07-18",
+  durationMinutes: 41,
   sourceTranscriptId: "transcript_repository_test_001",
   content: "Chair: Repository test transcript.",
+  attendees: [{
+    profileId: "10000000-0000-4000-8000-000000000001",
+    displayNameSnapshot: "Eleanor Hughes",
+  }],
 };
 
 const rpcRow = {
@@ -20,6 +25,28 @@ const rpcRow = {
 };
 
 describe("Supabase transcript repository", () => {
+  it("lists active member profiles for deterministic display-name matching", async () => {
+    const fetchImplementation = vi.fn().mockResolvedValue(Response.json([{
+      id: "10000000-0000-4000-8000-000000000001",
+      display_name: "Eleanor Hughes",
+    }]));
+    const repository = createSupabaseTranscriptRepository({
+      apiUrl: "https://supabase.example.test",
+      secretKey: "test-secret-key",
+      fetchImplementation,
+    });
+
+    await expect(repository.listActiveMemberProfiles()).resolves.toEqual([{
+      profileId: "10000000-0000-4000-8000-000000000001",
+      displayName: "Eleanor Hughes",
+    }]);
+    const [url, init] = fetchImplementation.mock.calls[0] as [URL, RequestInit];
+    expect(url.pathname).toBe("/rest/v1/profiles");
+    expect(url.searchParams.get("account_type")).toBe("eq.MEMBER");
+    expect(url.searchParams.get("account_status")).toBe("eq.ACTIVE");
+    expect(init.headers).toMatchObject({ authorization: "Bearer test-secret-key" });
+  });
+
   it("calls the restricted ingestion RPC and maps a stored result", async () => {
     const fetchImplementation = vi.fn().mockResolvedValue(Response.json([rpcRow]));
     const repository = createSupabaseTranscriptRepository({
@@ -47,8 +74,13 @@ describe("Supabase transcript repository", () => {
       p_source_meeting_id: record.sourceMeetingId,
       p_title: record.title,
       p_meeting_date: record.meetingDate,
+      p_duration_minutes: record.durationMinutes,
       p_source_transcript_id: record.sourceTranscriptId,
       p_content: record.content,
+      p_attendees: [{
+        profile_id: "10000000-0000-4000-8000-000000000001",
+        display_name_snapshot: "Eleanor Hughes",
+      }],
     });
   });
 
