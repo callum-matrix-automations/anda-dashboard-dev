@@ -1,15 +1,23 @@
 {
-  "eventId": "evt_anda_mock_20260718_001",
+  "eventId": "evt_anda_mock_20260725_001",
   "eventType": "transcript.ready",
-  "occurredAt": "2026-07-18T17:41:00.000Z",
+  "occurredAt": "2026-07-25T19:00:00.000Z",
   "meeting": {
-    "sourceMeetingId": "anda-board-2026-07-18",
-    "title": "ANDA Board Meeting - July 2026",
-    "startedAt": "2026-07-18T17:02:00.000Z",
-    "endedAt": "2026-07-18T17:41:00.000Z"
+    "sourceMeetingId": "anda-board-2026-07-25",
+    "title": "ANDA Board Meeting - 25 July 2026",
+    "startedAt": "2026-07-25T17:30:00.000Z",
+    "endedAt": "2026-07-25T19:00:00.000Z",
+    "durationMinutes": 90
   },
+  "attendees": [
+    { "displayName": "Eleanor Hughes" },
+    { "displayName": "Marcus Patel" },
+    { "displayName": "Priya Shah" },
+    { "displayName": "Daniel Brooks" },
+    { "displayName": "Amelia Clarke" }
+  ],
   "transcript": {
-    "sourceTranscriptId": "anda-transcript-2026-07-18",
+    "sourceTranscriptId": "anda-transcript-2026-07-25",
     "contentType": "text/plain",
     "language": "en-GB"
   }

@@ -13,18 +13,31 @@ describe("dummy transcript sender", () => {
     const packet = await buildDummyTranscriptPacket({ now: fixedNow });
 
     expect(packet).toMatchObject({
-      eventId: "evt_anda_mock_20260718_001",
+      eventId: "evt_anda_mock_20260725_001",
       eventType: "transcript.ready",
       sentAt: "2026-07-18T18:00:00.000Z",
-      meeting: { sourceMeetingId: "anda-board-2026-07-18" },
+      meeting: {
+        sourceMeetingId: "anda-board-2026-07-25",
+        durationMinutes: 90,
+      },
+      attendees: [
+        { displayName: "Eleanor Hughes" },
+        { displayName: "Marcus Patel" },
+        { displayName: "Priya Shah" },
+        { displayName: "Daniel Brooks" },
+        { displayName: "Amelia Clarke" },
+      ],
       transcript: {
-        sourceTranscriptId: "anda-transcript-2026-07-18",
+        sourceTranscriptId: "anda-transcript-2026-07-25",
         contentType: "text/plain",
         language: "en-GB",
       },
     });
-    expect(packet.transcript.content).toContain("quorum is confirmed");
-    expect(packet.transcript.content).toContain("meeting is adjourned");
+    expect(packet.transcript.content.length).toBeGreaterThan(12_000);
+    expect(packet.transcript.content).toContain("The motion is carried");
+    expect(packet.transcript.content).toContain("The motion is failed");
+    expect(packet.transcript.content).toContain("motion is tabled");
+    expect(packet.transcript.content).toContain("motion remains unresolved");
   });
 
   it("allows HTTP delivery to the local Next.js server", async () => {
@@ -70,12 +83,12 @@ describe("dummy transcript sender", () => {
     expect(url.href).toBe("https://webhook.example.test/transcripts");
     expect(request.method).toBe("POST");
     expect(request.headers["content-type"]).toBe("application/json");
-    expect(request.headers["x-anda-event-id"]).toBe("evt_anda_mock_20260718_001");
+    expect(request.headers["x-anda-event-id"]).toBe("evt_anda_mock_20260725_001");
     expect(request.headers["x-anda-webhook-timestamp"]).toBe("1784397600");
     expect(request.headers["x-anda-webhook-signature"]).toBe(
       createDummyTranscriptSignature(secret, "1784397600", request.body),
     );
-    expect(JSON.parse(request.body).transcript.content).toContain("July ANDA board meeting");
+    expect(JSON.parse(request.body).transcript.content).toContain("monthly ANDA board meeting");
   });
 
   it("surfaces non-successful webhook responses", async () => {

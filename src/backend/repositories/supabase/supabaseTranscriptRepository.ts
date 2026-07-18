@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type {
+  ActiveMemberProfile,
   StoredTranscriptImport,
   TranscriptImportRecord,
   TranscriptRepository,
@@ -10,6 +11,11 @@ const TranscriptImportRpcRowSchema = z.object({
   meeting_id: z.string().uuid(),
   transcript_id: z.string().uuid(),
   imported_at: z.string().datetime({ offset: true }),
+});
+
+const ActiveMemberProfileRowSchema = z.object({
+  id: z.string().uuid(),
+  display_name: z.string().trim().min(1),
 });
 
 interface SupabaseTranscriptRepositoryOptions {
@@ -36,37 +42,56 @@ export function createSupabaseTranscriptRepository({
   fetchImplementation = globalThis.fetch,
 }: SupabaseTranscriptRepositoryOptions = {}): TranscriptRepository {
   return {
-    async storeImport(record: TranscriptImportRecord): Promise<StoredTranscriptImport> {
-      const resolvedApiUrl = apiUrl ?? process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const resolvedSecretKey = secretKey ?? process.env.SUPABASE_SECRET_KEY;
-      if (!resolvedApiUrl || !resolvedSecretKey) {
-        throw new TranscriptRepositoryError("Supabase transcript persistence is not configured.", {
-          code: "supabase_not_configured",
-        });
-      }
-      if (typeof fetchImplementation !== "function") {
-        throw new TranscriptRepositoryError("A fetch implementation is required for Supabase persistence.", {
-          code: "fetch_not_configured",
+    async listActiveMemberProfiles(): Promise<ActiveMemberProfile[]> {
+      const configuration = resolveConfiguration(apiUrl, secretKey, fetchImplementation);
+      const profilesUrl = new URL("/rest/v1/profiles", configuration.apiUrl);
+      profilesUrl.searchParams.set("select", "id,display_name");
+      profilesUrl.searchParams.set("account_type", "eq.MEMBER");
+      profilesUrl.searchParams.set("account_status", "eq.ACTIVE");
+
+      const responseBody = await requestSupabase({
+        url: profilesUrl,
+        secretKey: configuration.secretKey,
+        fetchImplementation: configuration.fetchImplementation,
+      });
+      const parsed = z.array(ActiveMemberProfileRowSchema).safeParse(responseBody);
+      if (!parsed.success) {
+        throw new TranscriptRepositoryError("Supabase returned an invalid active profile response.", {
+          code: "invalid_supabase_response",
         });
       }
 
-      const rpcUrl = new URL("/rest/v1/rpc/ingest_transcript_webhook", resolvedApiUrl);
+      return parsed.data.map((profile) => ({
+        profileId: profile.id,
+        displayName: profile.display_name,
+      }));
+    },
+
+    async storeImport(record: TranscriptImportRecord): Promise<StoredTranscriptImport> {
+      const configuration = resolveConfiguration(apiUrl, secretKey, fetchImplementation);
+
+      const rpcUrl = new URL("/rest/v1/rpc/ingest_transcript_webhook", configuration.apiUrl);
       let response: Response;
       try {
-        response = await fetchImplementation(rpcUrl, {
+        response = await configuration.fetchImplementation(rpcUrl, {
           method: "POST",
           headers: {
             "content-type": "application/json",
             accept: "application/json",
-            apikey: resolvedSecretKey,
-            authorization: `Bearer ${resolvedSecretKey}`,
+            apikey: configuration.secretKey,
+            authorization: `Bearer ${configuration.secretKey}`,
           },
           body: JSON.stringify({
             p_source_meeting_id: record.sourceMeetingId,
             p_title: record.title,
             p_meeting_date: record.meetingDate,
+            p_duration_minutes: record.durationMinutes,
             p_source_transcript_id: record.sourceTranscriptId,
             p_content: record.content,
+            p_attendees: record.attendees.map((attendee) => ({
+              profile_id: attendee.profileId,
+              display_name_snapshot: attendee.displayNameSnapshot,
+            })),
           }),
         });
       } catch (error) {
@@ -111,6 +136,69 @@ export function createSupabaseTranscriptRepository({
       };
     },
   };
+}
+
+function resolveConfiguration(
+  apiUrl: string | undefined,
+  secretKey: string | undefined,
+  fetchImplementation: typeof fetch,
+) {
+  const resolvedApiUrl = apiUrl ?? process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const resolvedSecretKey = secretKey ?? process.env.SUPABASE_SECRET_KEY;
+  if (!resolvedApiUrl || !resolvedSecretKey) {
+    throw new TranscriptRepositoryError("Supabase transcript persistence is not configured.", {
+      code: "supabase_not_configured",
+    });
+  }
+  if (typeof fetchImplementation !== "function") {
+    throw new TranscriptRepositoryError("A fetch implementation is required for Supabase persistence.", {
+      code: "fetch_not_configured",
+    });
+  }
+  return {
+    apiUrl: resolvedApiUrl,
+    secretKey: resolvedSecretKey,
+    fetchImplementation,
+  };
+}
+
+async function requestSupabase({
+  url,
+  secretKey,
+  fetchImplementation,
+}: {
+  url: URL;
+  secretKey: string;
+  fetchImplementation: typeof fetch;
+}): Promise<unknown> {
+  let response: Response;
+  try {
+    response = await fetchImplementation(url, {
+      headers: {
+        accept: "application/json",
+        apikey: secretKey,
+        authorization: `Bearer ${secretKey}`,
+      },
+    });
+  } catch (error) {
+    throw new TranscriptRepositoryError("Supabase profile request failed.", {
+      code: "supabase_request_failed",
+      cause: error,
+    });
+  }
+
+  const responseBody = await readResponseBody(response);
+  if (!response.ok) {
+    const details = SupabaseErrorSchema.safeParse(responseBody);
+    throw new TranscriptRepositoryError(
+      details.success ? details.data.message : `Supabase profile request returned HTTP ${response.status}.`,
+      {
+        status: response.status,
+        code: details.success ? details.data.code : "supabase_response_failed",
+      },
+    );
+  }
+  return responseBody;
 }
 
 const SupabaseErrorSchema = z.object({

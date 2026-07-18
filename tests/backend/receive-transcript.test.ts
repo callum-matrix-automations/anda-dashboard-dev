@@ -12,7 +12,9 @@ const packet: TranscriptWebhookPacket = {
     title: "Test meeting",
     startedAt: "2026-07-18T17:00:00.000Z",
     endedAt: "2026-07-18T17:41:00.000Z",
+    durationMinutes: 41,
   },
+  attendees: [{ displayName: "Eleanor Hughes" }],
   transcript: {
     sourceTranscriptId: "transcript_test_001",
     contentType: "text/plain",
@@ -65,6 +67,24 @@ describe("receiveTranscript", () => {
       ...packet,
       eventId: "evt_conflicting_replay",
       transcript: { ...packet.transcript, content: "Chair: This content has changed." },
+    });
+
+    expect(result).toMatchObject({ status: "failed", attempts: 4 });
+    expect(processTranscript).toHaveBeenCalledTimes(5);
+  });
+
+  it("does not treat changed duration or attendees as the same in-memory delivery", async () => {
+    const processTranscript = vi.fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValue(new Error("source packet conflict"));
+    const receive = createTranscriptReceiver({ processTranscript, now: fixedNow, logger: logger(), delay: noDelay });
+
+    await receive(packet);
+    const result = await receive({
+      ...packet,
+      eventId: "evt_changed_meeting_context",
+      meeting: { ...packet.meeting, durationMinutes: 42 },
+      attendees: [{ displayName: "Marcus Patel" }],
     });
 
     expect(result).toMatchObject({ status: "failed", attempts: 4 });

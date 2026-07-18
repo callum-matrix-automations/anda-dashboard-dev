@@ -24,8 +24,7 @@ interface TranscriptReceiverOptions {
 
 interface CompletedTranscript {
   receipt: TranscriptReceivedResult;
-  sourceMeetingId: string;
-  content: string;
+  sourceFingerprint: string;
 }
 
 export function createTranscriptReceiver({
@@ -40,11 +39,8 @@ export function createTranscriptReceiver({
   return async function receive(packet: TranscriptWebhookPacket): Promise<TranscriptWebhookResult> {
     const idempotencyKey = packet.transcript.sourceTranscriptId;
     const existing = completed.get(idempotencyKey);
-    if (
-      existing
-      && existing.sourceMeetingId === packet.meeting.sourceMeetingId
-      && existing.content === packet.transcript.content
-    ) {
+    const sourceFingerprint = createSourceFingerprint(packet);
+    if (existing && existing.sourceFingerprint === sourceFingerprint) {
       return {
         status: "duplicate",
         eventId: packet.eventId,
@@ -82,8 +78,7 @@ export function createTranscriptReceiver({
         };
         completed.set(idempotencyKey, {
           receipt: received,
-          sourceMeetingId: packet.meeting.sourceMeetingId,
-          content: packet.transcript.content,
+          sourceFingerprint,
         });
         logger.info("Transcript webhook received", logContext(received));
         return received;
@@ -113,6 +108,14 @@ export function createTranscriptReceiver({
     });
     return failed;
   };
+}
+
+function createSourceFingerprint(packet: TranscriptWebhookPacket): string {
+  return JSON.stringify({
+    meeting: packet.meeting,
+    attendees: packet.attendees,
+    transcript: packet.transcript,
+  });
 }
 
 function logContext(result: TranscriptWebhookResult): Record<string, unknown> {
