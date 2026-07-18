@@ -3,6 +3,8 @@ import type {
   TranscriptWebhookPacket,
   TranscriptWebhookResult,
 } from "@/shared/contracts/transcriptWebhook";
+import type { StoredTranscriptImport } from "../../repositories/transcripts/transcriptRepository";
+import { storeTranscriptImport } from "./storeTranscriptImport";
 
 export const MAX_RECEIVE_RETRIES = 3;
 const DEFAULT_RETRY_DELAYS_MS = [100, 250, 500] as const;
@@ -13,11 +15,17 @@ interface ReceiptLogger {
 }
 
 interface TranscriptReceiverOptions {
-  processTranscript?: (packet: TranscriptWebhookPacket) => Promise<void>;
+  processTranscript?: (packet: TranscriptWebhookPacket) => Promise<StoredTranscriptImport | void>;
   now?: () => Date;
   logger?: ReceiptLogger;
   delay?: (milliseconds: number) => Promise<void>;
   retryDelaysMs?: readonly number[];
+}
+
+interface CompletedTranscript {
+  receipt: TranscriptReceivedResult;
+  sourceMeetingId: string;
+  content: string;
 }
 
 export function createTranscriptReceiver({
@@ -27,19 +35,23 @@ export function createTranscriptReceiver({
   delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
   retryDelaysMs = DEFAULT_RETRY_DELAYS_MS,
 }: TranscriptReceiverOptions = {}) {
-  const completed = new Map<string, TranscriptReceivedResult>();
+  const completed = new Map<string, CompletedTranscript>();
 
   return async function receive(packet: TranscriptWebhookPacket): Promise<TranscriptWebhookResult> {
     const idempotencyKey = packet.transcript.sourceTranscriptId;
     const existing = completed.get(idempotencyKey);
-    if (existing) {
+    if (
+      existing
+      && existing.sourceMeetingId === packet.meeting.sourceMeetingId
+      && existing.content === packet.transcript.content
+    ) {
       return {
         status: "duplicate",
         eventId: packet.eventId,
         sourceMeetingId: packet.meeting.sourceMeetingId,
         sourceTranscriptId: packet.transcript.sourceTranscriptId,
         attempts: 0,
-        firstReceivedAt: existing.receivedAt,
+        firstReceivedAt: existing.receipt.receivedAt,
       };
     }
 
@@ -47,7 +59,18 @@ export function createTranscriptReceiver({
     const maximumAttempts = MAX_RECEIVE_RETRIES + 1;
     for (let attempts = 1; attempts <= maximumAttempts; attempts += 1) {
       try {
-        await processTranscript(packet);
+        const processed = await processTranscript(packet);
+        if (processed?.status === "duplicate") {
+          return {
+            status: "duplicate",
+            eventId: packet.eventId,
+            sourceMeetingId: packet.meeting.sourceMeetingId,
+            sourceTranscriptId: packet.transcript.sourceTranscriptId,
+            attempts: 0,
+            firstReceivedAt: processed.importedAt,
+          };
+        }
+
         const received: TranscriptReceivedResult = {
           status: "received",
           eventId: packet.eventId,
@@ -55,9 +78,13 @@ export function createTranscriptReceiver({
           sourceTranscriptId: packet.transcript.sourceTranscriptId,
           transcriptCharacters: packet.transcript.content.length,
           attempts,
-          receivedAt: now().toISOString(),
+          receivedAt: processed?.importedAt ?? now().toISOString(),
         };
-        completed.set(idempotencyKey, received);
+        completed.set(idempotencyKey, {
+          receipt: received,
+          sourceMeetingId: packet.meeting.sourceMeetingId,
+          content: packet.transcript.content,
+        });
         logger.info("Transcript webhook received", logContext(received));
         return received;
       } catch (error) {
@@ -97,4 +124,4 @@ function logContext(result: TranscriptWebhookResult): Record<string, unknown> {
   };
 }
 
-export const receiveTranscript = createTranscriptReceiver();
+export const receiveTranscript = createTranscriptReceiver({ processTranscript: storeTranscriptImport });

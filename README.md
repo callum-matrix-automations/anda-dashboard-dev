@@ -26,8 +26,8 @@ contain authoritative lifecycle, authorization, persistence, integration, or
 credential-handling logic. Data-backed screens call typed `/api/...` endpoints
 and intentionally show an unavailable state until those endpoints are built.
 
-The `supabase/` directory remains as database infrastructure for the later
-backend implementation; no application code currently connects to it.
+The `supabase/` directory contains the local database infrastructure and atomic
+transcript-ingestion operation used by the backend.
 
 ## Dummy transcript sender
 
@@ -58,14 +58,15 @@ missing, invalid, or stale signatures.
 
 The Next.js backend receives the packet at `POST /api/webhooks/transcripts` and
 returns HTTP `202` with the event, meeting, and transcript identifiers. This
-first receiver stage validates and acknowledges the transcript but does not
-persist or process it.
+receiver validates the packet and then calls a separate backend workflow that
+stores an `AI_PROCESSING` meeting and its immutable transcript in Supabase.
+Transcript metadata starts as an empty JSON object.
 
-Successful source transcript identifiers are idempotent while the current
-Next.js process is running. Receipt processing makes one initial attempt and up
-to three retries. Exhausted retries return a structured `failed` response and
-write a metadata-only failure log. Durable idempotency across restarts or
-multiple server instances will be added with the persistence repository.
+Source meeting and transcript identifiers provide durable database idempotency
+across restarts and multiple server instances. Meeting and transcript creation
+is atomic. Receipt processing makes one initial attempt and up to three retries.
+Exhausted retries return a structured `failed` response and write a metadata-only
+failure log.
 
 ## Local development
 
@@ -83,8 +84,15 @@ npm.cmd run supabase:env
 npm.cmd run dev
 ```
 
+Run the local database integration test after applying pending migrations:
+
+```powershell
+npm.cmd exec supabase migration up --local
+npm.cmd run test:integration
+```
+
 `supabase:start` starts the CLI-managed Docker stack. `supabase:env` creates or
-updates the three Supabase values in `.env.local` without overwriting other
+updates the four Supabase values in `.env.local` without overwriting other
 application settings. Do not commit `.env.local`.
 
 Keep the operating system firewall enabled. Supabase CLI publishes its local

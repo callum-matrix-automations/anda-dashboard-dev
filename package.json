@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:integration": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/transcript-ingestion.integration.test.ts",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build",
     "mock:transcript": "node --env-file-if-exists=.env.local scripts/mock-transcript/send-dummy-transcript.mjs",
     "supabase:start": "supabase start",
