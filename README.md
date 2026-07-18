@@ -1,5 +1,34 @@
 # ANDA Dashboard
 
+## Application structure
+
+The repository currently contains the Next.js frontend and browser-safe API
+contracts. The previous in-browser repository simulation, fixture records,
+lifecycle engine, fake permissions, and demo authentication have been removed.
+
+```text
+src/
+|-- app/                    Next.js routes and layouts
+|-- frontend/
+|   |-- api-client/         Typed HTTP client for future /api routes
+|   |-- components/         Browser UI and presentation
+|   |-- hooks/              React Query API hooks
+|   |-- presentation/       Display-only projections and formatting
+|   `-- utils/              Browser-only utilities
+`-- shared/
+    |-- contracts/          API request and response shapes
+    |-- schemas/            Browser-safe Zod schemas
+    `-- types/              Shared TypeScript exports
+```
+
+Frontend code may import only `src/frontend` and `src/shared`. It must not
+contain authoritative lifecycle, authorization, persistence, integration, or
+credential-handling logic. Data-backed screens call typed `/api/...` endpoints
+and intentionally show an unavailable state until those endpoints are built.
+
+The `supabase/` directory remains as database infrastructure for the later
+backend implementation; no application code currently connects to it.
+
 ## Local development
 
 Requirements:
