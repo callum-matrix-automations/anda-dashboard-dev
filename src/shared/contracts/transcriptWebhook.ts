@@ -17,7 +17,10 @@ export const TranscriptWebhookPacketSchema = z.object({
     sourceTranscriptId: z.string().trim().min(1).max(500),
     contentType: z.literal("text/plain"),
     language: z.string().trim().min(1).max(50),
-    content: z.string().trim().min(1).max(MAX_TRANSCRIPT_WEBHOOK_BYTES),
+    content: z.string()
+      .min(1)
+      .max(MAX_TRANSCRIPT_WEBHOOK_BYTES)
+      .refine((content) => content.trim().length > 0, { message: "Transcript content must not be blank." }),
   }).strict(),
 }).strict();
 
