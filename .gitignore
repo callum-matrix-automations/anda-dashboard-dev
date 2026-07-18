@@ -11,3 +11,5 @@ next-env.d.ts
 
 # Local Netlify folder
 .netlify
+# Personal Notes
+/notes.txt
