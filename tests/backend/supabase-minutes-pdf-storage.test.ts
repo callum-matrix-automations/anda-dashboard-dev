@@ -60,4 +60,37 @@ describe("Supabase minutes PDF storage", () => {
       message: "Bucket rejected upload.",
     });
   });
+
+  it("loads the exact approved PDF bytes from the private storage bucket", async () => {
+    const bytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31]);
+    const fetchImplementation = vi.fn().mockResolvedValue(new Response(bytes));
+    const storage = createSupabaseMinutesPdfStorage({ apiUrl, secretKey, fetchImplementation });
+
+    await expect(storage.loadApprovedPdf(`unsigned/${meetingId}/v4/minutes.pdf`))
+      .resolves.toEqual(bytes);
+    const [url, options] = fetchImplementation.mock.calls[0] as [URL, RequestInit];
+    expect(url.href).toBe(
+      `${apiUrl}/storage/v1/object/authenticated/meeting-minutes/unsigned/${meetingId}/v4/minutes.pdf`,
+    );
+    expect(options).toMatchObject({
+      method: "GET",
+      headers: {
+        apikey: secretKey,
+        authorization: `Bearer ${secretKey}`,
+      },
+    });
+  });
+
+  it("rejects empty approved PDF downloads", async () => {
+    const storage = createSupabaseMinutesPdfStorage({
+      apiUrl,
+      secretKey,
+      fetchImplementation: vi.fn().mockResolvedValue(new Response(new Uint8Array())),
+    });
+    await expect(storage.loadApprovedPdf(`unsigned/${meetingId}/v4/minutes.pdf`))
+      .rejects.toMatchObject({
+        code: "pdf_storage_empty_document",
+        message: "The approved PDF stored in Supabase is empty.",
+      });
+  });
 });

@@ -3,11 +3,14 @@ import { PDFDocument } from "pdf-lib";
 import { describe, expect, it, vi } from "vitest";
 import { createSupabaseMeetingApprovalRepository } from "../../src/backend/repositories/supabase/supabaseMeetingApprovalRepository";
 import { createSupabaseMeetingReviewRepository } from "../../src/backend/repositories/supabase/supabaseMeetingReviewRepository";
+import { createSupabaseMeetingSigningRepository } from "../../src/backend/repositories/supabase/supabaseMeetingSigningRepository";
 import { createSupabaseMinutesPdfStorage } from "../../src/backend/repositories/supabase/supabaseMinutesPdfStorage";
 import { createMeetingApprovalService } from "../../src/backend/services/approvals/approveMeeting";
 import { createMeetingPdfProcessor } from "../../src/backend/services/pdf/processMeetingPdf";
 import { createMeetingReviewService } from "../../src/backend/services/reviews/meetingReviewService";
+import { createMeetingSigningProcessor } from "../../src/backend/services/signing/processMeetingSigning";
 import type { MeetingReviewDraft } from "../../src/shared/contracts/meetingReview";
+import { FakeSigningProvider, testSigningRecipient } from "../helpers/fakeSigningProvider";
 import {
   loadPredefinedMeetingDraft,
   localSupabaseConfiguration,
@@ -35,9 +38,11 @@ describe.skipIf(!localIntegrationConfigured)("local approval-to-PDF workflow", (
       storage: createSupabaseMinutesPdfStorage(configuration),
     });
     const processPdf = vi.fn(processor);
+    const processSigning = signingProcessor(new FakeSigningProvider());
     const approvalService = createMeetingApprovalService({
       repository: approvalRepository,
       processPdf,
+      processSigning,
     });
     let detail = await requiredReview(review, meetingId);
 
@@ -243,6 +248,7 @@ describe.skipIf(!localIntegrationConfigured)("local approval-to-PDF workflow", (
     const retryService = createMeetingApprovalService({
       repository: approvalRepository,
       processPdf: successfulProcessor,
+      processSigning: signingProcessor(new FakeSigningProvider()),
     });
     await expect(retryService.retryMeetingPdf({
       meetingId,
@@ -273,6 +279,15 @@ describe.skipIf(!localIntegrationConfigured)("local approval-to-PDF workflow", (
 
 function reviewService() {
   return createMeetingReviewService(createSupabaseMeetingReviewRepository(configuration));
+}
+
+function signingProcessor(provider: FakeSigningProvider) {
+  return createMeetingSigningProcessor({
+    repository: createSupabaseMeetingSigningRepository(configuration),
+    pdfSource: createSupabaseMinutesPdfStorage(configuration),
+    provider,
+    recipient: testSigningRecipient,
+  });
 }
 
 function completeDraft(unresolvedVote: boolean): MeetingReviewDraft {

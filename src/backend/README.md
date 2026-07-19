@@ -65,14 +65,35 @@ processor claims the snapshot, builds a versioned ANDA minutes document, renders
 a multi-page PDF, and uploads it to the private `meeting-minutes` Supabase
 Storage bucket. It then creates an immutable `meeting_pdfs` record containing
 the checksum, size, page count, path, and generation time, and assigns that
-record to `meetings.unsigned_pdf_id`. Success moves the meeting to
-`AWAITING_SIGNATURE`.
+record to `meetings.unsigned_pdf_id`. The meeting remains in `PDF_PROCESSING`
+until the signing-delivery workflow has routed that exact stored PDF.
 
 Generation or storage failure records a sanitised reason and moves the locked
 meeting to `PDF_FAILED`. `retryMeetingPdf` uses an optimistic version check and
 never rebuilds the approval snapshot; it generates the same document version
 from the content that was explicitly approved. Treasurer signing, rejection,
 API exposure, and authorisation are separate workflow items.
+
+## Firma signing delivery
+
+`processMeetingSigning` claims one delivery attempt for the current
+`unsigned_pdf_id`, downloads that private object, and verifies its byte length
+and SHA-256 checksum against the immutable `meeting_pdfs` row. A provider-neutral
+interface then uses the server-only Firma adapter to create a document-based
+draft containing the configured test Treasurer and signature anchor.
+
+The external request ID is persisted before Firma is asked to send it. A send
+failure therefore moves the locked meeting to `ESIGN_FAILED` without losing the
+request reference. `retryMeetingSigning` requires an active Treasurer profile
+and reuses the same PDF and existing Firma request. One durable request per PDF
+and deterministic provider reconciliation prevent duplicate envelopes after
+concurrency or an ambiguous network response. Confirmed delivery is the only
+path to `AWAITING_SIGNATURE`.
+
+Firma credentials and configured test-recipient values are server-only. Client
+Components must never import the adapter or receive `FIRMA_API_KEY`. Firma
+completion callbacks, embedded signing, rejection, and signed-PDF retrieval are
+handled by the following signing work item.
 
 ## Pre-approval workflow tests
 
@@ -94,4 +115,5 @@ protection, review history, and manual recovery from `AI_FAILED`.
 
 `npm.cmd run test:approval` exercises approval validation and acknowledgement,
 database locking, PDF generation, the meeting-to-PDF foreign-key association,
-private Storage, `PDF_FAILED`, and successful retry to `AWAITING_SIGNATURE`.
+private Storage, `PDF_FAILED`, provider delivery, `ESIGN_FAILED`, and successful
+retry to `AWAITING_SIGNATURE`.

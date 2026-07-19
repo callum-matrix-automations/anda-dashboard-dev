@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import type { ApprovedPdfSource } from "../storage/approvedPdfSource";
 import type { MinutesPdfStorage } from "../storage/minutesPdfStorage";
 
 const DEFAULT_BUCKET = "meeting-minutes";
@@ -36,7 +37,7 @@ export function createSupabaseMinutesPdfStorage({
   secretKey,
   bucket = DEFAULT_BUCKET,
   fetchImplementation = globalThis.fetch,
-}: SupabaseMinutesPdfStorageOptions = {}): MinutesPdfStorage {
+}: SupabaseMinutesPdfStorageOptions = {}): MinutesPdfStorage & ApprovedPdfSource {
   return {
     async storeUnsignedPdf(input) {
       const configuration = resolveConfiguration(apiUrl, secretKey, fetchImplementation);
@@ -83,6 +84,52 @@ export function createSupabaseMinutesPdfStorage({
         sizeBytes: input.bytes.byteLength,
         pageCount: input.pageCount,
       };
+    },
+
+    async loadApprovedPdf(path) {
+      const configuration = resolveConfiguration(apiUrl, secretKey, fetchImplementation);
+      const cleanedPath = path.trim();
+      if (!cleanedPath) {
+        throw new MinutesPdfStorageError("An approved PDF path is required.", {
+          code: "pdf_storage_invalid_path",
+        });
+      }
+      const encodedPath = cleanedPath.split("/").map(encodeURIComponent).join("/");
+      const downloadUrl = new URL(
+        `/storage/v1/object/authenticated/${encodeURIComponent(bucket)}/${encodedPath}`,
+        configuration.apiUrl,
+      );
+      let response: Response;
+      try {
+        response = await configuration.fetchImplementation(downloadUrl, {
+          method: "GET",
+          headers: {
+            accept: "application/pdf",
+            apikey: configuration.secretKey,
+            authorization: `Bearer ${configuration.secretKey}`,
+            "cache-control": "no-store",
+          },
+        });
+      } catch (error) {
+        throw new MinutesPdfStorageError("Supabase PDF download request failed.", {
+          code: "pdf_storage_download_request_failed",
+          cause: error,
+        });
+      }
+
+      if (!response.ok) {
+        throw new MinutesPdfStorageError(
+          `Supabase PDF download returned HTTP ${response.status}.`,
+          { status: response.status, code: "pdf_storage_download_failed" },
+        );
+      }
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (bytes.byteLength === 0) {
+        throw new MinutesPdfStorageError("The approved PDF stored in Supabase is empty.", {
+          code: "pdf_storage_empty_document",
+        });
+      }
+      return bytes;
     },
   };
 }
