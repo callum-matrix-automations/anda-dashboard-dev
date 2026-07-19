@@ -37,6 +37,21 @@ the server-only `INTERNAL_ANALYSIS_SECRET`. Manual recovery resets an
 state, and permanent human ownership prevent duplicate or late AI responses
 from overwriting reviewable content.
 
+Backend meeting-review services provide the server-side operations needed before
+approval. They list meeting records, load a complete review aggregate with the
+immutable transcript, and atomically replace editable minutes, attendees,
+motions, votes, and tags. Officer and treasurer edits use optimistic version
+checks, permanently mark the content as human-owned, and add review history.
+Meetings can also be deferred with a required note and resumed without changing
+their lifecycle status.
+
+An officer or treasurer can manually complete an `AI_FAILED` record. Saving the
+replacement draft leaves it in `AI_FAILED` until `markMeetingReady` verifies the
+minimum content and moves it to `PENDING_APPROVAL`. Stored failure details remain
+available for audit. Approval is deliberately excluded from these services and
+belongs to the next workflow item; no meeting-review API routes are introduced
+here.
+
 ## Pre-approval workflow tests
 
 `npm.cmd run test:workflow` sends a correctly signed dummy transcript through
@@ -49,3 +64,8 @@ does not start analysis again.
 analyser. It requires local Supabase and `OPENAI_API_KEY`, makes a chargeable
 external API request, and is intentionally separate from the deterministic
 integration suite.
+
+`npm.cmd run test:reviews` exercises the backend review lifecycle against local
+Supabase. It covers complete draft editing, optimistic-lock conflicts,
+permissions, deferral and resumption, immutable transcripts, AI ownership
+protection, review history, and manual recovery from `AI_FAILED`.
