@@ -19,12 +19,16 @@ import {
 
 const configuration = localSupabaseConfiguration();
 const liveWorkflowConfigured = configuration.configured
-  && Boolean(process.env.OPENAI_API_KEY?.trim());
+  && configuredSecret(process.env.OPENAI_API_KEY)
+  && configuredSecret(process.env.FIRMA_API_KEY)
+  && configuredValue(process.env.SIGNING_TEST_SIGNER_FIRST_NAME)
+  && configuredValue(process.env.SIGNING_TEST_SIGNER_LAST_NAME)
+  && configuredValue(process.env.SIGNING_TEST_SIGNER_EMAIL);
 const approverProfileId = "10000000-0000-4000-8000-000000000001";
 const outputPath = resolve("output/pdf/anda-live-gpt41-meeting-minutes.pdf");
 
-describe.skipIf(!liveWorkflowConfigured)("live webhook-to-PDF workflow", () => {
-  it("runs the dummy transcript through GPT-4.1, human review, approval, and PDF generation", async () => {
+describe.skipIf(!liveWorkflowConfigured)("live webhook-to-Firma workflow", () => {
+  it("runs the dummy transcript through GPT-4.1, approval, PDF generation, and Firma delivery", async () => {
     const workflow = await runPreApprovalWorkflow({
       analyze: analyzeMeetingTranscript,
       idPrefix: "live-gpt41-full-workflow",
@@ -79,6 +83,8 @@ describe.skipIf(!liveWorkflowConfigured)("live webhook-to-PDF workflow", () => {
     expect(pdf.getPageCount()).toBe(completed.pdfArtifact.pageCount);
     expect(pdf.getTitle()).toBe(`${completed.title} - Meeting Minutes`);
     await expect(loadMeetingPdfId(meetingId)).resolves.toBe(completed.pdfArtifact.id);
+    const externalSigningReference = await loadExternalSigningReference(meetingId);
+    expect(externalSigningReference).toEqual(expect.any(String));
 
     await mkdir(resolve("output/pdf"), { recursive: true });
     await writeFile(outputPath, pdfBytes);
@@ -97,6 +103,7 @@ describe.skipIf(!liveWorkflowConfigured)("live webhook-to-PDF workflow", () => {
       pdfDocumentVersion: completed.pdfArtifact.documentVersion,
       pdfPageCount: completed.pdfArtifact.pageCount,
       pdfSizeBytes: completed.pdfArtifact.sizeBytes,
+      externalSigningReference,
       localPdfPath: outputPath,
     }, null, 2)}\n\n`);
   }, 180_000);
@@ -147,6 +154,16 @@ async function loadMeetingPdfId(meetingId: string): Promise<string | null> {
   return rows[0]?.unsigned_pdf_id ?? null;
 }
 
+async function loadExternalSigningReference(meetingId: string): Promise<string | null> {
+  const url = new URL("/rest/v1/meetings", configuration.apiUrl);
+  url.searchParams.set("id", `eq.${meetingId}`);
+  url.searchParams.set("select", "esign_external_ref");
+  const response = await fetch(url, { headers: serviceHeaders() });
+  if (!response.ok) throw new Error(`Meeting signing association query failed with HTTP ${response.status}.`);
+  const rows = await response.json() as Array<{ esign_external_ref: string | null }>;
+  return rows[0]?.esign_external_ref ?? null;
+}
+
 function serviceHeaders() {
   return {
     apikey: configuration.secretKey,
@@ -157,4 +174,12 @@ function serviceHeaders() {
 function requiredValue<T>(value: T | null | undefined, description: string): T {
   if (value === null || value === undefined) throw new Error(`The live workflow did not return ${description}.`);
   return value;
+}
+
+function configuredSecret(value: string | undefined): boolean {
+  return configuredValue(value) && !value!.startsWith("replace-");
+}
+
+function configuredValue(value: string | undefined): boolean {
+  return Boolean(value?.trim());
 }

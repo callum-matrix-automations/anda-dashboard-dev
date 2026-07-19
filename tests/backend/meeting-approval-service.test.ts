@@ -7,7 +7,8 @@ describe("meeting approval service", () => {
   it("processes PDF generation only after an accepted approval", async () => {
     const repository = repositoryMock();
     const processPdf = pdfProcessorMock();
-    const service = createMeetingApprovalService({ repository, processPdf });
+    const processSigning = signingProcessorMock();
+    const service = createMeetingApprovalService({ repository, processPdf, processSigning });
     const command = {
       meetingId,
       expectedVersion: 4,
@@ -18,6 +19,7 @@ describe("meeting approval service", () => {
     await expect(service.approveMeeting(command)).resolves.toMatchObject({ status: "approved" });
     expect(repository.approve).toHaveBeenCalledWith(command);
     expect(processPdf).toHaveBeenCalledWith(meetingId);
+    expect(processSigning).toHaveBeenCalledWith(meetingId);
   });
 
   it("does not schedule when acknowledgement is required", async () => {
@@ -30,7 +32,8 @@ describe("meeting approval service", () => {
       documentVersion: 4,
     });
     const processPdf = pdfProcessorMock();
-    const service = createMeetingApprovalService({ repository, processPdf });
+    const processSigning = signingProcessorMock();
+    const service = createMeetingApprovalService({ repository, processPdf, processSigning });
 
     await service.approveMeeting({
       meetingId,
@@ -39,12 +42,14 @@ describe("meeting approval service", () => {
       acknowledgeUnresolvedVotes: false,
     });
     expect(processPdf).not.toHaveBeenCalled();
+    expect(processSigning).not.toHaveBeenCalled();
   });
 
   it("processes retry only after PDF_FAILED accepts it", async () => {
     const repository = repositoryMock();
     const processPdf = pdfProcessorMock();
-    const service = createMeetingApprovalService({ repository, processPdf });
+    const processSigning = signingProcessorMock();
+    const service = createMeetingApprovalService({ repository, processPdf, processSigning });
 
     await expect(service.retryMeetingPdf({
       meetingId,
@@ -52,6 +57,27 @@ describe("meeting approval service", () => {
       actorProfileId: eleanorId,
     })).resolves.toMatchObject({ status: "retry_started" });
     expect(processPdf).toHaveBeenCalledWith(meetingId);
+    expect(processSigning).toHaveBeenCalledWith(meetingId);
+  });
+
+  it("does not start signing when PDF generation did not complete", async () => {
+    const repository = repositoryMock();
+    const processPdf = vi.fn().mockResolvedValue({
+      status: "failed",
+      meetingId,
+      attempt: 1,
+      error: { code: "pdf_generation_failed", message: "Render failed." },
+    });
+    const processSigning = signingProcessorMock();
+    const service = createMeetingApprovalService({ repository, processPdf, processSigning });
+
+    await service.approveMeeting({
+      meetingId,
+      expectedVersion: 4,
+      actorProfileId: eleanorId,
+      acknowledgeUnresolvedVotes: true,
+    });
+    expect(processSigning).not.toHaveBeenCalled();
   });
 });
 
@@ -82,5 +108,14 @@ function pdfProcessorMock() {
     meetingId,
     attempt: 1,
     path: "unsigned/meeting/v4/minutes.pdf",
+  });
+}
+
+function signingProcessorMock() {
+  return vi.fn().mockResolvedValue({
+    status: "completed" as const,
+    meetingId,
+    attempt: 1,
+    externalRequestId: "firma-request-1",
   });
 }

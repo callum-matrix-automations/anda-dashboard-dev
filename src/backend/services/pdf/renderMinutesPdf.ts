@@ -15,6 +15,7 @@ const BOTTOM = 58;
 const BODY_SIZE = 10;
 const BODY_LINE_HEIGHT = 14;
 const TEXT_WIDTH = PAGE_WIDTH - (MARGIN_X * 2);
+export const TREASURER_SIGNATURE_ANCHOR = "{{ANDA_TREASURER_SIGNATURE}}";
 
 export interface RenderedMinutesPdf {
   bytes: Uint8Array;
@@ -137,6 +138,31 @@ export async function renderMinutesPdf(model: MinutesDocumentModel): Promise<Ren
     "Acknowledged",
     model.approval.unresolvedVotesAcknowledged ? "Yes" : "Not required",
   );
+
+  gap(18);
+  ensureSpace(100);
+  heading("Treasurer signature");
+  drawText("This approved document must be signed by the Treasurer.", {
+    size: 9,
+    lineHeight: 13,
+    color: rgb(0.38, 0.40, 0.43),
+  });
+  gap(44);
+  page.drawLine({
+    start: { x: MARGIN_X, y },
+    end: { x: MARGIN_X + 210, y },
+    thickness: 0.7,
+    color: rgb(0.38, 0.40, 0.43),
+  });
+  page.drawText(TREASURER_SIGNATURE_ANCHOR, {
+    x: MARGIN_X + 4,
+    y: y + 7,
+    size: 1,
+    font: regular,
+    color: rgb(1, 1, 1),
+  });
+  y -= 14;
+  drawText("Treasurer signature", { size: 8, lineHeight: 11, color: rgb(0.38, 0.40, 0.43) });
 
   const pages = pdf.getPages();
   pages.forEach((currentPage, index) => {

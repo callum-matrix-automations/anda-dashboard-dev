@@ -78,12 +78,15 @@ exposure and application authorisation are intentionally deferred.
 
 The backend then generates a versioned unsigned PDF and stores it in the private
 `meeting-minutes` Supabase Storage bucket. A `meeting_pdfs` record owns the PDF
-metadata and the meeting references it through `unsigned_pdf_id`. Successful
-records move to `AWAITING_SIGNATURE`; failures remain locked in `PDF_FAILED` and
-can be restarted with the backend `retryMeetingPdf` function.
+metadata and the meeting references it through `unsigned_pdf_id`. The backend
+then sends that exact stored PDF to Firma for the configured test Treasurer.
+Only confirmed delivery moves the meeting to `AWAITING_SIGNATURE`; PDF failures
+remain locked in `PDF_FAILED`, while signing-delivery failures remain locked in
+`ESIGN_FAILED`. Both stages have backend retry functions that preserve the
+approved snapshot and PDF version.
 
 To run the opt-in live path from the signed dummy webhook through GPT-4.1,
-simulated human review, approval, and PDF generation:
+simulated human review, approval, PDF generation, and Firma delivery:
 
 ```powershell
 npm.cmd run test:workflow:live:full
