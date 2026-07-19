@@ -126,6 +126,71 @@ describe("receiveTranscript", () => {
     });
   });
 
+  it("starts meeting analysis after a new transcript is stored", async () => {
+    const meetingId = "11111111-1111-4111-8111-111111111111";
+    const processTranscript = vi.fn().mockResolvedValue({
+      status: "stored" as const,
+      meetingId,
+      transcriptId: "22222222-2222-4222-8222-222222222222",
+      importedAt: "2026-07-18T17:59:30.000Z",
+    });
+    const startAnalysis = vi.fn().mockResolvedValue({ status: "completed" });
+    const receive = createTranscriptReceiver({
+      processTranscript,
+      startAnalysis,
+      now: fixedNow,
+      logger: logger(),
+      delay: noDelay,
+    });
+
+    await expect(receive(packet)).resolves.toMatchObject({ status: "received" });
+    expect(startAnalysis).toHaveBeenCalledWith(meetingId);
+  });
+
+  it("keeps the stored transcript receipt successful if analysis cannot start", async () => {
+    const testLogger = logger();
+    const processTranscript = vi.fn().mockResolvedValue({
+      status: "stored" as const,
+      meetingId: "11111111-1111-4111-8111-111111111111",
+      transcriptId: "22222222-2222-4222-8222-222222222222",
+      importedAt: "2026-07-18T17:59:30.000Z",
+    });
+    const startAnalysis = vi.fn().mockRejectedValue(new Error("analysis infrastructure offline"));
+    const receive = createTranscriptReceiver({
+      processTranscript,
+      startAnalysis,
+      now: fixedNow,
+      logger: testLogger,
+      delay: noDelay,
+    });
+
+    await expect(receive(packet)).resolves.toMatchObject({ status: "received" });
+    expect(testLogger.error).toHaveBeenCalledWith(
+      "Transcript analysis could not be started",
+      expect.objectContaining({ reason: "analysis infrastructure offline" }),
+    );
+  });
+
+  it("does not restart analysis for a durable duplicate transcript", async () => {
+    const processTranscript = vi.fn().mockResolvedValue({
+      status: "duplicate" as const,
+      meetingId: "11111111-1111-4111-8111-111111111111",
+      transcriptId: "22222222-2222-4222-8222-222222222222",
+      importedAt: "2026-07-18T17:59:30.000Z",
+    });
+    const startAnalysis = vi.fn();
+    const receive = createTranscriptReceiver({
+      processTranscript,
+      startAnalysis,
+      now: fixedNow,
+      logger: logger(),
+      delay: noDelay,
+    });
+
+    await expect(receive(packet)).resolves.toMatchObject({ status: "duplicate" });
+    expect(startAnalysis).not.toHaveBeenCalled();
+  });
+
   it("recovers when the fourth attempt succeeds after three retries", async () => {
     const processTranscript = vi.fn()
       .mockRejectedValueOnce(new Error("attempt one"))

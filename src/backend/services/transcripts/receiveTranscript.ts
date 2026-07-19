@@ -4,6 +4,7 @@ import type {
   TranscriptWebhookResult,
 } from "@/shared/contracts/transcriptWebhook";
 import type { StoredTranscriptImport } from "../../repositories/transcripts/transcriptRepository";
+import { scheduleMeetingAnalysis } from "../../integrations/internal/meetingAnalysisScheduler";
 import { storeTranscriptImport } from "./storeTranscriptImport";
 
 export const MAX_RECEIVE_RETRIES = 3;
@@ -20,6 +21,7 @@ interface TranscriptReceiverOptions {
   logger?: ReceiptLogger;
   delay?: (milliseconds: number) => Promise<void>;
   retryDelaysMs?: readonly number[];
+  startAnalysis?: (meetingId: string) => Promise<unknown>;
 }
 
 interface CompletedTranscript {
@@ -33,6 +35,7 @@ export function createTranscriptReceiver({
   logger = console,
   delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
   retryDelaysMs = DEFAULT_RETRY_DELAYS_MS,
+  startAnalysis = async () => undefined,
 }: TranscriptReceiverOptions = {}) {
   const completed = new Map<string, CompletedTranscript>();
 
@@ -65,6 +68,20 @@ export function createTranscriptReceiver({
             attempts: 0,
             firstReceivedAt: processed.importedAt,
           };
+        }
+
+        if (processed?.status === "stored") {
+          try {
+            await startAnalysis(processed.meetingId);
+          } catch (error) {
+            logger.error("Transcript analysis could not be started", {
+              eventId: packet.eventId,
+              sourceMeetingId: packet.meeting.sourceMeetingId,
+              sourceTranscriptId: packet.transcript.sourceTranscriptId,
+              meetingId: processed.meetingId,
+              reason: error instanceof Error ? error.message : String(error),
+            });
+          }
         }
 
         const received: TranscriptReceivedResult = {
@@ -127,4 +144,7 @@ function logContext(result: TranscriptWebhookResult): Record<string, unknown> {
   };
 }
 
-export const receiveTranscript = createTranscriptReceiver({ processTranscript: storeTranscriptImport });
+export const receiveTranscript = createTranscriptReceiver({
+  processTranscript: storeTranscriptImport,
+  startAnalysis: scheduleMeetingAnalysis,
+});

@@ -174,8 +174,8 @@ export const MeetingSchema = z.object({
   // AIDEV-NOTE: Once a human edits AI output, retries may never replace the owned content.
   humanOwned: z.boolean().default(false),
   source: MeetingSourceSchema,
-  // Current automatic-analysis attempt (1..3). Meaningful pre-approval; frozen afterwards.
-  analysisAttempt: z.number().int().min(1).max(3).default(1),
+  // Zero before the first claim, then the current automatic-analysis attempt (1..3).
+  analysisAttempt: z.number().int().min(0).max(3).default(0),
   tags: z.array(MeetingTagSchema).max(20).default([]),
   pdfArtifact: DocumentArtifactSchema.nullable().default(null),
   archivedAt: z.string().nullable().default(null),
