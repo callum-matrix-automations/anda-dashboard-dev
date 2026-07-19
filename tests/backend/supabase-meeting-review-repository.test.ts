@@ -120,6 +120,9 @@ function summary() {
     deferredNote: null,
     humanOwned: false,
     failure: null,
+    approval: null,
+    pdfArtifact: null,
+    pdfAttempt: 0,
     updatedAt: "2026-07-19T12:00:00.000Z",
   };
 }

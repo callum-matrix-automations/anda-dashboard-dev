@@ -85,6 +85,24 @@ export const MeetingReviewFailureSchema = z.object({
   at: z.string().datetime({ offset: true }),
 }).strict();
 
+export const MeetingReviewApprovalSchema = z.object({
+  approvedByProfileId: z.string().uuid(),
+  approvedByDisplayName: z.string().trim().min(1),
+  approvedAt: z.string().datetime({ offset: true }),
+  contentVersion: z.number().int().positive(),
+  unresolvedVotesAcknowledged: z.boolean(),
+}).strict();
+
+export const MeetingReviewPdfArtifactSchema = z.object({
+  id: z.string().uuid(),
+  path: z.string().trim().min(1),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  sizeBytes: z.number().int().positive(),
+  pageCount: z.number().int().positive(),
+  generatedAt: z.string().datetime({ offset: true }),
+  documentVersion: z.number().int().positive(),
+}).strict();
+
 export const MeetingReviewSummarySchema = z.object({
   id: z.string().uuid(),
   sourceMeetingId: z.string().trim().min(1),
@@ -97,6 +115,9 @@ export const MeetingReviewSummarySchema = z.object({
   deferredNote: z.string().nullable(),
   humanOwned: z.boolean(),
   failure: MeetingReviewFailureSchema.nullable(),
+  approval: MeetingReviewApprovalSchema.nullable(),
+  pdfArtifact: MeetingReviewPdfArtifactSchema.nullable(),
+  pdfAttempt: z.number().int().nonnegative(),
   updatedAt: z.string().datetime({ offset: true }),
 }).strict();
 

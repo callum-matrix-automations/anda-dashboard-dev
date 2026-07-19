@@ -48,9 +48,31 @@ their lifecycle status.
 An officer or treasurer can manually complete an `AI_FAILED` record. Saving the
 replacement draft leaves it in `AI_FAILED` until `markMeetingReady` verifies the
 minimum content and moves it to `PENDING_APPROVAL`. Stored failure details remain
-available for audit. Approval is deliberately excluded from these services and
-belongs to the next workflow item; no meeting-review API routes are introduced
-here.
+available for audit.
+
+## Approval and unsigned minutes PDF
+
+`approveMeeting` is the backend approval boundary. It accepts the current
+meeting version, an existing approver profile ID, and an unresolved-vote
+acknowledgement. It rejects stale or deferred records, validates the minutes and
+motion information, and requires explicit acknowledgement when unresolved
+individual votes remain. API exposure, authentication, and role authorisation
+are intentionally deferred to a separate work item.
+
+Accepted approval atomically stores an immutable structured snapshot, records
+the approver, locks the meeting, and moves it to `PDF_PROCESSING`. The backend
+processor claims the snapshot, builds a versioned ANDA minutes document, renders
+a multi-page PDF, and uploads it to the private `meeting-minutes` Supabase
+Storage bucket. It then creates an immutable `meeting_pdfs` record containing
+the checksum, size, page count, path, and generation time, and assigns that
+record to `meetings.unsigned_pdf_id`. Success moves the meeting to
+`AWAITING_SIGNATURE`.
+
+Generation or storage failure records a sanitised reason and moves the locked
+meeting to `PDF_FAILED`. `retryMeetingPdf` uses an optimistic version check and
+never rebuilds the approval snapshot; it generates the same document version
+from the content that was explicitly approved. Treasurer signing, rejection,
+API exposure, and authorisation are separate workflow items.
 
 ## Pre-approval workflow tests
 
@@ -69,3 +91,7 @@ integration suite.
 Supabase. It covers complete draft editing, optimistic-lock conflicts,
 permissions, deferral and resumption, immutable transcripts, AI ownership
 protection, review history, and manual recovery from `AI_FAILED`.
+
+`npm.cmd run test:approval` exercises approval validation and acknowledgement,
+database locking, PDF generation, the meeting-to-PDF foreign-key association,
+private Storage, `PDF_FAILED`, and successful retry to `AWAITING_SIGNATURE`.

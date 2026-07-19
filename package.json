@@ -9,10 +9,12 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:integration": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/transcript-ingestion.integration.test.ts tests/integration/meeting-analysis-persistence.integration.test.ts tests/integration/pre-approval-workflow.integration.test.ts tests/integration/meeting-review.integration.test.ts",
+    "test:integration": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/transcript-ingestion.integration.test.ts tests/integration/meeting-analysis-persistence.integration.test.ts tests/integration/pre-approval-workflow.integration.test.ts tests/integration/meeting-review.integration.test.ts tests/integration/meeting-approval-pdf.integration.test.ts",
     "test:workflow": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/pre-approval-workflow.integration.test.ts",
     "test:reviews": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/meeting-review.integration.test.ts",
+    "test:approval": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/meeting-approval-pdf.integration.test.ts",
     "test:workflow:live": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/pre-approval-workflow.live.integration.test.ts",
+    "test:workflow:live:full": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/full-workflow.live.integration.test.ts",
     "test:openai": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/openai-connection.integration.test.ts",
     "test:openai:analysis": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/openai-transcript-analysis.integration.test.ts",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build",
@@ -27,6 +29,7 @@
   "dependencies": {
     "@tanstack/react-query": "^5.62.0",
     "next": "^15.3.0",
+    "pdf-lib": "^1.17.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zod": "^3.24.1"
