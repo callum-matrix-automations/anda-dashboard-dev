@@ -68,6 +68,32 @@ is atomic. Receipt processing makes one initial attempt and up to three retries.
 Exhausted retries return a structured `failed` response and write a metadata-only
 failure log.
 
+## Meeting approval and PDF generation
+
+The backend `approveMeeting` function explicitly approves reviewed minutes. It
+uses the current meeting version, records the supplied existing profile as the
+approver, requires acknowledgement of unresolved individual votes, stores an
+immutable approved snapshot, and locks the structured meeting record. API
+exposure and application authorisation are intentionally deferred.
+
+The backend then generates a versioned unsigned PDF and stores it in the private
+`meeting-minutes` Supabase Storage bucket. A `meeting_pdfs` record owns the PDF
+metadata and the meeting references it through `unsigned_pdf_id`. Successful
+records move to `AWAITING_SIGNATURE`; failures remain locked in `PDF_FAILED` and
+can be restarted with the backend `retryMeetingPdf` function.
+
+To run the opt-in live path from the signed dummy webhook through GPT-4.1,
+simulated human review, approval, and PDF generation:
+
+```powershell
+npm.cmd run test:workflow:live:full
+```
+
+The test preserves the AI-produced minutes and complete formal motions. It
+simulates human review by omitting motions whose mover, seconder, or outcome is
+still unresolved, then writes the final PDF to
+`output/pdf/anda-live-gpt41-meeting-minutes.pdf` for local visual QA.
+
 ## Local development
 
 Requirements:
