@@ -6,6 +6,7 @@ import type {
 import type { StoredTranscriptImport } from "../../repositories/transcripts/transcriptRepository";
 import { scheduleMeetingAnalysis } from "../../integrations/internal/meetingAnalysisScheduler";
 import { storeTranscriptImport } from "./storeTranscriptImport";
+import { transcriptImportAlertService } from "./transcriptImportAlerts";
 
 export const MAX_RECEIVE_RETRIES = 3;
 const DEFAULT_RETRY_DELAYS_MS = [100, 250, 500] as const;
@@ -22,6 +23,18 @@ interface TranscriptReceiverOptions {
   delay?: (milliseconds: number) => Promise<void>;
   retryDelaysMs?: readonly number[];
   startAnalysis?: (meetingId: string) => Promise<unknown>;
+  recordFailure?: (record: {
+    sourceProvider: "read_ai";
+    sourceMeetingId: string;
+    requestId: string | null;
+    title: string | null;
+    platformMeetingId: string | null;
+    errorCode: string;
+    errorMessage: string;
+    attempts: number;
+    failedAt: string;
+  }) => Promise<void>;
+  resolveFailure?: (sourceMeetingId: string, resolvedAt: string) => Promise<void>;
 }
 
 interface CompletedTranscript {
@@ -36,6 +49,8 @@ export function createTranscriptReceiver({
   delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
   retryDelaysMs = DEFAULT_RETRY_DELAYS_MS,
   startAnalysis = async () => undefined,
+  recordFailure = async () => undefined,
+  resolveFailure = async () => undefined,
 }: TranscriptReceiverOptions = {}) {
   const completed = new Map<string, CompletedTranscript>();
 
@@ -60,6 +75,7 @@ export function createTranscriptReceiver({
       try {
         const processed = await processTranscript(packet);
         if (processed?.status === "duplicate") {
+          await safelyResolveFailure(packet.meeting.sourceMeetingId, processed.importedAt);
           return {
             status: "duplicate",
             eventId: packet.eventId,
@@ -71,6 +87,7 @@ export function createTranscriptReceiver({
         }
 
         if (processed?.status === "stored") {
+          await safelyResolveFailure(packet.meeting.sourceMeetingId, processed.importedAt);
           try {
             await startAnalysis(processed.meetingId);
           } catch (error) {
@@ -123,8 +140,43 @@ export function createTranscriptReceiver({
       ...logContext(failed),
       reason: lastError instanceof Error ? lastError.message : String(lastError),
     });
+    try {
+      const metadata = packet.transcript.metadata ?? {};
+      await recordFailure({
+        sourceProvider: "read_ai",
+        sourceMeetingId: packet.meeting.sourceMeetingId,
+        requestId: typeof metadata.requestId === "string" ? metadata.requestId : packet.eventId,
+        title: packet.meeting.title,
+        platformMeetingId: typeof metadata.platformMeetingId === "string" ? metadata.platformMeetingId : null,
+        errorCode: "receive_failed",
+        errorMessage: safeFailureMessage(lastError),
+        attempts: maximumAttempts,
+        failedAt: failed.failedAt,
+      });
+    } catch (error) {
+      logger.error("Transcript import failure alert could not be recorded", {
+        sourceMeetingId: packet.meeting.sourceMeetingId,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
     return failed;
+
+    async function safelyResolveFailure(sourceMeetingId: string, resolvedAt: string) {
+      try {
+        await resolveFailure(sourceMeetingId, resolvedAt);
+      } catch (error) {
+        logger.error("Transcript import failure alert could not be resolved", {
+          sourceMeetingId,
+          reason: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
   };
+}
+
+function safeFailureMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.trim().slice(0, 2_000) || "Transcript import failed.";
 }
 
 function createSourceFingerprint(packet: TranscriptWebhookPacket): string {
@@ -147,4 +199,6 @@ function logContext(result: TranscriptWebhookResult): Record<string, unknown> {
 export const receiveTranscript = createTranscriptReceiver({
   processTranscript: storeTranscriptImport,
   startAnalysis: scheduleMeetingAnalysis,
+  recordFailure: transcriptImportAlertService.recordFailure,
+  resolveFailure: transcriptImportAlertService.resolveFailure,
 });

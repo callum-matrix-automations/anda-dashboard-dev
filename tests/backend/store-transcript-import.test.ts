@@ -50,6 +50,7 @@ describe("storeTranscriptImport", () => {
       durationMinutes: 45,
       sourceTranscriptId: "transcript_store_test_001",
       content: "Chair: Preserve this source transcript exactly.\nSecretary: Confirmed.",
+      metadata: {},
       attendees: [{
         profileId: "10000000-0000-4000-8000-000000000001",
         displayNameSnapshot: "Eleanor Hughes",

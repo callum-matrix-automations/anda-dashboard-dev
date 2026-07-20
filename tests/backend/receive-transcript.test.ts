@@ -118,12 +118,23 @@ describe("receiveTranscript", () => {
       transcriptId: "22222222-2222-4222-8222-222222222222",
       importedAt: "2026-07-18T17:59:30.000Z",
     });
-    const receive = createTranscriptReceiver({ processTranscript, now: fixedNow, logger: logger(), delay: noDelay });
+    const resolveFailure = vi.fn().mockResolvedValue(undefined);
+    const receive = createTranscriptReceiver({
+      processTranscript,
+      resolveFailure,
+      now: fixedNow,
+      logger: logger(),
+      delay: noDelay,
+    });
 
     await expect(receive(packet)).resolves.toMatchObject({
       status: "received",
       receivedAt: "2026-07-18T17:59:30.000Z",
     });
+    expect(resolveFailure).toHaveBeenCalledWith(
+      packet.meeting.sourceMeetingId,
+      "2026-07-18T17:59:30.000Z",
+    );
   });
 
   it("starts meeting analysis after a new transcript is stored", async () => {
@@ -209,7 +220,14 @@ describe("receiveTranscript", () => {
     const testLogger = logger();
     const processTranscript = vi.fn().mockRejectedValue(new Error("receiver offline"));
     const delay = vi.fn().mockResolvedValue(undefined);
-    const receive = createTranscriptReceiver({ processTranscript, now: fixedNow, logger: testLogger, delay });
+    const recordFailure = vi.fn().mockResolvedValue(undefined);
+    const receive = createTranscriptReceiver({
+      processTranscript,
+      recordFailure,
+      now: fixedNow,
+      logger: testLogger,
+      delay,
+    });
 
     const result = await receive(packet);
 
@@ -223,5 +241,17 @@ describe("receiveTranscript", () => {
     expect(testLogger.error).toHaveBeenCalledWith("Transcript webhook failed", expect.objectContaining({
       reason: "receiver offline",
     }));
+    expect(recordFailure).toHaveBeenCalledOnce();
+    expect(recordFailure).toHaveBeenCalledWith({
+      sourceProvider: "read_ai",
+      sourceMeetingId: packet.meeting.sourceMeetingId,
+      requestId: packet.eventId,
+      title: packet.meeting.title,
+      platformMeetingId: null,
+      errorCode: "receive_failed",
+      errorMessage: "receiver offline",
+      attempts: 4,
+      failedAt: "2026-07-18T18:01:00.000Z",
+    });
   });
 });

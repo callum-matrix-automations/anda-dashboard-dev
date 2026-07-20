@@ -8,20 +8,23 @@ import { createTranscriptReceiver } from "../../src/backend/services/transcripts
 import { createTranscriptImportStore } from "../../src/backend/services/transcripts/storeTranscriptImport";
 import { createTranscriptWebhookHandler } from "../../src/backend/integrations/webhooks/transcriptWebhookHandler";
 import {
-  createTranscriptWebhookSignature,
-  TRANSCRIPT_SIGNATURE_HEADER,
-  TRANSCRIPT_TIMESTAMP_HEADER,
+  createReadAiWebhookSignature,
+  READ_AI_SIGNATURE_HEADER,
 } from "../../src/backend/integrations/webhooks/transcriptWebhookAuth";
+import { adaptReadAiWebhook } from "../../src/backend/integrations/read-ai/readAiTranscriptAdapter";
 import {
   MeetingDraftSchema,
   type MeetingAnalysisInput,
   type MeetingDraft,
 } from "../../src/shared/contracts/meetingAnalysis";
 import {
-  TranscriptWebhookPacketSchema,
   TranscriptWebhookResultSchema,
   type TranscriptWebhookPacket,
 } from "../../src/shared/contracts/transcriptWebhook";
+import {
+  ReadAiMeetingEndWebhookSchema,
+  type ReadAiMeetingEndWebhook,
+} from "../../src/shared/contracts/readAiWebhook";
 
 const MeetingRowSchema = z.object({
   id: z.string().uuid(),
@@ -101,8 +104,13 @@ export async function runPreApprovalWorkflow({
   const { apiUrl, secretKey, configured } = localSupabaseConfiguration();
   if (!configured) throw new Error("The pre-approval workflow test requires a configured local Supabase instance.");
 
-  const packet = await createUniquePacket(idPrefix);
-  const webhookSecret = `workflow-secret-${randomUUID()}`;
+  const readAiPayload = await createUniqueReadAiPayload(idPrefix);
+  const adapted = adaptReadAiWebhook(readAiPayload, {
+    receivedAt: () => new Date("2026-07-25T19:00:01.000Z"),
+  });
+  if (adapted.status !== "ready") throw new Error("The meeting_end fixture was unexpectedly ignored.");
+  const packet = adapted.packet;
+  const webhookSigningKey = Buffer.from(`workflow-secret-${randomUUID()}-read-ai`).toString("base64");
   const transcriptRepository = createSupabaseTranscriptRepository({ apiUrl, secretKey });
   const analysisRepository = createSupabaseMeetingAnalysisRepository({ apiUrl, secretKey });
   const storeTranscript = createTranscriptImportStore(transcriptRepository);
@@ -131,7 +139,10 @@ export async function runPreApprovalWorkflow({
     logger: silentLogger,
   });
   const webhook = createTranscriptWebhookHandler(receiveTranscript);
-  const response = await withWebhookSecret(webhookSecret, () => webhook(signedRequest(packet, webhookSecret)));
+  const response = await withReadAiSigningKey(
+    webhookSigningKey,
+    () => webhook(signedRequest(readAiPayload, webhookSigningKey)),
+  );
   const receipt = TranscriptWebhookResultSchema.parse(await response.json());
 
   if (!analysisInput || !draft) {
@@ -192,9 +203,9 @@ export async function runPreApprovalWorkflow({
     logger: silentLogger,
   });
   const duplicateWebhook = createTranscriptWebhookHandler(freshReceiver);
-  const duplicateResponse = await withWebhookSecret(
-    webhookSecret,
-    () => duplicateWebhook(signedRequest(packet, webhookSecret)),
+  const duplicateResponse = await withReadAiSigningKey(
+    webhookSigningKey,
+    () => duplicateWebhook(signedRequest(readAiPayload, webhookSigningKey)),
   );
   const duplicateReceipt = TranscriptWebhookResultSchema.parse(await duplicateResponse.json());
 
@@ -215,59 +226,79 @@ export async function runPreApprovalWorkflow({
   };
 }
 
-async function createUniquePacket(idPrefix: string): Promise<TranscriptWebhookPacket> {
+export async function createUniqueReadAiPayload(idPrefix: string): Promise<ReadAiMeetingEndWebhook> {
   const [metadataSource, transcriptContent] = await Promise.all([
     readFile("fixtures/transcripts/dummy-transcript-packet.json", "utf8"),
     readFile("fixtures/transcripts/anda-board-meeting.txt", "utf8"),
   ]);
-  const metadata = JSON.parse(metadataSource) as {
-    eventId: string;
-    eventType: string;
-    occurredAt: string;
-    meeting: Record<string, unknown>;
-    attendees: unknown[];
+  const metadata = JSON.parse(metadataSource) as Record<string, unknown> & {
+    start_time: string;
+    end_time: string;
     transcript: Record<string, unknown>;
   };
   const uniqueId = `${idPrefix}-${randomUUID()}`;
-  return TranscriptWebhookPacketSchema.parse({
+  const sessionId = `read-ai-${uniqueId}`;
+  return ReadAiMeetingEndWebhookSchema.parse({
     ...metadata,
-    eventId: `event-${uniqueId}`,
-    sentAt: new Date().toISOString(),
-    meeting: {
-      ...metadata.meeting,
-      sourceMeetingId: `meeting-${uniqueId}`,
-    },
+    session_id: sessionId,
+    request_id: `request-${uniqueId}`,
+    platform_meeting_id: `platform-${uniqueId}`,
+    report_url: `https://app.read.ai/analytics/meetings/${encodeURIComponent(sessionId)}`,
     transcript: {
       ...metadata.transcript,
-      sourceTranscriptId: `transcript-${uniqueId}`,
-      content: transcriptContent,
+      speaker_blocks: buildSpeakerBlocks(
+        transcriptContent,
+        metadata.start_time,
+        metadata.end_time,
+      ),
     },
   });
 }
 
-function signedRequest(packet: TranscriptWebhookPacket, secret: string): Request {
-  const rawBody = JSON.stringify(packet);
-  const timestamp = String(Math.floor(Date.now() / 1_000));
+function signedRequest(payload: ReadAiMeetingEndWebhook, signingKey: string): Request {
+  const rawBody = JSON.stringify(payload);
   return new Request("http://localhost:3000/api/webhooks/transcripts", {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      [TRANSCRIPT_TIMESTAMP_HEADER]: timestamp,
-      [TRANSCRIPT_SIGNATURE_HEADER]: createTranscriptWebhookSignature(secret, timestamp, rawBody),
+      [READ_AI_SIGNATURE_HEADER]: createReadAiWebhookSignature(signingKey, rawBody),
     },
     body: rawBody,
   });
 }
 
-async function withWebhookSecret<T>(secret: string, operation: () => Promise<T>): Promise<T> {
-  const previousSecret = process.env.TRANSCRIPT_WEBHOOK_SECRET;
-  process.env.TRANSCRIPT_WEBHOOK_SECRET = secret;
+async function withReadAiSigningKey<T>(signingKey: string, operation: () => Promise<T>): Promise<T> {
+  const previousSigningKey = process.env.READ_AI_WEBHOOK_SIGNING_KEY;
+  process.env.READ_AI_WEBHOOK_SIGNING_KEY = signingKey;
   try {
     return await operation();
   } finally {
-    if (previousSecret === undefined) delete process.env.TRANSCRIPT_WEBHOOK_SECRET;
-    else process.env.TRANSCRIPT_WEBHOOK_SECRET = previousSecret;
+    if (previousSigningKey === undefined) delete process.env.READ_AI_WEBHOOK_SIGNING_KEY;
+    else process.env.READ_AI_WEBHOOK_SIGNING_KEY = previousSigningKey;
   }
+}
+
+function buildSpeakerBlocks(content: string, startTime: string, endTime: string) {
+  const turns = content.split(/\r?\n\s*\r?\n/gu).map((turn) => turn.trim()).filter(Boolean);
+  const meetingStart = Date.parse(startTime);
+  const meetingEnd = Date.parse(endTime);
+  if (turns.length === 0 || !Number.isFinite(meetingStart) || !Number.isFinite(meetingEnd)) {
+    throw new Error("The Read AI workflow fixture cannot be converted into speaker blocks.");
+  }
+  const interval = Math.floor((meetingEnd - meetingStart) / turns.length);
+  return turns.map((turn, index) => {
+    const separator = turn.indexOf(":");
+    const speaker = separator > 0 ? turn.slice(0, separator).trim() : "Unknown Speaker";
+    const words = separator > 0 ? turn.slice(separator + 1).trim() : turn;
+    const blockStart = meetingStart + (interval * index);
+    const blockEnd = Math.min(meetingEnd, blockStart + Math.max(1_000, Math.floor(interval * 0.9)));
+    return {
+      start_time: String(blockStart),
+      end_time: String(blockEnd),
+      speaker: { name: speaker },
+      words,
+    };
+  });
 }
 
 async function selectRows({

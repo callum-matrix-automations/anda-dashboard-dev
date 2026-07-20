@@ -1,29 +1,17 @@
-import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
+import { adaptReadAiWebhook } from "../../src/backend/integrations/read-ai/readAiTranscriptAdapter";
 import { analyzeMeetingTranscript } from "../../src/backend/services/ai/analyzeMeetingTranscript";
 import { MeetingDraftSchema } from "../../src/shared/contracts/meetingAnalysis";
-import { TranscriptWebhookPacketSchema } from "../../src/shared/contracts/transcriptWebhook";
+import { createUniqueReadAiPayload } from "./pre-approval-workflow.helpers";
 
 const openAiConfigured = Boolean(process.env.OPENAI_API_KEY?.trim());
 
 describe.skipIf(!openAiConfigured)("live OpenAI transcript analysis", () => {
   it("turns the long dummy transcript into the planned meeting JSON", async () => {
-    const [packetJson, transcriptContent] = await Promise.all([
-      readFile("fixtures/transcripts/dummy-transcript-packet.json", "utf8"),
-      readFile("fixtures/transcripts/anda-board-meeting.txt", "utf8"),
-    ]);
-    const packetMetadata = JSON.parse(packetJson) as Record<string, unknown> & {
-      occurredAt: string;
-      transcript: Record<string, unknown>;
-    };
-    const packet = TranscriptWebhookPacketSchema.parse({
-      ...packetMetadata,
-      sentAt: packetMetadata.occurredAt,
-      transcript: {
-        ...packetMetadata.transcript,
-        content: transcriptContent,
-      },
-    });
+    const payload = await createUniqueReadAiPayload("live-openai-analysis");
+    const adapted = adaptReadAiWebhook(payload);
+    if (adapted.status !== "ready") throw new Error("The meeting_end fixture was unexpectedly ignored.");
+    const packet = adapted.packet;
 
     const draft = await analyzeMeetingTranscript({
       meeting: {

@@ -8,8 +8,7 @@ const repositoryRoot = resolve(scriptDirectory, "../..");
 
 export const DEFAULT_FIXTURE_DIRECTORY = resolve(repositoryRoot, "fixtures/transcripts");
 export const DEFAULT_TIMEOUT_MS = 10_000;
-export const TRANSCRIPT_SIGNATURE_HEADER = "x-anda-webhook-signature";
-export const TRANSCRIPT_TIMESTAMP_HEADER = "x-anda-webhook-timestamp";
+export const READ_AI_SIGNATURE_HEADER = "x-read-signature";
 
 export async function loadDummyTranscriptFixtures({
   fixtureDirectory = DEFAULT_FIXTURE_DIRECTORY,
@@ -22,39 +21,35 @@ export async function loadDummyTranscriptFixtures({
   const metadata = JSON.parse(packetSource);
   const content = transcriptSource.trim();
   if (!content) throw new Error("The dummy transcript fixture is empty.");
-
   return { metadata, content };
 }
 
 export async function buildDummyTranscriptPacket({
   fixtureDirectory = DEFAULT_FIXTURE_DIRECTORY,
-  now = () => new Date(),
 } = {}) {
   const { metadata, content } = await loadDummyTranscriptFixtures({ fixtureDirectory });
-
+  const speakerBlocks = buildSpeakerBlocks(content, metadata.start_time, metadata.end_time);
   return {
     ...metadata,
-    sentAt: now().toISOString(),
     transcript: {
       ...metadata.transcript,
-      content,
+      speaker_blocks: speakerBlocks,
     },
   };
 }
 
 export async function sendDummyTranscript({
   endpoint = process.env.MOCK_TRANSCRIPT_WEBHOOK_URL,
-  secret = process.env.TRANSCRIPT_WEBHOOK_SECRET,
+  signingKey = process.env.READ_AI_WEBHOOK_SIGNING_KEY,
   fetchImplementation = globalThis.fetch,
   fixtureDirectory = DEFAULT_FIXTURE_DIRECTORY,
-  now = () => new Date(),
   timeoutMs = DEFAULT_TIMEOUT_MS,
 } = {}) {
   if (!endpoint) {
     throw new Error("Set MOCK_TRANSCRIPT_WEBHOOK_URL or pass an endpoint to sendDummyTranscript().");
   }
-  if (!secret) {
-    throw new Error("Set TRANSCRIPT_WEBHOOK_SECRET or pass a secret to sendDummyTranscript().");
+  if (!signingKey) {
+    throw new Error("Set READ_AI_WEBHOOK_SIGNING_KEY or pass a signing key to sendDummyTranscript().");
   }
 
   const url = new URL(endpoint);
@@ -70,11 +65,9 @@ export async function sendDummyTranscript({
     throw new Error("timeoutMs must be a positive number.");
   }
 
-  const sentAt = now();
-  const packet = await buildDummyTranscriptPacket({ fixtureDirectory, now: () => sentAt });
+  const packet = await buildDummyTranscriptPacket({ fixtureDirectory });
   const rawBody = JSON.stringify(packet);
-  const webhookTimestamp = Math.floor(sentAt.getTime() / 1_000).toString();
-  const signature = createDummyTranscriptSignature(secret, webhookTimestamp, rawBody);
+  const signature = createDummyTranscriptSignature(signingKey, rawBody);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   let response;
@@ -84,11 +77,8 @@ export async function sendDummyTranscript({
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "user-agent": "anda-dashboard-dummy-transcript/1.0",
-        "x-anda-event-id": packet.eventId,
-        "x-anda-event-type": packet.eventType,
-        [TRANSCRIPT_TIMESTAMP_HEADER]: webhookTimestamp,
-        [TRANSCRIPT_SIGNATURE_HEADER]: signature,
+        "user-agent": "anda-dashboard-read-ai-fixture/1.0",
+        [READ_AI_SIGNATURE_HEADER]: signature,
       },
       body: rawBody,
       signal: controller.signal,
@@ -110,8 +100,42 @@ export async function sendDummyTranscript({
   };
 }
 
-export function createDummyTranscriptSignature(secret, timestamp, rawBody) {
-  return `sha256=${createHmac("sha256", secret).update(`${timestamp}.${rawBody}`, "utf8").digest("hex")}`;
+export function createDummyTranscriptSignature(signingKey, rawBody) {
+  const keyBytes = decodeSigningKey(signingKey);
+  return createHmac("sha256", keyBytes).update(rawBody, "utf8").digest("hex");
+}
+
+function decodeSigningKey(signingKey) {
+  const value = signingKey.trim();
+  const keyBytes = Buffer.from(value, "base64");
+  if (!value || keyBytes.length < 16 || keyBytes.toString("base64") !== value) {
+    throw new Error("READ_AI_WEBHOOK_SIGNING_KEY must be valid Base64 and decode to at least 16 bytes.");
+  }
+  return keyBytes;
+}
+
+function buildSpeakerBlocks(content, startTime, endTime) {
+  const turns = content.split(/\r?\n\s*\r?\n/gu).map((turn) => turn.trim()).filter(Boolean);
+  if (turns.length === 0) throw new Error("The dummy transcript fixture has no speaker turns.");
+  const meetingStart = Date.parse(startTime);
+  const meetingEnd = Date.parse(endTime);
+  if (!Number.isFinite(meetingStart) || !Number.isFinite(meetingEnd) || meetingEnd <= meetingStart) {
+    throw new Error("The dummy Read AI fixture has invalid meeting timestamps.");
+  }
+  const interval = Math.floor((meetingEnd - meetingStart) / turns.length);
+  return turns.map((turn, index) => {
+    const separator = turn.indexOf(":");
+    const speaker = separator > 0 ? turn.slice(0, separator).trim() : "Unknown Speaker";
+    const words = separator > 0 ? turn.slice(separator + 1).trim() : turn;
+    const blockStart = meetingStart + (interval * index);
+    const blockEnd = Math.min(meetingEnd, blockStart + Math.max(1_000, Math.floor(interval * 0.9)));
+    return {
+      start_time: String(blockStart),
+      end_time: String(blockEnd),
+      speaker: { name: speaker },
+      words,
+    };
+  });
 }
 
 function parseResponseBody(responseText) {
@@ -135,7 +159,7 @@ async function runCli() {
   }
 
   const result = await sendDummyTranscript({ endpoint });
-  process.stdout.write(`Dummy transcript delivered successfully (HTTP ${result.status}).\n`);
+  process.stdout.write(`Read AI transcript fixture delivered successfully (HTTP ${result.status}).\n`);
   if (result.responseBody !== null) {
     process.stdout.write(`${JSON.stringify(result.responseBody, null, 2)}\n`);
   }

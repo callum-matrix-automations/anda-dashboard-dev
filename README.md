@@ -29,12 +29,12 @@ and intentionally show an unavailable state until those endpoints are built.
 The `supabase/` directory contains the local database infrastructure and atomic
 transcript-ingestion operation used by the backend.
 
-## Dummy transcript sender
+## Read AI transcript sender
 
-The first transcript-intake stage is a provider-neutral HTTPS sender. It combines
+The transcript-intake fixture emulates Read AI's completed-meeting webhook. It combines
 the committed metadata fixture in `fixtures/transcripts/dummy-transcript-packet.json`
 with the transcript in `fixtures/transcripts/anda-board-meeting.txt` and sends the
-complete JSON packet with an HTTPS POST request.
+complete `meeting_end` JSON packet with an HTTPS POST request.
 
 Inspect the packet without sending it:
 
@@ -52,21 +52,25 @@ Alternatively, set `MOCK_TRANSCRIPT_WEBHOOK_URL` in `.env.local` or the current
 shell environment and run `npm.cmd run mock:transcript`. HTTPS is required for
 remote endpoints; local loopback URLs may use HTTP for development.
 
-The sender and receiver must share `TRANSCRIPT_WEBHOOK_SECRET`. The sender signs
-the exact JSON body and current timestamp with HMAC-SHA256; the receiver rejects
-missing, invalid, or stale signatures.
+The Read AI webhook and receiver must share `READ_AI_WEBHOOK_SIGNING_KEY`. Read AI signs
+the exact raw JSON body with HMAC-SHA256 using the decoded Base64 key and sends the
+lowercase hexadecimal digest in `X-Read-Signature`. The receiver rejects missing,
+malformed, or invalid signatures.
 
-The Next.js backend receives the packet at `POST /api/webhooks/transcripts` and
-returns HTTP `202` with the event, meeting, and transcript identifiers. This
-receiver validates the packet and then calls a separate backend workflow that
-stores an `AI_PROCESSING` meeting and its immutable transcript in Supabase.
-Transcript metadata starts as an empty JSON object.
+The Next.js backend receives the packet at `POST /api/webhooks/transcripts`. A valid
+`meeting_start` event is acknowledged and ignored; a valid `meeting_end` event returns
+HTTP `202` with the event, meeting, and transcript identifiers. The receiver validates
+and adapts the provider payload, then calls a separate backend workflow that stores an
+`AI_PROCESSING` meeting and its immutable transcript in Supabase. Provider metadata,
+including nullable participant emails and the original speaker blocks, is retained on
+the transcript record.
 
 Source meeting and transcript identifiers provide durable database idempotency
 across restarts and multiple server instances. Meeting and transcript creation
 is atomic. Receipt processing makes one initial attempt and up to three retries.
-Exhausted retries return a structured `failed` response and write a metadata-only
-failure log.
+Exhausted retries return a structured `failed` response and create or refresh one
+unresolved `transcript_import_failures` alert per Read AI session. A later successful
+or duplicate delivery resolves that alert.
 
 ## Meeting approval and PDF generation
 

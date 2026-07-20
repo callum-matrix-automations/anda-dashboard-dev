@@ -77,6 +77,7 @@ describe("Supabase transcript repository", () => {
       p_duration_minutes: record.durationMinutes,
       p_source_transcript_id: record.sourceTranscriptId,
       p_content: record.content,
+      p_metadata: {},
       p_attendees: [{
         profile_id: "10000000-0000-4000-8000-000000000001",
         display_name_snapshot: "Eleanor Hughes",
@@ -96,6 +97,50 @@ describe("Supabase transcript repository", () => {
     });
 
     await expect(repository.storeImport(record)).resolves.toMatchObject({ status: "duplicate" });
+  });
+
+  it("records and resolves a deduplicated transcript import failure", async () => {
+    const fetchImplementation = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    const repository = createSupabaseTranscriptRepository({
+      apiUrl: "https://supabase.example.test",
+      secretKey: "test-secret-key",
+      fetchImplementation,
+    });
+    const failure = {
+      sourceProvider: "read_ai" as const,
+      sourceMeetingId: "read_ai:session-failure-001",
+      requestId: "request-failure-001",
+      title: "Failed meeting",
+      platformMeetingId: "teams-failure-001",
+      errorCode: "receive_failed",
+      errorMessage: "Persistence unavailable",
+      attempts: 4,
+      failedAt: "2026-07-20T10:05:00.000Z",
+    };
+
+    await repository.recordFailure(failure);
+    await repository.resolveFailure("read_ai", failure.sourceMeetingId, "2026-07-20T10:06:00.000Z");
+
+    const [failureUrl, failureInit] = fetchImplementation.mock.calls[0] as [URL, RequestInit];
+    expect(failureUrl.pathname).toBe("/rest/v1/rpc/record_transcript_import_failure");
+    expect(JSON.parse(String(failureInit.body))).toEqual({
+      p_source_provider: "read_ai",
+      p_source_meeting_id: failure.sourceMeetingId,
+      p_request_id: failure.requestId,
+      p_title: failure.title,
+      p_platform_meeting_id: failure.platformMeetingId,
+      p_error_code: failure.errorCode,
+      p_error_message: failure.errorMessage,
+      p_attempts: 4,
+      p_failed_at: failure.failedAt,
+    });
+    const [resolutionUrl, resolutionInit] = fetchImplementation.mock.calls[1] as [URL, RequestInit];
+    expect(resolutionUrl.pathname).toBe("/rest/v1/rpc/resolve_transcript_import_failure");
+    expect(JSON.parse(String(resolutionInit.body))).toEqual({
+      p_source_provider: "read_ai",
+      p_source_meeting_id: failure.sourceMeetingId,
+      p_resolved_at: "2026-07-20T10:06:00.000Z",
+    });
   });
 
   it("surfaces a structured Supabase failure without exposing credentials", async () => {
