@@ -50,7 +50,7 @@ try {
   process.stdout.write("Firma webhook test delivery succeeded.\n\n");
 
   if (preflightOnly) {
-    process.stdout.write("Webhook preflight completed; no meeting or signing request was created.\n");
+    process.stdout.write("Webhook preflight completed; no meeting, signing request, or archive was created.\n");
   } else {
     const exitCode = await runVitest({
       ...process.env,

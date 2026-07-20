@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { MeetingSigningOutcomeRepository } from "../../repositories/signing/meetingSigningOutcomeRepository";
 import { supabaseMeetingSigningOutcomeRepository } from "../../repositories/supabase/supabaseMeetingSigningOutcomeRepository";
-import { processFirmaWebhookEvent } from "../../services/signing/processSigningOutcome";
+import { processFirmaArchiveWorkflow } from "../../services/archive/processFirmaArchiveWorkflow";
 import { FirmaWebhookEventSchema } from "../../../shared/contracts/meetingSigning";
 import {
   FIRMA_OLD_SIGNATURE_HEADER,
@@ -16,7 +16,7 @@ type Schedule = (work: () => Promise<void>) => void;
 
 export function createFirmaWebhookHandler({
   repository = supabaseMeetingSigningOutcomeRepository,
-  processEvent = processFirmaWebhookEvent,
+  processEvent = processFirmaArchiveWorkflow,
   schedule = (work) => { void work(); },
 }: {
   repository?: MeetingSigningOutcomeRepository;

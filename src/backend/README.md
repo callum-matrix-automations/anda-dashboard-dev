@@ -111,6 +111,33 @@ and signing request while retaining the rejected version. Completion failures,
 rejection failures, retries, duplicate callbacks, and stale callbacks are all
 durable. HTTP APIs for these backend actions remain deferred to ANDA-018.
 
+## Completed meeting archive
+
+After Firma completion is independently verified, the webhook background
+workflow calls the separate archive processor. The processor claims the current
+`READY_FOR_ARCHIVE` request, downloads the completed PDF again from Firma,
+checks its byte length and SHA-256 against the signing evidence, and writes it
+to a deterministic `signed/` path in the private `meeting-minutes` bucket. It
+then removes the temporary unsigned object, creates an immutable `SIGNED`
+`meeting_pdfs` record, assigns `meetings.signed_pdf_id`, and moves the meeting
+to `COMPLETED`.
+
+Storage and provider failures are retried three times at five-second intervals.
+After those retries, the signature evidence remains unchanged and the meeting
+moves to `ARCHIVE_FAILED`. `recoverMeetingArchives` finds both durable failures
+and stale archive claims and reuses the same Firma request; it never asks the
+Treasurer to sign again. `POST /api/internal/archive/recover` exposes that
+recovery entry point for the eventual deployment scheduler.
+
+Completed meetings are immutable and searchable by title, date, category,
+manual tags, approved minutes, and motion text. Raw transcript evidence is not
+included. `GET /api/archive` lists and filters completed meetings,
+`GET /api/archive/{meetingId}` returns one completed record, and
+`GET /api/archive/{meetingId}/document` creates a short-lived Supabase signed
+URL. These temporary APIs require `Authorization: Bearer <ARCHIVE_API_SECRET>`
+until end-user authentication replaces the server-side boundary. The bucket
+remains private and no permanent public document URL is stored.
+
 ## Pre-approval workflow tests
 
 `npm.cmd run test:workflow` sends a correctly signed dummy transcript through

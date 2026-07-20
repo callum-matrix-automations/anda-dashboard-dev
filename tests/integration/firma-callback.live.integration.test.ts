@@ -1,9 +1,12 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { createSupabaseMeetingApprovalRepository } from "../../src/backend/repositories/supabase/supabaseMeetingApprovalRepository";
+import { createSupabaseMeetingArchiveRepository } from "../../src/backend/repositories/supabase/supabaseMeetingArchiveRepository";
 import { createSupabaseMeetingReviewRepository } from "../../src/backend/repositories/supabase/supabaseMeetingReviewRepository";
 import { createSupabaseMinutesPdfStorage } from "../../src/backend/repositories/supabase/supabaseMinutesPdfStorage";
 import { analyzeMeetingTranscript } from "../../src/backend/services/ai/analyzeMeetingTranscript";
 import { createMeetingApprovalService } from "../../src/backend/services/approvals/approveMeeting";
+import { createMeetingArchiveService } from "../../src/backend/services/archive/meetingArchiveService";
 import { createMeetingPdfProcessor } from "../../src/backend/services/pdf/processMeetingPdf";
 import { createMeetingReviewService } from "../../src/backend/services/reviews/meetingReviewService";
 import { getMeetingSigningSession } from "../../src/backend/services/signing/getMeetingSigningSession";
@@ -17,7 +20,7 @@ const approverProfileId = "10000000-0000-4000-8000-000000000001";
 const waitMilliseconds = Number(process.env.FIRMA_CALLBACK_WAIT_MS ?? 15 * 60 * 1_000);
 
 describe.skipIf(!enabled)("live Firma callback workflow", () => {
-  it("waits for a real signature callback and records the verified PDF as ready for archive", async () => {
+  it("waits for a real signature callback and archives the verified signed PDF", async () => {
     if (!configuration.configured) throw new Error("Local Supabase is not configured.");
     const workflow = await runPreApprovalWorkflow({
       analyze: analyzeMeetingTranscript,
@@ -47,14 +50,17 @@ describe.skipIf(!enabled)("live Firma callback workflow", () => {
       acknowledgeUnresolvedVotes: true,
     });
 
+    const signingReview = required(await review.getMeetingReview(meetingId), "approved signing review");
+    const unsignedPdf = required(signingReview.pdfArtifact, "unsigned PDF artifact");
+
     const session = await getMeetingSigningSession(meetingId);
     if (session.status !== "available") {
       throw new Error(`The live signing session is ${session.status}.`);
     }
     process.stdout.write(`\nSign the live Firma document, then leave this test running:\n${session.signingUrl}\n`);
-    process.stdout.write(`Waiting up to ${Math.round(waitMilliseconds / 60_000)} minutes for the verified callback...\n\n`);
+    process.stdout.write(`Waiting up to ${Math.round(waitMilliseconds / 60_000)} minutes for the verified callback and completed archive...\n\n`);
 
-    const finalState = await waitForReadyForArchive(meetingId, session.requestId, waitMilliseconds);
+    const finalState = await waitForCompletedArchive(meetingId, session.requestId, waitMilliseconds);
     expect(finalState.request).toMatchObject({
       outcome_status: "READY_FOR_ARCHIVE",
       provider_status: expect.stringMatching(/finished|completed/u),
@@ -62,22 +68,77 @@ describe.skipIf(!enabled)("live Firma callback workflow", () => {
       signed_document_size_bytes: expect.any(Number),
     });
     expect(finalState.meeting).toMatchObject({
-      status: "AWAITING_SIGNATURE",
+      status: "COMPLETED",
       signed_by: expect.stringMatching(/^[a-f0-9-]{36}$/u),
       signed_at: expect.any(String),
-      signed_pdf_path: null,
+      signed_pdf_id: expect.stringMatching(/^[a-f0-9-]{36}$/u),
+      signed_pdf_path: expect.stringContaining("signed/"),
+      unsigned_pdf_id: null,
+      completed_at: expect.any(String),
     });
     expect(finalState.events.some((event) => (
       event.processing_status === "PROCESSED"
       && event.event_type.includes("completed")
     ))).toBe(true);
-    process.stdout.write(`Verified Firma callback completed:\n${JSON.stringify({
+
+    const archiveStorage = createSupabaseMinutesPdfStorage(configuration);
+    const archiveService = createMeetingArchiveService({
+      repository: createSupabaseMeetingArchiveRepository(configuration),
+      storage: archiveStorage,
+      signedUrlSeconds: 60,
+    });
+    const archiveResult = await archiveService.get(meetingId);
+    if (archiveResult.status !== "available") throw new Error("The completed archive record was not available.");
+    expect(archiveResult.archive).toMatchObject({
+      meetingId,
+      category: "Board Meeting",
+      signedPdfId: finalState.meeting.signed_pdf_id,
+      tags: expect.arrayContaining(["live-firma-callback"]),
+      document: {
+        pdfId: finalState.meeting.signed_pdf_id,
+        sha256: finalState.request.signed_document_sha256,
+        sizeBytes: finalState.request.signed_document_size_bytes,
+        pageCount: expect.any(Number),
+      },
+    });
+    await expect(archiveStorage.loadApprovedPdf(unsignedPdf.path)).rejects.toMatchObject({
+      code: "pdf_storage_download_failed",
+    });
+    await expect(archiveService.search({
+      query: "live-firma-callback",
+      year: Number(archiveResult.archive.meetingDate.slice(0, 4)),
+      category: "Board Meeting",
+      limit: 10,
+      offset: 0,
+    })).resolves.toMatchObject({
+      items: expect.arrayContaining([expect.objectContaining({ meetingId })]),
+    });
+
+    const accessResult = await archiveService.createDocumentAccess(meetingId);
+    if (accessResult.status !== "available") throw new Error("Temporary signed PDF access was not available.");
+    const signedPdfResponse = await fetch(accessResult.access.url);
+    if (!signedPdfResponse.ok) {
+      throw new Error(`Temporary signed PDF download failed with HTTP ${signedPdfResponse.status}.`);
+    }
+    const signedPdfBytes = new Uint8Array(await signedPdfResponse.arrayBuffer());
+    expect(signedPdfBytes.byteLength).toBe(finalState.request.signed_document_size_bytes);
+    expect(createHash("sha256").update(signedPdfBytes).digest("hex"))
+      .toBe(finalState.request.signed_document_sha256);
+
+    process.stdout.write(`Verified Firma callback and completed archive:\n${JSON.stringify({
       meetingId,
       requestId: session.requestId,
       externalRequestId: session.externalRequestId,
       outcomeStatus: finalState.request.outcome_status,
+      meetingStatus: finalState.meeting.status,
+      signedPdfId: finalState.meeting.signed_pdf_id,
+      signedPdfPath: finalState.meeting.signed_pdf_path,
       signedDocumentSha256: finalState.request.signed_document_sha256,
       signedDocumentSizeBytes: finalState.request.signed_document_size_bytes,
+      signedDocumentPageCount: archiveResult.archive.document.pageCount,
+      unsignedPdfRemoved: true,
+      archiveSearchVerified: true,
+      temporarySignedDownloadVerified: true,
       processedWebhookEvents: finalState.events.length,
     }, null, 2)}\n`);
   }, waitMilliseconds + 180_000);
@@ -108,7 +169,7 @@ function prepareApprovableDraft(aiDraft: MeetingDraft): MeetingReviewDraft {
   };
 }
 
-async function waitForReadyForArchive(meetingId: string, requestId: string, timeoutMs: number) {
+async function waitForCompletedArchive(meetingId: string, requestId: string, timeoutMs: number) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const request = await requiredRow<SigningRequestState>(
@@ -117,13 +178,13 @@ async function waitForReadyForArchive(meetingId: string, requestId: string, time
       requestId,
       "outcome_status,provider_status,signed_document_sha256,signed_document_size_bytes,last_error_code,last_error_message",
     );
-    if (request.outcome_status === "READY_FOR_ARCHIVE") {
-      const meeting = await requiredRow<MeetingState>(
-        "meetings",
-        "id",
-        meetingId,
-        "status,signed_by,signed_at,signed_pdf_path",
-      );
+    const meeting = await requiredRow<MeetingState>(
+      "meetings",
+      "id",
+      meetingId,
+      "status,signed_by,signed_at,signed_pdf_id,signed_pdf_path,unsigned_pdf_id,completed_at,last_error_code,last_error_message",
+    );
+    if (request.outcome_status === "READY_FOR_ARCHIVE" && meeting.status === "COMPLETED") {
       const events = await selectRows<WebhookEventState>(
         "signing_webhook_events",
         "signing_request_id",
@@ -131,6 +192,9 @@ async function waitForReadyForArchive(meetingId: string, requestId: string, time
         "event_type,processing_status",
       );
       return { request, meeting, events };
+    }
+    if (meeting.status === "ARCHIVE_FAILED") {
+      throw new Error(`Archive processing failed: ${meeting.last_error_code} - ${meeting.last_error_message}`);
     }
     if (request.outcome_status.endsWith("FAILED")) {
       throw new Error(`Firma callback processing failed: ${request.last_error_code} - ${request.last_error_message}`);
@@ -153,7 +217,12 @@ interface MeetingState {
   status: string;
   signed_by: string | null;
   signed_at: string | null;
+  signed_pdf_id: string | null;
   signed_pdf_path: string | null;
+  unsigned_pdf_id: string | null;
+  completed_at: string | null;
+  last_error_code: string | null;
+  last_error_message: string | null;
 }
 
 interface WebhookEventState {

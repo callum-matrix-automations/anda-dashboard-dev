@@ -93,4 +93,56 @@ describe("Supabase minutes PDF storage", () => {
         message: "The approved PDF stored in Supabase is empty.",
       });
   });
+
+  it("stores the final signed PDF at a deterministic authoritative path", async () => {
+    const bytes = new TextEncoder().encode("%PDF-signed-content");
+    const fetchImplementation = vi.fn().mockResolvedValue(Response.json({ Key: "stored" }));
+    const storage = createSupabaseMinutesPdfStorage({ apiUrl, secretKey, fetchImplementation });
+
+    await expect(storage.storeSignedPdf({
+      meetingId,
+      documentVersion: 4,
+      bytes,
+      pageCount: 3,
+    })).resolves.toEqual({
+      path: `signed/${meetingId}/v4/minutes-signed.pdf`,
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+      sizeBytes: bytes.byteLength,
+      pageCount: 3,
+    });
+    const [url] = fetchImplementation.mock.calls[0] as [URL, RequestInit];
+    expect(url.href).toBe(
+      `${apiUrl}/storage/v1/object/meeting-minutes/signed/${meetingId}/v4/minutes-signed.pdf`,
+    );
+  });
+
+  it("removes the temporary unsigned object through the Storage API", async () => {
+    const fetchImplementation = vi.fn().mockResolvedValue(Response.json([]));
+    const storage = createSupabaseMinutesPdfStorage({ apiUrl, secretKey, fetchImplementation });
+    const path = `unsigned/${meetingId}/v4/minutes.pdf`;
+
+    await storage.removeObject(path);
+    const [url, options] = fetchImplementation.mock.calls[0] as [URL, RequestInit];
+    expect(url.href).toBe(`${apiUrl}/storage/v1/object/meeting-minutes`);
+    expect(options.method).toBe("DELETE");
+    expect(JSON.parse(String(options.body))).toEqual({ prefixes: [path] });
+  });
+
+  it("creates short-lived private document access rather than a public URL", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-20T14:00:00.000Z"));
+    const fetchImplementation = vi.fn().mockResolvedValue(Response.json({
+      signedURL: "/storage/v1/object/sign/meeting-minutes/signed/file.pdf?token=test",
+    }));
+    const storage = createSupabaseMinutesPdfStorage({ apiUrl, secretKey, fetchImplementation });
+
+    await expect(storage.createTemporaryDownload("signed/file.pdf", 300)).resolves.toEqual({
+      url: `${apiUrl}/storage/v1/object/sign/meeting-minutes/signed/file.pdf?token=test`,
+      expiresAt: "2026-07-20T14:05:00.000Z",
+    });
+    const [url, options] = fetchImplementation.mock.calls[0] as [URL, RequestInit];
+    expect(url.href).toBe(`${apiUrl}/storage/v1/object/sign/meeting-minutes/signed/file.pdf`);
+    expect(JSON.parse(String(options.body))).toEqual({ expiresIn: 300 });
+    vi.useRealTimers();
+  });
 });
