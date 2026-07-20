@@ -97,6 +97,49 @@ simulates human review by omitting motions whose mover, seconder, or outcome is
 still unresolved, then writes the final PDF to
 `output/pdf/anda-live-gpt41-meeting-minutes.pdf` for local visual QA.
 
+## Signing completion and rejection
+
+Firma sends lifecycle events to `POST /api/webhooks/firma`. The endpoint verifies
+Firma's timestamped HMAC against the exact raw body, accepts the old signature
+during secret rotation, stores immutable event evidence, and schedules outcome
+processing after returning. Duplicate event IDs are idempotent; reusing an ID
+with different content is rejected.
+
+The outcome processor asks Firma for the authoritative request and recipient
+state. A complete request is accepted only when the configured Treasurer has
+finished and Firma supplies a full PDF. The PDF header, byte length, and SHA-256
+are recorded as `READY_FOR_ARCHIVE`; storing the final signed PDF and moving the
+meeting to `COMPLETED` belong to ANDA-009. Missed callbacks can be recovered with
+the backend `reconcileMeetingSigning` function.
+
+The backend also provides `getMeetingSigningSession`, `rejectMeetingSigning`, and
+`retryMeetingSigningOutcome`. Rejection requires an active Treasurer profile and
+a comment, cancels the Firma request, keeps the old PDF/request as history, and
+returns the meeting to editable `PENDING_APPROVAL`. These action functions do not
+have HTTP routes yet; ANDA-018 owns those APIs.
+
+To run the opt-in live GPT-4.1/Firma callback test, including a temporary HTTPS
+Cloudflare tunnel and temporary Firma webhook:
+
+```powershell
+npm.cmd run test:signing:live:callback
+```
+
+To verify only the tunnel, workspace webhook, and Firma signature without
+creating a meeting or signing request:
+
+```powershell
+npm.cmd run test:signing:live:webhook
+```
+
+The command prints the Firma signing URL and waits up to 15 minutes for you to
+sign. It then verifies the real callback, recipient, completed PDF metadata, and
+database state before removing the temporary webhook. It requires local
+Supabase, `OPENAI_API_KEY`, `FIRMA_API_KEY`, `FIRMA_WORKSPACE_ID`, the matching
+workspace-level `FIRMA_WEBHOOK_SECRET`, the test signer values, and `cloudflared`
+(the default Windows path is documented in `.env.example`). The runner verifies
+a signed test delivery before creating the meeting and printing the signing URL.
+
 ## Local development
 
 Requirements:

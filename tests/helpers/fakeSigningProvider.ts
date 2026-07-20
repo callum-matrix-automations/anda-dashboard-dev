@@ -4,12 +4,18 @@ import type {
   SigningRequestReference,
 } from "../../src/backend/integrations/signing/signingRequestProvider";
 import { randomUUID } from "node:crypto";
+import type { SignedDocument } from "../../src/shared/contracts/meetingSigning";
 
 export class FakeSigningProvider implements SigningRequestProvider {
   readonly created: Array<CreateSigningRequestInput & { id: string }> = [];
   readonly sent: string[] = [];
+  readonly cancelled: Array<{ id: string; reason: string }> = [];
   sendFailuresRemaining = 0;
   createFailuresRemaining = 0;
+  cancelFailuresRemaining = 0;
+  requestStatus = "in_progress";
+  completedAt: string | null = null;
+  signedDocument = new TextEncoder().encode("%PDF-1.7\nFake signed meeting minutes\n%%EOF");
 
   async findRequest(requestName: string, signerEmail: string): Promise<SigningRequestReference | null> {
     const match = this.created.find((request) => (
@@ -40,6 +46,42 @@ export class FakeSigningProvider implements SigningRequestProvider {
       this.sendFailuresRemaining -= 1;
       throw new Error("The fake signing provider rejected delivery.");
     }
+  }
+
+  async getRequest(externalRequestId: string) {
+    const request = this.created.find((candidate) => candidate.id === externalRequestId);
+    if (!request) throw new Error("The fake signing request does not exist.");
+    return {
+      id: externalRequestId,
+      status: this.requestStatus,
+      recipients: [{
+        id: `recipient-${externalRequestId}`,
+        email: request.recipient.email,
+        finishedAt: this.requestStatus === "finished" ? this.completedAt : null,
+        declinedAt: this.requestStatus === "declined" ? this.completedAt : null,
+      }],
+      completedAt: this.requestStatus === "finished" ? this.completedAt : null,
+    };
+  }
+
+  async downloadCompletedDocument(): Promise<SignedDocument> {
+    if (this.requestStatus !== "finished") {
+      throw new Error("The fake signing request is not complete.");
+    }
+    return {
+      bytes: new Uint8Array(this.signedDocument),
+      generatedAt: this.completedAt,
+      isPartial: false,
+    };
+  }
+
+  async cancelRequest(externalRequestId: string, reason: string): Promise<void> {
+    this.cancelled.push({ id: externalRequestId, reason });
+    if (this.cancelFailuresRemaining > 0) {
+      this.cancelFailuresRemaining -= 1;
+      throw new Error("The fake signing provider rejected cancellation.");
+    }
+    this.requestStatus = "cancelled";
   }
 }
 

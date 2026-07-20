@@ -14,6 +14,8 @@
     "test:reviews": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/meeting-review.integration.test.ts",
     "test:approval": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/meeting-approval-pdf.integration.test.ts",
     "test:signing": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/meeting-signing.integration.test.ts",
+    "test:signing:live:webhook": "node --env-file-if-exists=.env.local scripts/run-live-signing-callback-test.mjs --preflight-only",
+    "test:signing:live:callback": "node --env-file-if-exists=.env.local scripts/run-live-signing-callback-test.mjs",
     "test:workflow:live": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/pre-approval-workflow.live.integration.test.ts",
     "test:workflow:live:full": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/full-workflow.live.integration.test.ts",
     "test:openai": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/openai-connection.integration.test.ts",

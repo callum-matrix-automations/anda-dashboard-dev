@@ -156,6 +156,229 @@ describe("Firma signing client", () => {
       code: "firma_not_configured",
     });
   });
+
+  it("normalizes request status and retrieves recipients from the users endpoint", async () => {
+    const fetchImplementation = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        id: "firma-request-1",
+        status: { name: "finished" },
+        finished_on: "2026-07-20T12:00:00.000Z",
+      }))
+      .mockResolvedValueOnce(Response.json({ users: [{
+        signing_request_user_id: "recipient-1",
+        email: "treasurer@example.test",
+        finished_on: "2026-07-20T12:00:00.000Z",
+      }] }));
+    const client = createFirmaSigningClient({ apiKey, baseUrl, fetchImplementation });
+    await expect(client.getRequest("firma/request 1")).resolves.toEqual({
+      id: "firma-request-1",
+      status: "finished",
+      recipients: [{
+        id: "recipient-1",
+        email: "treasurer@example.test",
+        finishedAt: "2026-07-20T12:00:00.000Z",
+        declinedAt: null,
+      }],
+      completedAt: "2026-07-20T12:00:00.000Z",
+    });
+    expect((fetchImplementation.mock.calls[0]![0] as URL).href)
+      .toBe(`${baseUrl}signing-requests/firma%2Frequest%201`);
+    expect((fetchImplementation.mock.calls[1]![0] as URL).href)
+      .toBe(`${baseUrl}signing-requests/firma%2Frequest%201/users`);
+  });
+
+  it("normalizes Firma's live boolean status flags and nested timestamps", async () => {
+    const fetchImplementation = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        id: "firma-request-live",
+        status: {
+          sent: true,
+          finished: false,
+          cancelled: false,
+          declined: false,
+          expired: false,
+        },
+        timestamps: {
+          created_on: "2026-07-19T23:56:35.241954+00:00",
+          sent_on: "2026-07-19T23:56:36.097+00:00",
+          finished_on: null,
+          cancelled_on: null,
+          declined_on: null,
+        },
+      }))
+      .mockResolvedValueOnce(Response.json({ results: [{
+        id: "recipient-live",
+        email: "treasurer@example.test",
+        finished_on: null,
+        declined_on: null,
+      }] }));
+    const client = createFirmaSigningClient({ apiKey, baseUrl, fetchImplementation });
+    await expect(client.getRequest("firma-request-live")).resolves.toEqual({
+      id: "firma-request-live",
+      status: "in_progress",
+      recipients: [{
+        id: "recipient-live",
+        email: "treasurer@example.test",
+        finishedAt: null,
+        declinedAt: null,
+      }],
+      completedAt: null,
+    });
+  });
+
+  it.each([
+    ["finished", { sent: true, finished: true, cancelled: false, declined: false, expired: false }],
+    ["declined", { sent: true, finished: false, cancelled: false, declined: true, expired: false }],
+    ["cancelled", { sent: true, finished: false, cancelled: true, declined: false, expired: false }],
+    ["expired", { sent: true, finished: false, cancelled: false, declined: false, expired: true }],
+  ])("normalizes the live %s status flag", async (expectedStatus, status) => {
+    const client = createFirmaSigningClient({
+      apiKey,
+      baseUrl,
+      fetchImplementation: vi.fn().mockResolvedValue(Response.json({
+        id: "firma-request-live",
+        status,
+        timestamps: {
+          finished_on: expectedStatus === "finished" ? "2026-07-20T12:00:00.000Z" : null,
+        },
+        recipients: [{
+          id: "recipient-live",
+          email: "treasurer@example.test",
+          finished_on: expectedStatus === "finished" ? "2026-07-20T12:00:00.000Z" : null,
+          declined_on: expectedStatus === "declined" ? "2026-07-20T12:00:00.000Z" : null,
+        }],
+      })),
+    });
+    await expect(client.getRequest("firma-request-live")).resolves.toMatchObject({
+      status: expectedStatus,
+    });
+  });
+
+  it("downloads the completed PDF from Firma's short-lived signed URL", async () => {
+    const pdf = new TextEncoder().encode("%PDF-1.7\nsigned\n%%EOF");
+    const waitImplementation = vi.fn().mockResolvedValue(undefined);
+    const fetchImplementation = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        status: "finished",
+        is_partial: false,
+        download_url: "https://downloads.example.test/signed.pdf?token=short-lived",
+        generated_at: "2026-07-20T12:00:00.000Z",
+      }))
+      .mockResolvedValueOnce(new Response(pdf, {
+        status: 200,
+        headers: { "content-type": "application/pdf" },
+      }));
+    const client = createFirmaSigningClient({ apiKey, baseUrl, fetchImplementation, waitImplementation });
+    await expect(client.downloadCompletedDocument("firma-request-1")).resolves.toEqual({
+      bytes: pdf,
+      generatedAt: "2026-07-20T12:00:00.000Z",
+      isPartial: false,
+    });
+    const [, downloadOptions] = fetchImplementation.mock.calls[1] as [string, RequestInit];
+    expect(downloadOptions.headers).toEqual({ accept: "application/pdf" });
+    expect(JSON.stringify(downloadOptions)).not.toContain(apiKey);
+    expect(waitImplementation).toHaveBeenCalledOnce();
+    expect(waitImplementation).toHaveBeenCalledWith(5_000);
+  });
+
+  it("waits and retries three times while Firma is still generating the signed PDF", async () => {
+    const waitImplementation = vi.fn().mockResolvedValue(undefined);
+    const fetchImplementation = vi.fn().mockImplementation(() => Promise.resolve(Response.json(
+      { message: "PDF is still generating" },
+      { status: 503 },
+    )));
+    const client = createFirmaSigningClient({
+      apiKey,
+      baseUrl,
+      fetchImplementation,
+      waitImplementation,
+    });
+    await expect(client.downloadCompletedDocument("firma-request-1")).rejects.toMatchObject({
+      code: "firma_document_not_ready",
+      status: 503,
+    });
+    expect(fetchImplementation).toHaveBeenCalledTimes(4);
+    expect(waitImplementation).toHaveBeenCalledTimes(4);
+    expect(waitImplementation).toHaveBeenNthCalledWith(1, 5_000);
+    expect(waitImplementation).toHaveBeenNthCalledWith(4, 5_000);
+  });
+
+  it("recovers when Firma reports finished before its completed PDF is ready", async () => {
+    const pdf = new TextEncoder().encode("%PDF-1.7\ndelayed signed document\n%%EOF");
+    const waitImplementation = vi.fn().mockResolvedValue(undefined);
+    const fetchImplementation = vi.fn()
+      .mockImplementationOnce(() => Promise.resolve(Response.json(
+        { message: "Signing request has not been sent yet" },
+        { status: 400 },
+      )))
+      .mockImplementationOnce(() => Promise.resolve(Response.json(
+        { message: "Signing request has not been sent yet" },
+        { status: 400 },
+      )))
+      .mockImplementationOnce(() => Promise.resolve(Response.json(
+        { message: "PDF is still generating" },
+        { status: 503 },
+      )))
+      .mockResolvedValueOnce(Response.json({
+        status: "finished",
+        is_partial: false,
+        download_url: "https://downloads.example.test/delayed-signed.pdf",
+        generated_at: "2026-07-20T12:00:20.000Z",
+      }))
+      .mockResolvedValueOnce(new Response(pdf, {
+        status: 200,
+        headers: { "content-type": "application/pdf" },
+      }));
+    const client = createFirmaSigningClient({
+      apiKey,
+      baseUrl,
+      fetchImplementation,
+      waitImplementation,
+    });
+
+    await expect(client.downloadCompletedDocument("firma-request-1")).resolves.toEqual({
+      bytes: pdf,
+      generatedAt: "2026-07-20T12:00:20.000Z",
+      isPartial: false,
+    });
+    expect(fetchImplementation).toHaveBeenCalledTimes(5);
+    expect(waitImplementation).toHaveBeenCalledTimes(4);
+    expect(waitImplementation.mock.calls).toEqual([[5_000], [5_000], [5_000], [5_000]]);
+  });
+
+  it("does not retry a non-transient completed-document authorization failure", async () => {
+    const waitImplementation = vi.fn().mockResolvedValue(undefined);
+    const fetchImplementation = vi.fn().mockResolvedValue(Response.json(
+      { message: "Not authorized" },
+      { status: 401 },
+    ));
+    const client = createFirmaSigningClient({
+      apiKey,
+      baseUrl,
+      fetchImplementation,
+      waitImplementation,
+    });
+
+    await expect(client.downloadCompletedDocument("firma-request-1")).rejects.toMatchObject({
+      code: "firma_download_failed",
+      status: 401,
+    });
+    expect(fetchImplementation).toHaveBeenCalledOnce();
+    expect(waitImplementation).toHaveBeenCalledOnce();
+  });
+
+  it("cancels a request with the mandatory correction reason", async () => {
+    const fetchImplementation = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    const client = createFirmaSigningClient({ apiKey, baseUrl, fetchImplementation });
+    await expect(client.cancelRequest("firma/request 1", "Correct the vote.")).resolves.toBeUndefined();
+    const [url, options] = fetchImplementation.mock.calls[0] as [URL, RequestInit];
+    expect(url.href).toBe(`${baseUrl}signing-requests/firma%2Frequest%201/cancel`);
+    expect(options.method).toBe("POST");
+    expect(JSON.parse(options.body as string)).toEqual({
+      reason: "Correct the vote.",
+      notify_signers: true,
+    });
+  });
 });
 
 function requestInput(): CreateSigningRequestInput {

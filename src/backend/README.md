@@ -92,8 +92,24 @@ path to `AWAITING_SIGNATURE`.
 
 Firma credentials and configured test-recipient values are server-only. Client
 Components must never import the adapter or receive `FIRMA_API_KEY`. Firma
-completion callbacks, embedded signing, rejection, and signed-PDF retrieval are
-handled by the following signing work item.
+completion is received at `POST /api/webhooks/firma`. The endpoint verifies the
+Firma raw-body signature and rotation header, persists immutable/idempotent event
+evidence, and schedules processing after its response. Outcome processing always
+re-queries Firma, verifies the expected recipient and complete PDF, and records
+its checksum and size as `READY_FOR_ARCHIVE`. Because Firma can report `finished`
+before the generated PDF is available, the adapter waits five seconds before the
+first download and retries temporary download failures three times at five-second
+intervals. It does not archive the final PDF or mark the meeting `COMPLETED`; those
+are the next archive work item.
+
+`reconcileMeetingSigning` handles missed callbacks through the same provider
+verification path. `getMeetingSigningSession` returns the configured recipient's
+Firma signing URL. `rejectMeetingSigning` requires a current version, active
+Treasurer profile, and mandatory comment before cancelling Firma and returning
+the record to editable `PENDING_APPROVAL`. Reapproval creates a new immutable PDF
+and signing request while retaining the rejected version. Completion failures,
+rejection failures, retries, duplicate callbacks, and stale callbacks are all
+durable. HTTP APIs for these backend actions remain deferred to ANDA-018.
 
 ## Pre-approval workflow tests
 
@@ -117,3 +133,12 @@ protection, review history, and manual recovery from `AI_FAILED`.
 database locking, PDF generation, the meeting-to-PDF foreign-key association,
 private Storage, `PDF_FAILED`, provider delivery, `ESIGN_FAILED`, and successful
 retry to `AWAITING_SIGNATURE`.
+
+`npm.cmd run test:signing` adds local-Supabase signing completion, missed-callback
+recovery, idempotency, rejection/reapproval history, terminal failure, and
+Treasurer retry coverage. `npm.cmd run test:signing:live:callback` is the opt-in
+real GPT-4.1/Firma path: it starts Next.js, opens a temporary Cloudflare tunnel,
+registers a temporary webhook against `FIRMA_WORKSPACE_ID`, verifies a signed test
+delivery with that workspace's secret, prints the signing URL, waits for the human
+signature, verifies `READY_FOR_ARCHIVE`, and removes the temporary webhook. Use
+`npm.cmd run test:signing:live:webhook` to stop after the signed delivery preflight.
