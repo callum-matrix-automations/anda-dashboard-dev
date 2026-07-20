@@ -1,4 +1,8 @@
-import type { SigningRecipient } from "../../../shared/contracts/meetingSigning";
+import type {
+  FirmaRequestDetails,
+  SignedDocument,
+  SigningRecipient,
+} from "../../../shared/contracts/meetingSigning";
 
 export interface CreateSigningRequestInput {
   requestName: string;
@@ -16,4 +20,7 @@ export interface SigningRequestProvider {
   findRequest(requestName: string, signerEmail: string): Promise<SigningRequestReference | null>;
   createRequest(input: CreateSigningRequestInput): Promise<SigningRequestReference>;
   sendRequest(externalRequestId: string): Promise<void>;
+  getRequest(externalRequestId: string): Promise<FirmaRequestDetails>;
+  downloadCompletedDocument(externalRequestId: string): Promise<SignedDocument>;
+  cancelRequest(externalRequestId: string, reason: string): Promise<void>;
 }

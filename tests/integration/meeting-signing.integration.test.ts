@@ -1,8 +1,10 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
+import { FirmaSigningClientError } from "../../src/backend/integrations/signing/firmaSigningClient";
 import { createSupabaseMeetingApprovalRepository } from "../../src/backend/repositories/supabase/supabaseMeetingApprovalRepository";
 import { createSupabaseMeetingReviewRepository } from "../../src/backend/repositories/supabase/supabaseMeetingReviewRepository";
 import { createSupabaseMeetingSigningRepository } from "../../src/backend/repositories/supabase/supabaseMeetingSigningRepository";
+import { createSupabaseMeetingSigningOutcomeRepository } from "../../src/backend/repositories/supabase/supabaseMeetingSigningOutcomeRepository";
 import { createSupabaseMinutesPdfStorage } from "../../src/backend/repositories/supabase/supabaseMinutesPdfStorage";
 import { createMeetingApprovalService } from "../../src/backend/services/approvals/approveMeeting";
 import { createMeetingPdfProcessor } from "../../src/backend/services/pdf/processMeetingPdf";
@@ -10,6 +12,9 @@ import { TREASURER_SIGNATURE_ANCHOR } from "../../src/backend/services/pdf/rende
 import { createMeetingReviewService } from "../../src/backend/services/reviews/meetingReviewService";
 import { createMeetingSigningProcessor } from "../../src/backend/services/signing/processMeetingSigning";
 import { createMeetingSigningService } from "../../src/backend/services/signing/retryMeetingSigning";
+import { createSigningOutcomeProcessor } from "../../src/backend/services/signing/processSigningOutcome";
+import { createRejectMeetingSigningService } from "../../src/backend/services/signing/rejectMeetingSigning";
+import { createRetryMeetingSigningOutcomeService } from "../../src/backend/services/signing/retryMeetingSigningOutcome";
 import type { MeetingReviewDraft } from "../../src/shared/contracts/meetingReview";
 import { FakeSigningProvider, testSigningRecipient } from "../helpers/fakeSigningProvider";
 import {
@@ -249,7 +254,355 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
     expect(await countSigningRequests(scenario.meetingId)).toBe(1);
     expect((await requiredReview(scenario.meetingId)).status).toBe("AWAITING_SIGNATURE");
   }, 30_000);
+
+  it("processes one authenticated webhook event idempotently and leaves archiving to ANDA-009", async () => {
+    const scenario = await prepareAwaitingSigning("signing-outcome-webhook");
+    const outcomeRepository = createSupabaseMeetingSigningOutcomeRepository(configuration);
+    scenario.provider.requestStatus = "finished";
+    scenario.provider.completedAt = "2026-07-20T12:00:00.000Z";
+    const externalRequestId = scenario.provider.created[0]?.id;
+    if (!externalRequestId) throw new Error("The Firma request was not created.");
+    const recipientSignedEvent = {
+      id: `evt_recipient_signed_${scenario.meetingId}`,
+      type: "signing_request.recipient.signed",
+      data: { signing_request: { id: externalRequestId } },
+    };
+    const event = {
+      id: `evt_${scenario.meetingId}`,
+      type: "signing_request.completed",
+      data: { signing_request: { id: externalRequestId } },
+    };
+    const recipientSignedPayloadHash = createHash("sha256")
+      .update(JSON.stringify(recipientSignedEvent))
+      .digest("hex");
+    const payloadHash = createHash("sha256").update(JSON.stringify(event)).digest("hex");
+    const processor = createSigningOutcomeProcessor({
+      repository: outcomeRepository,
+      provider: scenario.provider,
+      signerEmail: testSigningRecipient.email,
+    });
+
+    await expect(outcomeRepository.receiveWebhook(
+      recipientSignedEvent,
+      externalRequestId,
+      recipientSignedPayloadHash,
+    )).resolves.toMatchObject({ status: "ignored", meetingId: scenario.meetingId });
+    await expect(processor.processWebhookEvent(recipientSignedEvent.id)).resolves.toMatchObject({
+      status: "already_completed",
+    });
+    expect(await loadWebhookEvent(recipientSignedEvent.id)).toMatchObject({
+      event_type: "signing_request.recipient.signed",
+      processing_status: "IGNORED",
+      attempt: 0,
+    });
+    await expect(outcomeRepository.receiveWebhook(event, externalRequestId, payloadHash))
+      .resolves.toMatchObject({ status: "accepted", meetingId: scenario.meetingId });
+    await expect(processor.processWebhookEvent(event.id)).resolves.toMatchObject({
+      status: "ready_for_archive",
+      meetingId: scenario.meetingId,
+      documentSha256: createHash("sha256").update(scenario.provider.signedDocument).digest("hex"),
+    });
+
+    expect(await loadMeeting(scenario.meetingId)).toMatchObject({
+      status: "AWAITING_SIGNATURE",
+      signed_by: priyaId,
+      signed_at: "2026-07-20T12:00:00+00:00",
+      signed_pdf_path: null,
+    });
+    expect(await loadSigningRequest(scenario.meetingId)).toMatchObject({
+      outcome_status: "READY_FOR_ARCHIVE",
+      provider_status: "finished",
+      recipient_email: testSigningRecipient.email,
+      signed_document_sha256: createHash("sha256").update(scenario.provider.signedDocument).digest("hex"),
+      signed_document_size_bytes: scenario.provider.signedDocument.byteLength,
+    });
+    expect((await requiredReview(scenario.meetingId)).history.map((entry) => entry.action))
+      .toContain("SIGNED");
+
+    await expect(outcomeRepository.receiveWebhook(event, externalRequestId, payloadHash))
+      .resolves.toMatchObject({ status: "duplicate" });
+    await expect(processor.processWebhookEvent(event.id)).resolves.toMatchObject({
+      status: "already_completed",
+    });
+  }, 30_000);
+
+  it("recovers a completed signing request when its webhook was missed", async () => {
+    const scenario = await prepareAwaitingSigning("signing-outcome-reconcile");
+    scenario.provider.requestStatus = "finished";
+    scenario.provider.completedAt = "2026-07-20T12:15:00.000Z";
+    const processor = createSigningOutcomeProcessor({
+      repository: createSupabaseMeetingSigningOutcomeRepository(configuration),
+      provider: scenario.provider,
+      signerEmail: testSigningRecipient.email,
+    });
+    await expect(processor.reconcileMeeting(scenario.meetingId)).resolves.toMatchObject({
+      status: "ready_for_archive",
+    });
+    expect(await loadSigningRequest(scenario.meetingId)).toMatchObject({
+      outcome_status: "READY_FOR_ARCHIVE",
+      outcome_attempt: 1,
+    });
+  }, 30_000);
+
+  it("retries the same webhook event after a transient signed-PDF download failure", async () => {
+    const scenario = await prepareAwaitingSigning("signing-outcome-webhook-retry");
+    const outcomeRepository = createSupabaseMeetingSigningOutcomeRepository(configuration);
+    scenario.provider.requestStatus = "finished";
+    scenario.provider.completedAt = "2026-07-20T12:30:00.000Z";
+    const externalRequestId = scenario.provider.created[0]?.id;
+    if (!externalRequestId) throw new Error("The Firma request was not created.");
+    const event = {
+      id: `evt_retry_${scenario.meetingId}`,
+      type: "signing_request.completed",
+      data: { signing_request: { id: externalRequestId } },
+    };
+    const payloadHash = createHash("sha256").update(JSON.stringify(event)).digest("hex");
+    await outcomeRepository.receiveWebhook(event, externalRequestId, payloadHash);
+    scenario.provider.downloadCompletedDocument = vi.fn().mockRejectedValueOnce(
+      new FirmaSigningClientError("The signed PDF is still generating.", {
+        status: 503,
+        code: "firma_document_not_ready",
+      }),
+    );
+    const processor = createSigningOutcomeProcessor({
+      repository: outcomeRepository,
+      provider: scenario.provider,
+      signerEmail: testSigningRecipient.email,
+    });
+
+    await expect(processor.processWebhookEvent(event.id)).resolves.toMatchObject({
+      status: "failed",
+      retryable: true,
+      error: { code: "firma_document_not_ready" },
+    });
+    expect(await loadWebhookEvent(event.id)).toMatchObject({ processing_status: "FAILED" });
+    await expect(outcomeRepository.receiveWebhook(event, externalRequestId, payloadHash))
+      .resolves.toMatchObject({ status: "retry" });
+
+    scenario.provider.downloadCompletedDocument = vi.fn().mockResolvedValue({
+      bytes: new Uint8Array(scenario.provider.signedDocument),
+      generatedAt: scenario.provider.completedAt,
+      isPartial: false,
+    });
+    await expect(processor.processWebhookEvent(event.id)).resolves.toMatchObject({
+      status: "ready_for_archive",
+      attempt: 2,
+    });
+    expect(await loadWebhookEvent(event.id)).toMatchObject({ processing_status: "PROCESSED" });
+    expect(await loadMeeting(scenario.meetingId)).toMatchObject({
+      status: "AWAITING_SIGNATURE",
+      last_error_code: null,
+    });
+  }, 30_000);
+
+  it("rejects with a mandatory comment, preserves history, and creates a new version on reapproval", async () => {
+    const scenario = await prepareAwaitingSigning("signing-rejection");
+    const outcomeRepository = createSupabaseMeetingSigningOutcomeRepository(configuration);
+    const reject = createRejectMeetingSigningService({
+      repository: outcomeRepository,
+      provider: scenario.provider,
+    });
+    let detail = await requiredReview(scenario.meetingId);
+    const oldPdfId = detail.pdfArtifact?.id;
+    const oldRequest = await loadSigningRequest(scenario.meetingId);
+
+    await expect(reject({
+      meetingId: scenario.meetingId,
+      expectedVersion: detail.version,
+      actorProfileId: eleanorId,
+      comment: "Correct the vote record.",
+    })).resolves.toMatchObject({ status: "invalid_actor" });
+    await expect(reject({
+      meetingId: scenario.meetingId,
+      expectedVersion: detail.version,
+      actorProfileId: priyaId,
+      comment: "Correct the vote record.",
+    })).resolves.toMatchObject({ status: "rejected" });
+
+    expect(scenario.provider.cancelled).toEqual([{
+      id: oldRequest.external_request_ref,
+      reason: "Correct the vote record.",
+    }]);
+    expect(await loadMeeting(scenario.meetingId)).toMatchObject({
+      status: "PENDING_APPROVAL",
+      approved_by: null,
+      approved_at: null,
+      approved_snapshot: null,
+      unsigned_pdf_id: null,
+      esign_external_ref: null,
+      human_owned: true,
+    });
+    expect(await loadSigningRequest(scenario.meetingId)).toMatchObject({
+      id: oldRequest.id,
+      pdf_id: oldPdfId,
+      outcome_status: "REJECTED",
+      rejection_comment: "Correct the vote record.",
+      rejected_by: priyaId,
+    });
+    detail = await requiredReview(scenario.meetingId);
+    expect(detail.history).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        action: "TREASURER_REJECTED",
+        note: "Correct the vote record.",
+      }),
+    ]));
+
+    const edited = completeDraft();
+    edited.minutes.summary = "The Treasurer correction was applied before reapproval.";
+    const saved = await scenario.review.saveMeetingDraft({
+      meetingId: scenario.meetingId,
+      expectedVersion: detail.version,
+      actorProfileId: eleanorId,
+      draft: edited,
+    });
+    if (saved.version === null) throw new Error("The corrected draft was not saved.");
+    scenario.provider.requestStatus = "in_progress";
+    await createMeetingApprovalService({
+      repository: scenario.approvalRepository,
+      processPdf: createMeetingPdfProcessor({
+        repository: scenario.approvalRepository,
+        storage: scenario.storage,
+      }),
+      processSigning: createSigningProcessor(scenario.provider),
+    }).approveMeeting({
+      meetingId: scenario.meetingId,
+      expectedVersion: saved.version,
+      actorProfileId: eleanorId,
+      acknowledgeUnresolvedVotes: false,
+    });
+
+    const requests = await loadSigningRequests(scenario.meetingId);
+    expect(requests).toHaveLength(2);
+    expect(new Set(requests.map((request) => request.pdf_id)).size).toBe(2);
+    expect(requests.map((request) => request.document_version)).toEqual(expect.arrayContaining([
+      oldRequest.document_version,
+      saved.version,
+    ]));
+    expect((await requiredReview(scenario.meetingId)).status).toBe("AWAITING_SIGNATURE");
+
+    const staleEvent = {
+      id: `evt_stale_${scenario.meetingId}`,
+      type: "signing_request.completed",
+      data: { signing_request: { id: oldRequest.external_request_ref } },
+    };
+    await outcomeRepository.receiveWebhook(
+      staleEvent,
+      oldRequest.external_request_ref,
+      createHash("sha256").update(JSON.stringify(staleEvent)).digest("hex"),
+    );
+    const staleProcessor = createSigningOutcomeProcessor({
+      repository: outcomeRepository,
+      provider: scenario.provider,
+      signerEmail: testSigningRecipient.email,
+    });
+    await expect(staleProcessor.processWebhookEvent(staleEvent.id)).resolves.toMatchObject({
+      status: "stale",
+    });
+    expect(await loadWebhookEvent(staleEvent.id)).toMatchObject({
+      processing_status: "IGNORED",
+      signing_request_id: oldRequest.id,
+    });
+  }, 30_000);
+
+  it("keeps approval locked when Firma cancellation fails and safely retries the rejection", async () => {
+    const scenario = await prepareAwaitingSigning("signing-rejection-retry");
+    const outcomeRepository = createSupabaseMeetingSigningOutcomeRepository(configuration);
+    const reject = createRejectMeetingSigningService({
+      repository: outcomeRepository,
+      provider: scenario.provider,
+    });
+    scenario.provider.cancelFailuresRemaining = 1;
+    let detail = await requiredReview(scenario.meetingId);
+    await expect(reject({
+      meetingId: scenario.meetingId,
+      expectedVersion: detail.version,
+      actorProfileId: priyaId,
+      comment: "Correct the attendee list.",
+    })).resolves.toMatchObject({ status: "failed" });
+    expect(await loadMeeting(scenario.meetingId)).toMatchObject({
+      status: "ESIGN_FAILED",
+      approved_by: expect.any(String),
+      approved_snapshot: expect.any(Object),
+      unsigned_pdf_id: expect.any(String),
+    });
+    expect(await loadSigningRequest(scenario.meetingId)).toMatchObject({
+      outcome_status: "REJECTION_FAILED",
+      rejection_comment: "Correct the attendee list.",
+      rejected_by: priyaId,
+      last_error_code: "esign_rejection_failed",
+    });
+
+    detail = await requiredReview(scenario.meetingId);
+    await expect(reject({
+      meetingId: scenario.meetingId,
+      expectedVersion: detail.version,
+      actorProfileId: priyaId,
+      comment: "Correct the attendee list.",
+    })).resolves.toMatchObject({ status: "rejected" });
+    expect((await requiredReview(scenario.meetingId)).status).toBe("PENDING_APPROVAL");
+  }, 30_000);
+
+  it("locks a terminal signing failure and authorises only the Treasurer to retry reconciliation", async () => {
+    const scenario = await prepareAwaitingSigning("signing-outcome-retry");
+    const outcomeRepository = createSupabaseMeetingSigningOutcomeRepository(configuration);
+    scenario.provider.requestStatus = "expired";
+    const processor = createSigningOutcomeProcessor({
+      repository: outcomeRepository,
+      provider: scenario.provider,
+      signerEmail: testSigningRecipient.email,
+    });
+    await expect(processor.reconcileMeeting(scenario.meetingId)).resolves.toMatchObject({
+      status: "failed",
+      retryable: false,
+      error: { code: "firma_request_expired" },
+    });
+    let detail = await requiredReview(scenario.meetingId);
+    expect(detail.status).toBe("ESIGN_FAILED");
+
+    const retry = createRetryMeetingSigningOutcomeService({
+      repository: outcomeRepository,
+      reconcile: processor.reconcileMeeting,
+    });
+    await expect(retry({
+      meetingId: scenario.meetingId,
+      expectedVersion: detail.version,
+      actorProfileId: eleanorId,
+    })).resolves.toMatchObject({ status: "invalid_actor" });
+
+    scenario.provider.requestStatus = "in_progress";
+    await expect(retry({
+      meetingId: scenario.meetingId,
+      expectedVersion: detail.version,
+      actorProfileId: priyaId,
+    })).resolves.toMatchObject({
+      status: "retry_started",
+      reconciliation: { status: "no_change", providerStatus: "in_progress" },
+    });
+    detail = await requiredReview(scenario.meetingId);
+    expect(detail).toMatchObject({ status: "AWAITING_SIGNATURE", failure: null });
+    expect(detail.history.map((entry) => entry.action)).toContain("ESIGN_RETRY");
+  }, 30_000);
 });
+
+async function prepareAwaitingSigning(idPrefix: string) {
+  const scenario = await prepareApprovedMeeting(idPrefix);
+  const provider = new FakeSigningProvider();
+  const approval = createMeetingApprovalService({
+    repository: scenario.approvalRepository,
+    processPdf: createMeetingPdfProcessor({
+      repository: scenario.approvalRepository,
+      storage: scenario.storage,
+    }),
+    processSigning: createSigningProcessor(provider),
+  });
+  await approval.approveMeeting({
+    meetingId: scenario.meetingId,
+    expectedVersion: scenario.version,
+    actorProfileId: eleanorId,
+    acknowledgeUnresolvedVotes: false,
+  });
+  return { ...scenario, provider };
+}
 
 async function prepareApprovedMeeting(idPrefix: string) {
   const draft = await loadPredefinedMeetingDraft();
@@ -324,7 +677,19 @@ async function loadMeeting(meetingId: string) {
     unsigned_pdf_id: string | null;
     esign_external_ref: string | null;
     last_error_code: string | null;
-  }>("meetings", "id", meetingId, "status,unsigned_pdf_id,esign_external_ref,last_error_code");
+    signed_by: string | null;
+    signed_at: string | null;
+    signed_pdf_path: string | null;
+    approved_by: string | null;
+    approved_at: string | null;
+    approved_snapshot: unknown;
+    human_owned: boolean;
+  }>(
+    "meetings",
+    "id",
+    meetingId,
+    "status,unsigned_pdf_id,esign_external_ref,last_error_code,signed_by,signed_at,signed_pdf_path,approved_by,approved_at,approved_snapshot,human_owned",
+  );
 }
 
 async function loadSigningRequest(meetingId: string) {
@@ -337,13 +702,44 @@ async function loadSigningRequest(meetingId: string) {
     external_request_ref: string | null;
     delivery_status: string;
     attempt: number;
+    outcome_status: string;
+    outcome_attempt: number;
+    provider_status: string | null;
+    recipient_email: string | null;
+    signed_document_sha256: string | null;
+    signed_document_size_bytes: number | null;
+    rejection_comment: string | null;
+    rejected_by: string | null;
     last_error_code: string | null;
     last_error_message: string | null;
   }>(
     "meeting_signing_requests",
     "meeting_id",
     meetingId,
-    "id,meeting_id,pdf_id,document_version,provider,external_request_ref,delivery_status,attempt,last_error_code,last_error_message",
+    "id,meeting_id,pdf_id,document_version,provider,external_request_ref,delivery_status,attempt,outcome_status,outcome_attempt,provider_status,recipient_email,signed_document_sha256,signed_document_size_bytes,rejection_comment,rejected_by,last_error_code,last_error_message",
+  );
+}
+
+async function loadSigningRequests(meetingId: string) {
+  return selectRows<{
+    id: string;
+    pdf_id: string;
+    document_version: number;
+    outcome_status: string;
+  }>("meeting_signing_requests", "meeting_id", meetingId, "id,pdf_id,document_version,outcome_status");
+}
+
+async function loadWebhookEvent(eventId: string) {
+  return requiredRow<{
+    event_type: string;
+    processing_status: string;
+    attempt: number;
+    signing_request_id: string | null;
+  }>(
+    "signing_webhook_events",
+    "provider_event_id",
+    eventId,
+    "event_type,processing_status,attempt,signing_request_id",
   );
 }
 

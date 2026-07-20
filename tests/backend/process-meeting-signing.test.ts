@@ -233,5 +233,8 @@ function providerMock(): SigningRequestProvider {
     findRequest: vi.fn().mockResolvedValue(null),
     createRequest: vi.fn().mockResolvedValue({ id: "firma-request-1" }),
     sendRequest: vi.fn().mockResolvedValue(undefined),
+    getRequest: vi.fn(),
+    downloadCompletedDocument: vi.fn(),
+    cancelRequest: vi.fn(),
   };
 }
