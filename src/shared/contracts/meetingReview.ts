@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { MeetingStatusSchema, MeetingTagSchema } from "../schemas/entities";
+import {
+  MeetingCategorySchema,
+  MeetingStatusSchema,
+  MeetingTagSchema,
+} from "../schemas/entities";
 
 export const MeetingReviewMinutesSchema = z.object({
   summary: z.string().trim().min(1).max(20_000),
@@ -107,6 +111,7 @@ export const MeetingReviewSummarySchema = z.object({
   id: z.string().uuid(),
   sourceMeetingId: z.string().trim().min(1),
   title: z.string().trim().min(1),
+  category: MeetingCategorySchema,
   meetingDate: z.string().date(),
   durationMinutes: z.number().int().positive().max(1_440).nullable(),
   status: MeetingStatusSchema,
@@ -148,6 +153,7 @@ export const MeetingReviewDetailSchema = MeetingReviewSummarySchema.extend({
     attendeeId: z.string().uuid(),
     profileId: z.string().uuid(),
     displayName: z.string().trim().min(1),
+    sourceEmailSnapshot: z.string().email().nullable(),
   }).strict()),
   motions: z.array(z.object({
     motionId: z.string().uuid(),

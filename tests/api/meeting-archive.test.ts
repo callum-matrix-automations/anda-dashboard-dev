@@ -9,11 +9,17 @@ import {
 const secret = "test-archive-secret";
 const meetingId = "11111111-1111-4111-8111-111111111111";
 const pdfId = "22222222-2222-4222-8222-222222222222";
+const actorResolver = vi.fn().mockResolvedValue({
+  profileId: "33333333-3333-4333-8333-333333333333",
+  displayName: "Active Member",
+  role: "USER" as const,
+  isAdmin: false,
+});
 
 describe("completed meeting archive APIs", () => {
   it("authenticates and forwards year, category, topic, and pagination filters", async () => {
     const service = serviceMock();
-    const handler = createArchiveListHandler({ service, secret });
+    const handler = createArchiveListHandler({ service, actorResolver });
     const response = await handler(request(
       `/api/archive?q=budget&year=2026&category=Board%20Meeting&limit=10&offset=20`,
     ));
@@ -30,18 +36,24 @@ describe("completed meeting archive APIs", () => {
 
   it("rejects missing authentication and invalid filters", async () => {
     const service = serviceMock();
-    const handler = createArchiveListHandler({ service, secret });
+    const unauthenticated = createArchiveListHandler({
+      service,
+      actorResolver: vi.fn().mockResolvedValue(null),
+    });
+    const handler = createArchiveListHandler({ service, actorResolver });
 
-    expect((await handler(new Request("https://anda.test/api/archive"))).status).toBe(401);
-    expect((await handler(request("/api/archive", "wrong-secret"))).status).toBe(401);
+    expect((await unauthenticated(new Request("https://anda.test/api/archive"))).status).toBe(401);
     expect((await handler(request("/api/archive?year=not-a-year"))).status).toBe(400);
     expect((await handler(request("/api/archive?category=Private"))).status).toBe(400);
     expect(service.search).not.toHaveBeenCalled();
   });
 
-  it("fails closed when archive authentication is not configured", async () => {
+  it("fails closed when actor authentication is unavailable", async () => {
     const service = serviceMock();
-    const handler = createArchiveListHandler({ service, secret: "" });
+    const handler = createArchiveListHandler({
+      service,
+      actorResolver: vi.fn().mockRejectedValue(new Error("unavailable")),
+    });
 
     expect((await handler(request("/api/archive"))).status).toBe(503);
     expect(service.search).not.toHaveBeenCalled();
@@ -49,7 +61,7 @@ describe("completed meeting archive APIs", () => {
 
   it("returns completed details without exposing a storage path", async () => {
     const service = serviceMock();
-    const handler = createArchiveDetailHandler({ service, secret });
+    const handler = createArchiveDetailHandler({ service, actorResolver });
     const response = await handler(request(`/api/archive/${meetingId}`), context(meetingId));
     const body = await response.json();
 
@@ -60,7 +72,7 @@ describe("completed meeting archive APIs", () => {
 
   it("issues no-store temporary document access and maps missing archives", async () => {
     const service = serviceMock();
-    const handler = createArchiveDocumentHandler({ service, secret });
+    const handler = createArchiveDocumentHandler({ service, actorResolver });
     const response = await handler(request(`/api/archive/${meetingId}/document`), context(meetingId));
 
     expect(response.status).toBe(200);

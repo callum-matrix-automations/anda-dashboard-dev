@@ -1,5 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
+import { resolveServerActor, type ServerActorResolver } from "../../auth/serverActor";
+import { apiError, apiValidationError, requireServerActor } from "../http/apiResponses";
 import type {
   MeetingArchiveDetail,
   MeetingArchiveQuery,
@@ -28,61 +30,62 @@ interface ArchiveReadService {
 
 export function createArchiveListHandler({
   service = meetingArchiveService,
-  secret = configuredArchiveSecret(),
-}: { service?: ArchiveReadService; secret?: string } = {}) {
+  actorResolver = resolveServerActor,
+}: { service?: ArchiveReadService; actorResolver?: ServerActorResolver } = {}) {
   return async function getArchiveList(request: Request) {
-    const auth = authenticate(request, secret);
-    if (auth) return auth;
+    const auth = await requireServerActor(request, "read", actorResolver);
+    if ("response" in auth) return auth.response;
     const parsed = parseQuery(new URL(request.url));
-    if (!parsed.success) return validationResponse(parsed.error);
+    if (parsed instanceof Response) return parsed;
+    if (!parsed.success) return apiValidationError(parsed.error, "Archive request parameters are invalid.");
     try {
       return Response.json(await service.search(parsed.data));
     } catch {
-      return errorResponse(503, "archive_unavailable", "The completed meeting archive is unavailable.");
+      return apiError(503, "archive_unavailable", "The completed meeting archive is unavailable.");
     }
   };
 }
 
 export function createArchiveDetailHandler({
   service = meetingArchiveService,
-  secret = configuredArchiveSecret(),
-}: { service?: ArchiveReadService; secret?: string } = {}) {
+  actorResolver = resolveServerActor,
+}: { service?: ArchiveReadService; actorResolver?: ServerActorResolver } = {}) {
   return async function getArchiveDetail(request: Request, context: RouteContext) {
-    const auth = authenticate(request, secret);
-    if (auth) return auth;
+    const auth = await requireServerActor(request, "read", actorResolver);
+    if ("response" in auth) return auth.response;
     const meetingId = await validatedMeetingId(context);
-    if (!meetingId) return errorResponse(400, "invalid_meeting_id", "Meeting ID must be a UUID.");
+    if (!meetingId) return apiError(400, "invalid_meeting_id", "Meeting ID must be a UUID.");
     try {
       const result = await service.get(meetingId);
       if (result.status === "not_found") {
-        return errorResponse(404, "archive_not_found", "Completed meeting archive was not found.");
+        return apiError(404, "archive_not_found", "Completed meeting archive was not found.");
       }
       return Response.json(result.archive);
     } catch {
-      return errorResponse(503, "archive_unavailable", "The completed meeting archive is unavailable.");
+      return apiError(503, "archive_unavailable", "The completed meeting archive is unavailable.");
     }
   };
 }
 
 export function createArchiveDocumentHandler({
   service = meetingArchiveService,
-  secret = configuredArchiveSecret(),
-}: { service?: ArchiveReadService; secret?: string } = {}) {
+  actorResolver = resolveServerActor,
+}: { service?: ArchiveReadService; actorResolver?: ServerActorResolver } = {}) {
   return async function getArchiveDocument(request: Request, context: RouteContext) {
-    const auth = authenticate(request, secret);
-    if (auth) return auth;
+    const auth = await requireServerActor(request, "read", actorResolver);
+    if ("response" in auth) return auth.response;
     const meetingId = await validatedMeetingId(context);
-    if (!meetingId) return errorResponse(400, "invalid_meeting_id", "Meeting ID must be a UUID.");
+    if (!meetingId) return apiError(400, "invalid_meeting_id", "Meeting ID must be a UUID.");
     try {
       const result = await service.createDocumentAccess(meetingId);
       if (result.status === "not_found") {
-        return errorResponse(404, "archive_not_found", "Completed meeting archive was not found.");
+        return apiError(404, "archive_not_found", "Completed meeting archive was not found.");
       }
       return Response.json(result.access, {
         headers: { "cache-control": "no-store" },
       });
     } catch {
-      return errorResponse(503, "document_access_unavailable", "Temporary document access is unavailable.");
+      return apiError(503, "document_access_unavailable", "Temporary document access is unavailable.");
     }
   };
 }
@@ -95,26 +98,37 @@ export function createArchiveRecoveryHandler({
   secret?: string;
 } = {}) {
   return async function postArchiveRecovery(request: Request) {
-    const auth = authenticate(request, secret);
+    const auth = authenticateSecret(request, secret);
     if (auth) return auth;
     let body: unknown = {};
     try {
       const text = await request.text();
       if (text.trim()) body = JSON.parse(text);
     } catch {
-      return errorResponse(400, "invalid_json", "Recovery request must contain valid JSON.");
+      return apiError(400, "invalid_json", "Recovery request must contain valid JSON.");
     }
     const parsed = z.object({ limit: z.number().int().min(1).max(100).optional() }).strict().safeParse(body);
-    if (!parsed.success) return validationResponse(parsed.error);
+    if (!parsed.success) return apiValidationError(parsed.error, "Archive recovery request is invalid.");
     try {
       return Response.json(await recover(parsed.data.limit));
     } catch {
-      return errorResponse(503, "archive_recovery_failed", "Archive recovery could not be completed.");
+      return apiError(503, "archive_recovery_failed", "Archive recovery could not be completed.");
     }
   };
 }
 
 function parseQuery(url: URL) {
+  const allowed = new Set(["q", "year", "category", "limit", "offset"]);
+  const unknown = [...url.searchParams.keys()].filter((key) => !allowed.has(key));
+  const duplicated = [...allowed].filter((key) => url.searchParams.getAll(key).length > 1);
+  if (unknown.length || duplicated.length) {
+    return apiError(400, "invalid_request", "Archive query parameters are invalid.", {
+      issues: [
+        ...unknown.map((key) => ({ path: key, message: "Unknown query parameter." })),
+        ...duplicated.map((key) => ({ path: key, message: "Query parameter must appear once." })),
+      ],
+    });
+  }
   const year = parseInteger(url.searchParams.get("year"));
   const limit = parseInteger(url.searchParams.get("limit"));
   const offset = parseInteger(url.searchParams.get("offset"));
@@ -147,30 +161,18 @@ async function validatedMeetingId(context: RouteContext) {
   return parsed.success ? parsed.data : null;
 }
 
-function authenticate(request: Request, secret: string | undefined) {
+function authenticateSecret(request: Request, secret: string | undefined) {
   if (!secret?.trim()) {
-    return errorResponse(503, "archive_auth_not_configured", "Archive API authentication is not configured.");
+    return apiError(503, "archive_auth_not_configured", "Archive API authentication is not configured.");
   }
   const header = request.headers.get("authorization");
   if (!header?.startsWith("Bearer ")) {
-    return errorResponse(401, "invalid_authorization", "A valid archive bearer token is required.");
+    return apiError(401, "invalid_authorization", "A valid archive bearer token is required.");
   }
   const supplied = Buffer.from(header.slice("Bearer ".length), "utf8");
   const expected = Buffer.from(secret.trim(), "utf8");
   if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
-    return errorResponse(401, "invalid_authorization", "A valid archive bearer token is required.");
+    return apiError(401, "invalid_authorization", "A valid archive bearer token is required.");
   }
   return null;
-}
-
-function validationResponse(error: z.ZodError) {
-  return Response.json({
-    error: "invalid_archive_request",
-    message: "Archive request parameters are invalid.",
-    issues: error.issues.map((issue) => ({ path: issue.path.join("."), message: issue.message })),
-  }, { status: 400 });
-}
-
-function errorResponse(status: number, error: string, message: string) {
-  return Response.json({ error, message }, { status });
 }
