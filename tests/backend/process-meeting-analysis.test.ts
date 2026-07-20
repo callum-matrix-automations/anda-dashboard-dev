@@ -42,7 +42,8 @@ describe("processMeetingAnalysis", () => {
     repository.claimAnalysis.mockResolvedValue(claim(1));
     repository.persistDraft.mockResolvedValue("saved");
     const analyze = vi.fn().mockResolvedValue(draft);
-    const process = createMeetingAnalysisProcessor({ repository, analyze });
+    const alerts = alertServiceMock();
+    const process = createMeetingAnalysisProcessor({ repository, analyze, alerts });
 
     await expect(process(meetingId)).resolves.toEqual({
       status: "completed",
@@ -52,6 +53,7 @@ describe("processMeetingAnalysis", () => {
     expect(analyze).toHaveBeenCalledWith(input);
     expect(repository.persistDraft).toHaveBeenCalledWith(meetingId, runId(1), draft);
     expect(repository.recordFailure).not.toHaveBeenCalled();
+    expect(alerts.resolveFailure).toHaveBeenCalledWith({ stage: "AI_ANALYSIS", meetingId });
   });
 
   it("retries a provider failure and succeeds on the next attempt", async () => {
@@ -96,7 +98,8 @@ describe("processMeetingAnalysis", () => {
     );
     const analyze = vi.fn().mockRejectedValue(malformedOutput);
     const delay = vi.fn().mockResolvedValue(undefined);
-    const process = createMeetingAnalysisProcessor({ repository, analyze, delay });
+    const alerts = alertServiceMock();
+    const process = createMeetingAnalysisProcessor({ repository, analyze, delay, alerts });
 
     await expect(process(meetingId)).resolves.toEqual({
       status: "failed",
@@ -110,6 +113,12 @@ describe("processMeetingAnalysis", () => {
     expect(analyze).toHaveBeenCalledTimes(3);
     expect(repository.recordFailure).toHaveBeenCalledTimes(3);
     expect(delay).toHaveBeenCalledTimes(2);
+    expect(alerts.recordFailure).toHaveBeenCalledWith({
+      stage: "AI_ANALYSIS",
+      meetingId,
+      failureCode: "invalid_analysis_output",
+      workflowStatus: "AI_FAILED",
+    });
   });
 
   it("records a timeout as a useful provider failure", async () => {
@@ -176,6 +185,13 @@ describe("processMeetingAnalysis", () => {
     expect(repository.claimAnalysis).toHaveBeenNthCalledWith(2, meetingId, { manualRetry: false });
   });
 });
+
+function alertServiceMock() {
+  return {
+    recordFailure: vi.fn().mockResolvedValue(undefined),
+    resolveFailure: vi.fn().mockResolvedValue(1),
+  };
+}
 
 describe("describeAnalysisFailure", () => {
   it("does not expose arbitrary non-error values", () => {

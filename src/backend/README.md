@@ -138,6 +138,26 @@ URL. These temporary APIs require `Authorization: Bearer <ARCHIVE_API_SECRET>`
 until end-user authentication replaces the server-side boundary. The bucket
 remains private and no permanent public document URL is stored.
 
+## Operational recovery and alerts
+
+`POST /api/internal/operations/recover` is the provider-independent scheduled
+recovery controller. A dedicated `OPERATIONS_SCHEDULER_SECRET` protects it. The
+underlying service atomically claims aged Firma requests, processes them through
+the same idempotent outcome path as callbacks, runs bounded archive recovery,
+and dispatches pending operational alerts. Database row locks and reconciliation
+timestamps prevent overlapping schedulers from consuming the same retry budget.
+
+Terminal transcript import, AI, PDF, signing, and archive failures create one
+deduplicated unresolved `operational_alerts` record. Successful recovery resolves
+the matching alert. Telegram is an optional adapter and remains disabled until
+both server-only Telegram values are configured; delivery failure never changes
+workflow state. Alert messages contain safe identifiers and status codes only.
+
+`POST /api/issues/report` records an authenticated user's optional comment in a
+separate private table and creates a safe operational alert without copying the
+comment externally. See `docs/operations/workflow-recovery.md` for configuration,
+invocation, payload, and test details.
+
 ## Pre-approval workflow tests
 
 `npm.cmd run test:workflow` sends a correctly signed dummy transcript through

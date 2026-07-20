@@ -9,6 +9,12 @@ import type {
   MeetingSigningFailure,
   MeetingSigningOutcomeClaim,
 } from "../../../shared/contracts/meetingSigning";
+import {
+  operationalAlertService,
+  safelyRecordOperationalFailure,
+  safelyResolveOperationalFailure,
+  type OperationalAlertService,
+} from "../operations/operationalAlertService";
 
 const IN_PROGRESS_STATUSES = new Set(["not_sent", "sent", "in_progress", "pending"]);
 const TERMINAL_FAILURE_STATUSES = new Set(["cancelled", "canceled", "declined", "expired"]);
@@ -44,15 +50,23 @@ interface Options {
   repository?: MeetingSigningOutcomeRepository;
   provider?: SigningRequestProvider;
   signerEmail?: string;
+  alerts?: OperationalAlertService;
 }
 
 export function createSigningOutcomeProcessor({
   repository = supabaseMeetingSigningOutcomeRepository,
   provider = firmaSigningClient,
   signerEmail,
+  alerts,
 }: Options = {}) {
   async function processClaim(claim: MeetingSigningOutcomeClaim): Promise<SigningOutcomeProcessResult> {
     if (claim.status !== "claimed") {
+      if (claim.status === "already_completed" && "meetingId" in claim && claim.meetingId) {
+        await safelyResolveOperationalFailure(alerts, {
+          stage: "SIGNING",
+          meetingId: claim.meetingId,
+        });
+      }
       return {
         status: claim.status,
         meetingId: "meetingId" in claim ? claim.meetingId ?? null : null,
@@ -82,7 +96,7 @@ export function createSigningOutcomeProcessor({
       }
 
       if (TERMINAL_FAILURE_STATUSES.has(providerStatus)) {
-        return recordFailure(repository, claim, {
+        return recordFailure(repository, alerts, claim, {
           code: `firma_request_${providerStatus === "canceled" ? "cancelled" : providerStatus}`,
           message: `Firma reports that the signing request is ${providerStatus}.`,
           providerStatus,
@@ -91,7 +105,7 @@ export function createSigningOutcomeProcessor({
       }
 
       if (providerStatus !== "finished" && providerStatus !== "completed") {
-        return recordFailure(repository, claim, {
+        return recordFailure(repository, alerts, claim, {
           code: "firma_unknown_status",
           message: "Firma returned an unsupported signing request status.",
           providerStatus,
@@ -99,7 +113,7 @@ export function createSigningOutcomeProcessor({
         });
       }
       if (!recipient?.finishedAt) {
-        return recordFailure(repository, claim, {
+        return recordFailure(repository, alerts, claim, {
           code: "firma_signer_not_completed",
           message: "Firma marked the request complete without confirming the expected signer.",
           providerStatus,
@@ -109,7 +123,7 @@ export function createSigningOutcomeProcessor({
 
       const signedDocument = await provider.downloadCompletedDocument(claim.externalRequestId);
       if (signedDocument.isPartial) {
-        return recordFailure(repository, claim, {
+        return recordFailure(repository, alerts, claim, {
           code: "firma_partial_document",
           message: "Firma returned a partial document instead of the completed signed PDF.",
           providerStatus,
@@ -120,7 +134,7 @@ export function createSigningOutcomeProcessor({
       const sha256 = createHash("sha256").update(signedDocument.bytes).digest("hex");
       const completedAt = details.completedAt ?? recipient.finishedAt ?? signedDocument.generatedAt;
       if (!completedAt) {
-        return recordFailure(repository, claim, {
+        return recordFailure(repository, alerts, claim, {
           code: "firma_completion_time_missing",
           message: "Firma did not provide a completion time for the signed PDF.",
           providerStatus,
@@ -137,6 +151,10 @@ export function createSigningOutcomeProcessor({
         signedDocumentSizeBytes: signedDocument.bytes.byteLength,
       });
       if (saved !== "saved") return staleResult(saved, claim);
+      await safelyResolveOperationalFailure(alerts, {
+        stage: "SIGNING",
+        meetingId: claim.meetingId,
+      });
       return {
         status: "ready_for_archive",
         meetingId: claim.meetingId,
@@ -146,7 +164,7 @@ export function createSigningOutcomeProcessor({
       };
     } catch (error) {
       const failure = sanitiseFailure(error, providerStatus);
-      return recordFailure(repository, claim, failure);
+      return recordFailure(repository, alerts, claim, failure);
     }
   }
 
@@ -216,11 +234,20 @@ function sanitiseFailure(error: unknown, providerStatus: string | null) {
 
 async function recordFailure(
   repository: MeetingSigningOutcomeRepository,
+  alerts: OperationalAlertService | undefined,
   claim: Extract<MeetingSigningOutcomeClaim, { status: "claimed" }>,
   failure: MeetingSigningFailure & { providerStatus: string | null; retryable: boolean },
 ): Promise<SigningOutcomeProcessResult> {
   const persistence = await repository.recordOutcomeFailure(claim, failure);
   if (persistence !== "failed") return staleResult(persistence, claim);
+  if (!failure.retryable) {
+    await safelyRecordOperationalFailure(alerts, {
+      stage: "SIGNING",
+      meetingId: claim.meetingId,
+      failureCode: failure.code,
+      workflowStatus: "ESIGN_FAILED",
+    });
+  }
   return {
     status: "failed",
     meetingId: claim.meetingId,
@@ -246,6 +273,6 @@ function safeMessage(value: string, fallback: string) {
   return cleaned ? cleaned.slice(0, 2_000) : fallback;
 }
 
-export const signingOutcomeProcessor = createSigningOutcomeProcessor();
+export const signingOutcomeProcessor = createSigningOutcomeProcessor({ alerts: operationalAlertService });
 export const processFirmaWebhookEvent = signingOutcomeProcessor.processWebhookEvent;
 export const reconcileMeetingSigning = signingOutcomeProcessor.reconcileMeeting;

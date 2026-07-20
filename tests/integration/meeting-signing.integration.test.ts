@@ -7,6 +7,7 @@ import { createSupabaseMeetingReviewRepository } from "../../src/backend/reposit
 import { createSupabaseMeetingSigningRepository } from "../../src/backend/repositories/supabase/supabaseMeetingSigningRepository";
 import { createSupabaseMeetingSigningOutcomeRepository } from "../../src/backend/repositories/supabase/supabaseMeetingSigningOutcomeRepository";
 import { createSupabaseMinutesPdfStorage } from "../../src/backend/repositories/supabase/supabaseMinutesPdfStorage";
+import { createSupabaseOperationalAlertRepository } from "../../src/backend/repositories/supabase/supabaseOperationalAlertRepository";
 import { createMeetingApprovalService } from "../../src/backend/services/approvals/approveMeeting";
 import { createMeetingArchiveService } from "../../src/backend/services/archive/meetingArchiveService";
 import { createMeetingArchiveProcessor } from "../../src/backend/services/archive/processMeetingArchive";
@@ -18,6 +19,7 @@ import { createMeetingSigningService } from "../../src/backend/services/signing/
 import { createSigningOutcomeProcessor } from "../../src/backend/services/signing/processSigningOutcome";
 import { createRejectMeetingSigningService } from "../../src/backend/services/signing/rejectMeetingSigning";
 import { createRetryMeetingSigningOutcomeService } from "../../src/backend/services/signing/retryMeetingSigningOutcome";
+import { createStaleSigningReconciliation } from "../../src/backend/services/operations/reconcileStaleMeetingSignings";
 import type { MeetingReviewDraft } from "../../src/shared/contracts/meetingReview";
 import { FakeSigningProvider, testSigningRecipient } from "../helpers/fakeSigningProvider";
 import {
@@ -331,6 +333,7 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
 
   it("recovers a completed signing request when its webhook was missed", async () => {
     const scenario = await prepareAwaitingSigning("signing-outcome-reconcile");
+    await ageSigningRequest(scenario.meetingId);
     scenario.provider.requestStatus = "finished";
     scenario.provider.completedAt = "2026-07-20T12:15:00.000Z";
     const processor = createSigningOutcomeProcessor({
@@ -338,9 +341,21 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
       provider: scenario.provider,
       signerEmail: testSigningRecipient.email,
     });
-    await expect(processor.reconcileMeeting(scenario.meetingId)).resolves.toMatchObject({
-      status: "ready_for_archive",
+    const reconcile = createStaleSigningReconciliation({
+      repository: createSupabaseOperationalAlertRepository(configuration),
+      processClaim: processor.processClaim,
+      alerts: { recordFailure: vi.fn(), resolveFailure: vi.fn().mockResolvedValue(0) },
     });
+    const overlappingRuns = await Promise.all([
+      reconcile({ ageMinutes: 10, limit: 25, maxAttempts: 5 }),
+      reconcile({ ageMinutes: 10, limit: 25, maxAttempts: 5 }),
+    ]);
+    const recoveredTarget = overlappingRuns
+      .flatMap((run) => run.results)
+      .filter((result) => result.meetingId === scenario.meetingId);
+    expect(recoveredTarget).toEqual([
+      expect.objectContaining({ status: "ready_for_archive", meetingId: scenario.meetingId }),
+    ]);
     expect(await loadSigningRequest(scenario.meetingId)).toMatchObject({
       outcome_status: "READY_FOR_ARCHIVE",
       outcome_attempt: 1,
@@ -412,7 +427,7 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
       query: "Adopt",
       year: 2026,
       category: "Board Meeting",
-      limit: 10,
+      limit: 100,
       offset: 0,
     })).resolves.toMatchObject({
       total: expect.any(Number),
@@ -480,7 +495,8 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
       outcome_status: "READY_FOR_ARCHIVE",
       signed_document_sha256: createHash("sha256").update(scenario.provider.signedDocument).digest("hex"),
     });
-    await expect(repository.listRecoveryCandidates(100)).resolves.toContain(scenario.meetingId);
+    await expect(repository.listRecoveryCandidates(100, 1)).resolves.not.toContain(scenario.meetingId);
+    await expect(repository.listRecoveryCandidates(100, 3)).resolves.toContain(scenario.meetingId);
 
     await expect(createMeetingArchiveProcessor({
       repository,
@@ -873,6 +889,22 @@ async function loadSigningRequest(meetingId: string) {
     meetingId,
     "id,meeting_id,pdf_id,document_version,provider,external_request_ref,delivery_status,attempt,outcome_status,outcome_attempt,provider_status,recipient_email,signed_document_sha256,signed_document_size_bytes,rejection_comment,rejected_by,last_error_code,last_error_message",
   );
+}
+
+async function ageSigningRequest(meetingId: string) {
+  const url = new URL("/rest/v1/meeting_signing_requests", configuration.apiUrl);
+  url.searchParams.set("meeting_id", `eq.${meetingId}`);
+  const response = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+      apikey: configuration.secretKey,
+      authorization: `Bearer ${configuration.secretKey}`,
+      prefer: "return=minimal",
+    },
+    body: JSON.stringify({ sent_at: "2026-07-19T12:00:00.000Z" }),
+  });
+  if (!response.ok) throw new Error(`Could not age signing request: ${await response.text()}`);
 }
 
 async function loadSigningRequests(meetingId: string) {

@@ -76,6 +76,17 @@ Exhausted retries return a structured `failed` response and create or refresh on
 unresolved `transcript_import_failures` alert per Read AI session. A later successful
 or duplicate delivery resolves that alert.
 
+## Operational recovery
+
+The backend exposes `POST /api/internal/operations/recover` for an external
+scheduler. It reconciles aged Firma requests through the existing callback
+processor, retries recoverable archives, and safely dispatches deduplicated
+operational alerts. The endpoint uses a dedicated server-only scheduler secret;
+overlapping calls use atomic database claims. Telegram is optional and can be
+configured later without changing the recovery flow. See
+`docs/operations/workflow-recovery.md` for the complete contract and local test
+command.
+
 ## Meeting approval and PDF generation
 
 The backend `approveMeeting` function explicitly approves reviewed minutes. It

@@ -7,6 +7,12 @@ import type { MeetingArchiveRepository } from "../../repositories/archive/meetin
 import { MeetingArchiveRepositoryError, supabaseMeetingArchiveRepository } from "../../repositories/supabase/supabaseMeetingArchiveRepository";
 import { MinutesPdfStorageError, supabaseMinutesPdfStorage } from "../../repositories/supabase/supabaseMinutesPdfStorage";
 import type { MeetingArchiveStorage } from "../../repositories/storage/meetingArchiveStorage";
+import {
+  operationalAlertService,
+  safelyRecordOperationalFailure,
+  safelyResolveOperationalFailure,
+  type OperationalAlertService,
+} from "../operations/operationalAlertService";
 
 const DEFAULT_ARCHIVE_RETRIES = 3;
 const DEFAULT_RETRY_DELAY_MS = 5_000;
@@ -37,6 +43,7 @@ interface Options {
   retryCount?: number;
   retryDelayMs?: number;
   waitImplementation?: (milliseconds: number) => Promise<void>;
+  alerts?: OperationalAlertService;
 }
 
 export function createMeetingArchiveProcessor({
@@ -46,6 +53,7 @@ export function createMeetingArchiveProcessor({
   retryCount = DEFAULT_ARCHIVE_RETRIES,
   retryDelayMs = DEFAULT_RETRY_DELAY_MS,
   waitImplementation = wait,
+  alerts,
 }: Options = {}) {
   if (!Number.isInteger(retryCount) || retryCount < 0 || retryCount > 10) {
     throw new Error("Archive retry count must be between zero and ten.");
@@ -55,6 +63,12 @@ export function createMeetingArchiveProcessor({
     const validatedMeetingId = z.string().uuid().parse(meetingId);
     const claim = await repository.claim(validatedMeetingId);
     if (claim.status !== "claimed") {
+      if (claim.status === "already_completed") {
+        await safelyResolveOperationalFailure(alerts, {
+          stage: "ARCHIVE",
+          meetingId: claim.meetingId,
+        });
+      }
       return {
         status: claim.status,
         meetingId: claim.meetingId,
@@ -125,6 +139,10 @@ export function createMeetingArchiveProcessor({
             attempt: claim.attempt,
           };
         }
+        await safelyResolveOperationalFailure(alerts, {
+          stage: "ARCHIVE",
+          meetingId: claim.meetingId,
+        });
         return {
           status: completion.status,
           meetingId: completion.meetingId,
@@ -147,6 +165,12 @@ export function createMeetingArchiveProcessor({
         ...(persistence.status === "already_completed" ? { signedPdfId: null } : {}),
       } as MeetingArchiveProcessResult;
     }
+    await safelyRecordOperationalFailure(alerts, {
+      stage: "ARCHIVE",
+      meetingId: persistence.meetingId,
+      failureCode: failure.code,
+      workflowStatus: "ARCHIVE_FAILED",
+    });
     return {
       status: "failed",
       meetingId: persistence.meetingId,
@@ -209,4 +233,4 @@ function wait(milliseconds: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 }
 
-export const processMeetingArchive = createMeetingArchiveProcessor();
+export const processMeetingArchive = createMeetingArchiveProcessor({ alerts: operationalAlertService });

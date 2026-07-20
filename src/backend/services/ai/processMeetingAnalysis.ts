@@ -5,6 +5,12 @@ import type {
   MeetingAnalysisRepository,
 } from "../../repositories/analysis/meetingAnalysisRepository";
 import { supabaseMeetingAnalysisRepository } from "../../repositories/supabase/supabaseMeetingAnalysisRepository";
+import {
+  operationalAlertService,
+  safelyRecordOperationalFailure,
+  safelyResolveOperationalFailure,
+  type OperationalAlertService,
+} from "../operations/operationalAlertService";
 
 export const MAX_ANALYSIS_ATTEMPTS = 3;
 const DEFAULT_RETRY_DELAYS_MS = [250, 1_000] as const;
@@ -23,6 +29,7 @@ interface MeetingAnalysisProcessorOptions {
   analyze?: typeof analyzeMeetingTranscript;
   delay?: (milliseconds: number) => Promise<void>;
   retryDelaysMs?: readonly number[];
+  alerts?: OperationalAlertService;
 }
 
 export function createMeetingAnalysisProcessor({
@@ -30,6 +37,7 @@ export function createMeetingAnalysisProcessor({
   analyze = analyzeMeetingTranscript,
   delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
   retryDelaysMs = DEFAULT_RETRY_DELAYS_MS,
+  alerts,
 }: MeetingAnalysisProcessorOptions) {
   return async function processMeetingAnalysis(
     meetingId: string,
@@ -52,6 +60,7 @@ export function createMeetingAnalysisProcessor({
         const draft: MeetingDraft = await analyze(claim.input);
         const persistenceStatus = await repository.persistDraft(meetingId, claim.runId, draft);
         if (persistenceStatus === "saved") {
+          await safelyResolveOperationalFailure(alerts, { stage: "AI_ANALYSIS", meetingId });
           return { status: "completed", meetingId, attempt: claim.attempt };
         }
         return {
@@ -67,6 +76,12 @@ export function createMeetingAnalysisProcessor({
           continue;
         }
         if (failureStatus === "failed") {
+          await safelyRecordOperationalFailure(alerts, {
+            stage: "AI_ANALYSIS",
+            meetingId,
+            failureCode: failure.code,
+            workflowStatus: "AI_FAILED",
+          });
           return {
             status: "failed",
             meetingId,
@@ -103,4 +118,5 @@ export function describeAnalysisFailure(error: unknown): AnalysisFailure {
 
 export const processMeetingAnalysis = createMeetingAnalysisProcessor({
   repository: supabaseMeetingAnalysisRepository,
+  alerts: operationalAlertService,
 });

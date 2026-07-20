@@ -11,7 +11,8 @@ describe("meeting PDF processor", () => {
     const storage = storageMock();
     const bytes = new Uint8Array([37, 80, 68, 70]);
     const render = vi.fn().mockResolvedValue({ bytes, pageCount: 2 });
-    const processor = createMeetingPdfProcessor({ repository, storage, render });
+    const alerts = alertServiceMock();
+    const processor = createMeetingPdfProcessor({ repository, storage, render, alerts });
 
     await expect(processor(meetingId)).resolves.toEqual({
       status: "completed",
@@ -29,6 +30,7 @@ describe("meeting PDF processor", () => {
       pageCount: 2,
     }));
     expect(repository.recordPdfFailure).not.toHaveBeenCalled();
+    expect(alerts.resolveFailure).toHaveBeenCalledWith({ stage: "PDF_GENERATION", meetingId });
   });
 
   it("does not generate when the claim is protected or already active", async () => {
@@ -52,10 +54,12 @@ describe("meeting PDF processor", () => {
 
   it("records renderer failures and sanitises the result", async () => {
     const repository = repositoryMock();
+    const alerts = alertServiceMock();
     const processor = createMeetingPdfProcessor({
       repository,
       storage: storageMock(),
       render: vi.fn().mockRejectedValue(new Error("Renderer could not paginate.")),
+      alerts,
     });
 
     await expect(processor(meetingId)).resolves.toMatchObject({
@@ -65,6 +69,12 @@ describe("meeting PDF processor", () => {
     expect(repository.recordPdfFailure).toHaveBeenCalledWith(meetingId, runId, {
       code: "pdf_generation_failed",
       message: "Renderer could not paginate.",
+    });
+    expect(alerts.recordFailure).toHaveBeenCalledWith({
+      stage: "PDF_GENERATION",
+      meetingId,
+      failureCode: "pdf_generation_failed",
+      workflowStatus: "PDF_FAILED",
     });
   });
 
@@ -130,5 +140,12 @@ function storageMock(): MinutesPdfStorage {
       sizeBytes: 4,
       pageCount: 2,
     }),
+  };
+}
+
+function alertServiceMock() {
+  return {
+    recordFailure: vi.fn().mockResolvedValue(undefined),
+    resolveFailure: vi.fn().mockResolvedValue(1),
   };
 }
