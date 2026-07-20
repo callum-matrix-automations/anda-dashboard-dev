@@ -3,6 +3,7 @@ import type {
   ActiveMemberProfile,
   StoredTranscriptImport,
   TranscriptImportRecord,
+  TranscriptImportFailureRepository,
   TranscriptRepository,
 } from "../transcripts/transcriptRepository";
 
@@ -40,7 +41,7 @@ export function createSupabaseTranscriptRepository({
   apiUrl,
   secretKey,
   fetchImplementation = globalThis.fetch,
-}: SupabaseTranscriptRepositoryOptions = {}): TranscriptRepository {
+}: SupabaseTranscriptRepositoryOptions = {}): TranscriptRepository & TranscriptImportFailureRepository {
   return {
     async listActiveMemberProfiles(): Promise<ActiveMemberProfile[]> {
       const configuration = resolveConfiguration(apiUrl, secretKey, fetchImplementation);
@@ -88,6 +89,7 @@ export function createSupabaseTranscriptRepository({
             p_duration_minutes: record.durationMinutes,
             p_source_transcript_id: record.sourceTranscriptId,
             p_content: record.content,
+            p_metadata: record.metadata ?? {},
             p_attendees: record.attendees.map((attendee) => ({
               profile_id: attendee.profileId,
               display_name_snapshot: attendee.displayNameSnapshot,
@@ -135,7 +137,86 @@ export function createSupabaseTranscriptRepository({
         importedAt: stored.imported_at,
       };
     },
+
+    async recordFailure(record): Promise<void> {
+      const configuration = resolveConfiguration(apiUrl, secretKey, fetchImplementation);
+      const rpcUrl = new URL("/rest/v1/rpc/record_transcript_import_failure", configuration.apiUrl);
+      await requestSupabaseMutation({
+        url: rpcUrl,
+        secretKey: configuration.secretKey,
+        fetchImplementation: configuration.fetchImplementation,
+        body: {
+          p_source_provider: record.sourceProvider,
+          p_source_meeting_id: record.sourceMeetingId,
+          p_request_id: record.requestId,
+          p_title: record.title,
+          p_platform_meeting_id: record.platformMeetingId,
+          p_error_code: record.errorCode,
+          p_error_message: record.errorMessage,
+          p_attempts: record.attempts,
+          p_failed_at: record.failedAt,
+        },
+        operation: "transcript import failure alert",
+      });
+    },
+
+    async resolveFailure(sourceProvider, sourceMeetingId, resolvedAt): Promise<void> {
+      const configuration = resolveConfiguration(apiUrl, secretKey, fetchImplementation);
+      const rpcUrl = new URL("/rest/v1/rpc/resolve_transcript_import_failure", configuration.apiUrl);
+      await requestSupabaseMutation({
+        url: rpcUrl,
+        secretKey: configuration.secretKey,
+        fetchImplementation: configuration.fetchImplementation,
+        body: {
+          p_source_provider: sourceProvider,
+          p_source_meeting_id: sourceMeetingId,
+          p_resolved_at: resolvedAt,
+        },
+        operation: "transcript import failure resolution",
+      });
+    },
   };
+}
+
+async function requestSupabaseMutation({
+  url,
+  secretKey,
+  fetchImplementation,
+  body,
+  operation,
+}: {
+  url: URL;
+  secretKey: string;
+  fetchImplementation: typeof fetch;
+  body: Record<string, unknown>;
+  operation: string;
+}): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetchImplementation(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json",
+        apikey: secretKey,
+        authorization: `Bearer ${secretKey}`,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    throw new TranscriptRepositoryError(`Supabase ${operation} request failed.`, {
+      code: "supabase_request_failed",
+      cause: error,
+    });
+  }
+  const responseBody = await readResponseBody(response);
+  if (!response.ok) {
+    const details = SupabaseErrorSchema.safeParse(responseBody);
+    throw new TranscriptRepositoryError(
+      details.success ? details.data.message : `Supabase ${operation} returned HTTP ${response.status}.`,
+      { status: response.status, code: details.success ? details.data.code : "supabase_response_failed" },
+    );
+  }
 }
 
 function resolveConfiguration(

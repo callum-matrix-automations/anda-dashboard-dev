@@ -15,6 +15,7 @@ export function createTranscriptImportStore(repository: TranscriptRepository) {
       durationMinutes: packet.meeting.durationMinutes,
       sourceTranscriptId: packet.transcript.sourceTranscriptId,
       content: packet.transcript.content,
+      metadata: packet.transcript.metadata ?? {},
       attendees: attendeeMatches.matched,
     });
   };
