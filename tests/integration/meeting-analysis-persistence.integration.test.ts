@@ -187,7 +187,10 @@ async function createStoredMeeting(content: string) {
       endedAt: "2026-07-19T10:00:00.000Z",
       durationMinutes: 60,
     },
-    attendees: [{ displayName: "Eleanor Hughes" }, { displayName: "Marcus Patel" }],
+    attendees: [
+      { displayName: "Eleanor Hughes", email: "eleanor.hughes@example.test" },
+      { displayName: "Marcus Patel", email: "marcus.patel@example.test" },
+    ],
     transcript: {
       sourceTranscriptId,
       contentType: "text/plain",

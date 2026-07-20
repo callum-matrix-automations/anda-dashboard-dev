@@ -17,6 +17,7 @@ const TranscriptImportRpcRowSchema = z.object({
 const ActiveMemberProfileRowSchema = z.object({
   id: z.string().uuid(),
   display_name: z.string().trim().min(1),
+  email: z.string().trim().min(1),
 });
 
 interface SupabaseTranscriptRepositoryOptions {
@@ -46,9 +47,10 @@ export function createSupabaseTranscriptRepository({
     async listActiveMemberProfiles(): Promise<ActiveMemberProfile[]> {
       const configuration = resolveConfiguration(apiUrl, secretKey, fetchImplementation);
       const profilesUrl = new URL("/rest/v1/profiles", configuration.apiUrl);
-      profilesUrl.searchParams.set("select", "id,display_name");
+      profilesUrl.searchParams.set("select", "id,display_name,email");
       profilesUrl.searchParams.set("account_type", "eq.MEMBER");
       profilesUrl.searchParams.set("account_status", "eq.ACTIVE");
+      profilesUrl.searchParams.set("email", "not.is.null");
 
       const responseBody = await requestSupabase({
         url: profilesUrl,
@@ -65,6 +67,7 @@ export function createSupabaseTranscriptRepository({
       return parsed.data.map((profile) => ({
         profileId: profile.id,
         displayName: profile.display_name,
+        email: profile.email,
       }));
     },
 
@@ -93,6 +96,7 @@ export function createSupabaseTranscriptRepository({
             p_attendees: record.attendees.map((attendee) => ({
               profile_id: attendee.profileId,
               display_name_snapshot: attendee.displayNameSnapshot,
+              source_email_snapshot: attendee.sourceEmailSnapshot,
             })),
           }),
         });
@@ -136,6 +140,49 @@ export function createSupabaseTranscriptRepository({
         transcriptId: stored.transcript_id,
         importedAt: stored.imported_at,
       };
+    },
+
+    async resolveUnmatchedParticipants(meetingId): Promise<number> {
+      const configuration = resolveConfiguration(apiUrl, secretKey, fetchImplementation);
+      const rpcUrl = new URL("/rest/v1/rpc/resolve_unmatched_transcript_participants", configuration.apiUrl);
+      let response: Response;
+      try {
+        response = await configuration.fetchImplementation(rpcUrl, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            accept: "application/json",
+            apikey: configuration.secretKey,
+            authorization: `Bearer ${configuration.secretKey}`,
+          },
+          body: JSON.stringify({ p_meeting_id: meetingId }),
+        });
+      } catch (error) {
+        throw new TranscriptRepositoryError("Supabase participant resolution request failed.", {
+          code: "supabase_request_failed",
+          cause: error,
+        });
+      }
+
+      const responseBody = await readResponseBody(response);
+      if (!response.ok) {
+        const details = SupabaseErrorSchema.safeParse(responseBody);
+        throw new TranscriptRepositoryError(
+          details.success ? details.data.message : `Supabase participant resolution returned HTTP ${response.status}.`,
+          {
+            status: response.status,
+            code: details.success ? details.data.code : "supabase_response_failed",
+          },
+        );
+      }
+      const parsed = z.number().int().nonnegative().safeParse(responseBody);
+      if (!parsed.success) {
+        throw new TranscriptRepositoryError("Supabase returned an invalid participant resolution result.", {
+          status: response.status,
+          code: "invalid_supabase_response",
+        });
+      }
+      return parsed.data;
     },
 
     async recordFailure(record): Promise<void> {

@@ -14,6 +14,7 @@ const record = {
   attendees: [{
     profileId: "10000000-0000-4000-8000-000000000001",
     displayNameSnapshot: "Eleanor Hughes",
+    sourceEmailSnapshot: "eleanor.hughes@example.test",
   }],
 };
 
@@ -29,6 +30,7 @@ describe("Supabase transcript repository", () => {
     const fetchImplementation = vi.fn().mockResolvedValue(Response.json([{
       id: "10000000-0000-4000-8000-000000000001",
       display_name: "Eleanor Hughes",
+      email: "eleanor.hughes@example.test",
     }]));
     const repository = createSupabaseTranscriptRepository({
       apiUrl: "https://supabase.example.test",
@@ -39,11 +41,13 @@ describe("Supabase transcript repository", () => {
     await expect(repository.listActiveMemberProfiles()).resolves.toEqual([{
       profileId: "10000000-0000-4000-8000-000000000001",
       displayName: "Eleanor Hughes",
+      email: "eleanor.hughes@example.test",
     }]);
     const [url, init] = fetchImplementation.mock.calls[0] as [URL, RequestInit];
     expect(url.pathname).toBe("/rest/v1/profiles");
     expect(url.searchParams.get("account_type")).toBe("eq.MEMBER");
     expect(url.searchParams.get("account_status")).toBe("eq.ACTIVE");
+    expect(url.searchParams.get("email")).toBe("not.is.null");
     expect(init.headers).toMatchObject({ authorization: "Bearer test-secret-key" });
   });
 
@@ -81,6 +85,7 @@ describe("Supabase transcript repository", () => {
       p_attendees: [{
         profile_id: "10000000-0000-4000-8000-000000000001",
         display_name_snapshot: "Eleanor Hughes",
+        source_email_snapshot: "eleanor.hughes@example.test",
       }],
     });
   });
@@ -97,6 +102,22 @@ describe("Supabase transcript repository", () => {
     });
 
     await expect(repository.storeImport(record)).resolves.toMatchObject({ status: "duplicate" });
+  });
+
+  it("resolves participants from immutable transcript metadata", async () => {
+    const fetchImplementation = vi.fn().mockResolvedValue(Response.json(2));
+    const repository = createSupabaseTranscriptRepository({
+      apiUrl: "https://supabase.example.test",
+      secretKey: "test-secret-key",
+      fetchImplementation,
+    });
+    const meetingId = "11111111-1111-4111-8111-111111111111";
+
+    await expect(repository.resolveUnmatchedParticipants(meetingId)).resolves.toBe(2);
+
+    const [url, init] = fetchImplementation.mock.calls[0] as [URL, RequestInit];
+    expect(url.pathname).toBe("/rest/v1/rpc/resolve_unmatched_transcript_participants");
+    expect(JSON.parse(String(init.body))).toEqual({ p_meeting_id: meetingId });
   });
 
   it("records and resolves a deduplicated transcript import failure", async () => {

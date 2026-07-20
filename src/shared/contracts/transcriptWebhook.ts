@@ -16,7 +16,7 @@ export const TranscriptWebhookPacketSchema = z.object({
   }).strict(),
   attendees: z.array(z.object({
     displayName: z.string().trim().min(1).max(200),
-    email: z.string().trim().email().max(320).nullable().optional(),
+    email: z.string().trim().max(320).nullable().optional(),
   }).strict()).max(250),
   transcript: z.object({
     sourceTranscriptId: z.string().trim().min(1).max(500),
@@ -28,24 +28,7 @@ export const TranscriptWebhookPacketSchema = z.object({
       .refine((content) => content.trim().length > 0, { message: "Transcript content must not be blank." }),
     metadata: z.record(z.unknown()).optional(),
   }).strict(),
-}).strict().superRefine((packet, context) => {
-  const normalizedNames = new Set<string>();
-  packet.attendees.forEach((attendee, index) => {
-    const normalizedName = normalizeWebhookDisplayName(attendee.displayName);
-    if (normalizedNames.has(normalizedName)) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["attendees", index, "displayName"],
-        message: "Attendee display names must be unique after normalization.",
-      });
-    }
-    normalizedNames.add(normalizedName);
-  });
-});
-
-function normalizeWebhookDisplayName(displayName: string): string {
-  return displayName.trim().replace(/\s+/gu, " ").toLocaleLowerCase("en-GB");
-}
+}).strict();
 
 export type TranscriptWebhookPacket = z.infer<typeof TranscriptWebhookPacketSchema>;
 

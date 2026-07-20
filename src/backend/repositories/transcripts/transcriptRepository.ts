@@ -12,11 +12,13 @@ export interface TranscriptImportRecord {
 export interface ActiveMemberProfile {
   profileId: string;
   displayName: string;
+  email: string;
 }
 
 export interface TranscriptImportAttendee {
   profileId: string;
   displayNameSnapshot: string;
+  sourceEmailSnapshot: string;
 }
 
 export interface StoredTranscriptImport {
@@ -29,6 +31,7 @@ export interface StoredTranscriptImport {
 export interface TranscriptRepository {
   listActiveMemberProfiles(): Promise<ActiveMemberProfile[]>;
   storeImport(record: TranscriptImportRecord): Promise<StoredTranscriptImport>;
+  resolveUnmatchedParticipants(meetingId: string): Promise<number>;
 }
 
 export interface TranscriptImportFailureRecord {

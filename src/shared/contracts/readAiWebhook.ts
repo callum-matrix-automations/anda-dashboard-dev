@@ -9,7 +9,7 @@ export const ReadAiPersonSchema = z.object({
   name: z.string().trim().min(1).max(500),
   first_name: z.string().trim().min(1).max(250).nullable().optional(),
   last_name: z.string().trim().min(1).max(250).nullable().optional(),
-  email: z.string().trim().email().max(320).nullable().optional(),
+  email: z.string().trim().max(320).nullable().optional(),
 }).passthrough();
 
 export const ReadAiSpeakerBlockSchema = z.object({

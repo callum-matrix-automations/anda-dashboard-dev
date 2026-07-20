@@ -47,6 +47,7 @@ const TranscriptRowSchema = z.object({
 const AttendeeRowSchema = z.object({
   profile_id: z.string().uuid(),
   display_name_snapshot: z.string(),
+  source_email_snapshot: z.string().nullable(),
 });
 
 const MotionRowSchema = z.object({
@@ -174,7 +175,7 @@ export async function runPreApprovalWorkflow({
     table: "meeting_attendees",
     column: "meeting_id",
     value: meeting.id,
-    select: "profile_id,display_name_snapshot",
+    select: "profile_id,display_name_snapshot,source_email_snapshot",
   }));
   const motions = MotionRowSchema.array().parse(await selectRows({
     apiUrl,
