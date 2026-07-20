@@ -2,11 +2,14 @@ import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { FirmaSigningClientError } from "../../src/backend/integrations/signing/firmaSigningClient";
 import { createSupabaseMeetingApprovalRepository } from "../../src/backend/repositories/supabase/supabaseMeetingApprovalRepository";
+import { createSupabaseMeetingArchiveRepository } from "../../src/backend/repositories/supabase/supabaseMeetingArchiveRepository";
 import { createSupabaseMeetingReviewRepository } from "../../src/backend/repositories/supabase/supabaseMeetingReviewRepository";
 import { createSupabaseMeetingSigningRepository } from "../../src/backend/repositories/supabase/supabaseMeetingSigningRepository";
 import { createSupabaseMeetingSigningOutcomeRepository } from "../../src/backend/repositories/supabase/supabaseMeetingSigningOutcomeRepository";
 import { createSupabaseMinutesPdfStorage } from "../../src/backend/repositories/supabase/supabaseMinutesPdfStorage";
 import { createMeetingApprovalService } from "../../src/backend/services/approvals/approveMeeting";
+import { createMeetingArchiveService } from "../../src/backend/services/archive/meetingArchiveService";
+import { createMeetingArchiveProcessor } from "../../src/backend/services/archive/processMeetingArchive";
 import { createMeetingPdfProcessor } from "../../src/backend/services/pdf/processMeetingPdf";
 import { TREASURER_SIGNATURE_ANCHOR } from "../../src/backend/services/pdf/renderMinutesPdf";
 import { createMeetingReviewService } from "../../src/backend/services/reviews/meetingReviewService";
@@ -342,6 +345,156 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
       outcome_status: "READY_FOR_ARCHIVE",
       outcome_attempt: 1,
     });
+  }, 30_000);
+
+  it("archives the verified signed PDF, removes the temporary object, and exposes searchable private access", async () => {
+    const scenario = await prepareAwaitingSigning("archive-success");
+    const unsignedArtifact = (await requiredReview(scenario.meetingId)).pdfArtifact;
+    const routedDocument = scenario.provider.created[0]?.document;
+    if (!unsignedArtifact || !routedDocument) throw new Error("The unsigned PDF was not routed.");
+    scenario.provider.signedDocument = new Uint8Array(routedDocument);
+    scenario.provider.requestStatus = "finished";
+    scenario.provider.completedAt = "2026-07-20T13:00:00.000Z";
+    const outcome = createSigningOutcomeProcessor({
+      repository: createSupabaseMeetingSigningOutcomeRepository(configuration),
+      provider: scenario.provider,
+      signerEmail: testSigningRecipient.email,
+    });
+    await expect(outcome.reconcileMeeting(scenario.meetingId)).resolves.toMatchObject({
+      status: "ready_for_archive",
+    });
+
+    const archiveRepository = createSupabaseMeetingArchiveRepository(configuration);
+    const archiveStorage = createSupabaseMinutesPdfStorage(configuration);
+    const archive = createMeetingArchiveProcessor({
+      repository: archiveRepository,
+      storage: archiveStorage,
+      provider: scenario.provider,
+      retryCount: 0,
+    });
+    await expect(archive(scenario.meetingId)).resolves.toMatchObject({
+      status: "completed",
+      meetingId: scenario.meetingId,
+      signedPdfId: expect.any(String),
+    });
+
+    const meeting = await loadMeeting(scenario.meetingId);
+    expect(meeting).toMatchObject({
+      status: "COMPLETED",
+      unsigned_pdf_id: null,
+      signed_pdf_id: expect.any(String),
+      signed_pdf_path: `signed/${scenario.meetingId}/v${scenario.version}/minutes-signed.pdf`,
+      completed_at: expect.any(String),
+      last_error_code: null,
+    });
+    const pdfs = await selectRows<{
+      id: string;
+      pdf_type: string;
+      storage_path: string;
+      sha256: string;
+    }>("meeting_pdfs", "meeting_id", scenario.meetingId, "id,pdf_type,storage_path,sha256");
+    expect(pdfs.map((pdf) => pdf.pdf_type)).toEqual(expect.arrayContaining(["UNSIGNED", "SIGNED"]));
+    expect(pdfs.find((pdf) => pdf.pdf_type === "SIGNED")).toMatchObject({
+      id: meeting.signed_pdf_id,
+      storage_path: meeting.signed_pdf_path,
+      sha256: createHash("sha256").update(scenario.provider.signedDocument).digest("hex"),
+    });
+    await expect(archiveStorage.loadApprovedPdf(unsignedArtifact.path)).rejects.toMatchObject({
+      code: "pdf_storage_download_failed",
+    });
+
+    const readService = createMeetingArchiveService({
+      repository: archiveRepository,
+      storage: archiveStorage,
+      signedUrlSeconds: 60,
+    });
+    await expect(readService.search({
+      query: "Adopt",
+      year: 2026,
+      category: "Board Meeting",
+      limit: 10,
+      offset: 0,
+    })).resolves.toMatchObject({
+      total: expect.any(Number),
+      items: expect.arrayContaining([expect.objectContaining({ meetingId: scenario.meetingId })]),
+    });
+    await expect(readService.search({
+      query: "Hartwell",
+      year: 2026,
+      category: "Board Meeting",
+      limit: 100,
+      offset: 0,
+    })).resolves.toMatchObject({ total: 0, items: [] });
+    const access = await readService.createDocumentAccess(scenario.meetingId);
+    expect(access).toMatchObject({
+      status: "available",
+      access: { url: expect.stringContaining("/storage/v1/object/sign/") },
+    });
+    if (access.status !== "available") throw new Error("Signed PDF access was not created.");
+    const download = await fetch(access.access.url);
+    expect(download.status).toBe(200);
+    expect(new Uint8Array(await download.arrayBuffer())).toEqual(scenario.provider.signedDocument);
+
+    await expect(archive(scenario.meetingId)).resolves.toMatchObject({ status: "already_completed" });
+    expect(await attemptMeetingTitleReplacement(scenario.meetingId)).toBe(false);
+    expect(await attemptCompletedPdfInsert(scenario.meetingId)).toBe(false);
+  }, 30_000);
+
+  it("preserves signature evidence through ARCHIVE_FAILED and recovers without re-signing", async () => {
+    const scenario = await prepareAwaitingSigning("archive-recovery");
+    const routedDocument = scenario.provider.created[0]?.document;
+    if (!routedDocument) throw new Error("The unsigned PDF was not routed.");
+    scenario.provider.signedDocument = new Uint8Array(routedDocument);
+    scenario.provider.requestStatus = "finished";
+    scenario.provider.completedAt = "2026-07-20T13:30:00.000Z";
+    await createSigningOutcomeProcessor({
+      repository: createSupabaseMeetingSigningOutcomeRepository(configuration),
+      provider: scenario.provider,
+      signerEmail: testSigningRecipient.email,
+    }).reconcileMeeting(scenario.meetingId);
+
+    const repository = createSupabaseMeetingArchiveRepository(configuration);
+    const realStorage = createSupabaseMinutesPdfStorage(configuration);
+    const failedArchive = createMeetingArchiveProcessor({
+      repository,
+      provider: scenario.provider,
+      storage: {
+        ...realStorage,
+        storeSignedPdf: vi.fn().mockRejectedValue(new Error("Archive storage unavailable.")),
+      },
+      retryCount: 0,
+    });
+    await expect(failedArchive(scenario.meetingId)).resolves.toMatchObject({
+      status: "failed",
+      error: { message: "Archive storage unavailable." },
+    });
+    expect(await loadMeeting(scenario.meetingId)).toMatchObject({
+      status: "ARCHIVE_FAILED",
+      signed_by: priyaId,
+      signed_at: "2026-07-20T13:30:00+00:00",
+      signed_pdf_id: null,
+      signed_pdf_path: null,
+      last_error_code: "archive_failed",
+    });
+    expect(await loadSigningRequest(scenario.meetingId)).toMatchObject({
+      outcome_status: "READY_FOR_ARCHIVE",
+      signed_document_sha256: createHash("sha256").update(scenario.provider.signedDocument).digest("hex"),
+    });
+    await expect(repository.listRecoveryCandidates(100)).resolves.toContain(scenario.meetingId);
+
+    await expect(createMeetingArchiveProcessor({
+      repository,
+      storage: realStorage,
+      provider: scenario.provider,
+      retryCount: 0,
+    })(scenario.meetingId)).resolves.toMatchObject({ status: "completed" });
+    expect(await loadMeeting(scenario.meetingId)).toMatchObject({
+      status: "COMPLETED",
+      signed_pdf_id: expect.any(String),
+      last_error_code: null,
+    });
+    expect(scenario.provider.created).toHaveLength(1);
+    expect(scenario.provider.sent).toHaveLength(1);
   }, 30_000);
 
   it("retries the same webhook event after a transient signed-PDF download failure", async () => {
@@ -680,6 +833,8 @@ async function loadMeeting(meetingId: string) {
     signed_by: string | null;
     signed_at: string | null;
     signed_pdf_path: string | null;
+    signed_pdf_id: string | null;
+    completed_at: string | null;
     approved_by: string | null;
     approved_at: string | null;
     approved_snapshot: unknown;
@@ -688,7 +843,7 @@ async function loadMeeting(meetingId: string) {
     "meetings",
     "id",
     meetingId,
-    "status,unsigned_pdf_id,esign_external_ref,last_error_code,signed_by,signed_at,signed_pdf_path,approved_by,approved_at,approved_snapshot,human_owned",
+    "status,unsigned_pdf_id,esign_external_ref,last_error_code,signed_by,signed_at,signed_pdf_path,signed_pdf_id,completed_at,approved_by,approved_at,approved_snapshot,human_owned",
   );
 }
 
@@ -778,6 +933,34 @@ async function attemptSigningReferenceReplacement(requestId: string, replacement
     method: "PATCH",
     headers: { ...serviceHeaders(), "content-type": "application/json", prefer: "return=representation" },
     body: JSON.stringify({ external_request_ref: replacement }),
+  });
+  return response.ok;
+}
+
+async function attemptMeetingTitleReplacement(meetingId: string) {
+  const url = new URL("/rest/v1/meetings", configuration.apiUrl);
+  url.searchParams.set("id", `eq.${meetingId}`);
+  const response = await fetch(url, {
+    method: "PATCH",
+    headers: { ...serviceHeaders(), "content-type": "application/json", prefer: "return=representation" },
+    body: JSON.stringify({ title: "Tampered completed meeting" }),
+  });
+  return response.ok;
+}
+
+async function attemptCompletedPdfInsert(meetingId: string) {
+  const response = await fetch(new URL("/rest/v1/meeting_pdfs", configuration.apiUrl), {
+    method: "POST",
+    headers: { ...serviceHeaders(), "content-type": "application/json", prefer: "return=representation" },
+    body: JSON.stringify({
+      meeting_id: meetingId,
+      pdf_type: "SIGNED",
+      document_version: 999,
+      storage_path: `signed/${meetingId}/tampered.pdf`,
+      sha256: "f".repeat(64),
+      size_bytes: 100,
+      page_count: 1,
+    }),
   });
   return response.ok;
 }
