@@ -50,6 +50,13 @@ describe.skipIf(!localIntegrationConfigured)("pre-approval workflow with a prede
       content: result.packet.transcript.content,
     })]);
     expect(result.attendees).toHaveLength(predefinedDraft.attendees.length);
+    expect(result.attendees.map((attendee) => attendee.source_email_snapshot)).toEqual(expect.arrayContaining([
+      "eleanor.hughes@example.test",
+      "marcus.patel@example.test",
+      "priya.shah@example.test",
+      "daniel.brooks@example.test",
+      "amelia.clarke@example.test",
+    ]));
     expect(result.motions).toHaveLength(predefinedDraft.motions.length);
     expect(result.votes).toHaveLength(
       predefinedDraft.motions.reduce((total, motion) => total + motion.votes.length, 0),

@@ -216,6 +216,35 @@ describe("POST /api/webhooks/transcripts", () => {
     expect(receive.mock.calls[0]?.[0].attendees).toHaveLength(2);
   });
 
+  it("keeps people with the same display name when their emails are different", async () => {
+    const receive = vi.fn().mockResolvedValue({
+      status: "received" as const,
+      eventId: validPayload.request_id,
+      sourceMeetingId: `read_ai:${validPayload.session_id}`,
+      sourceTranscriptId: `read_ai:${validPayload.session_id}`,
+      transcriptCharacters: 1,
+      attempts: 1,
+      receivedAt: "2026-07-18T18:01:00.000Z",
+    });
+    const payload = {
+      ...validPayload,
+      participants: [
+        { ...validPayload.participants[0], name: "Alex Morgan", email: "alex.one@example.test" },
+        { ...validPayload.participants[1], name: "Alex Morgan", email: "alex.two@example.test" },
+      ],
+    };
+
+    const response = await createTranscriptWebhookHandler(receive, { recordFailure: vi.fn() })(
+      signedRequest(JSON.stringify(payload)),
+    );
+
+    expect(response.status).toBe(202);
+    expect(receive.mock.calls[0]?.[0].attendees).toEqual([
+      { displayName: "Alex Morgan", email: "alex.one@example.test" },
+      { displayName: "Alex Morgan", email: "alex.two@example.test" },
+    ]);
+  });
+
   it("rejects oversized payloads", async () => {
     const response = await POST(new Request("https://anda.test/api/webhooks/transcripts", {
       method: "POST",

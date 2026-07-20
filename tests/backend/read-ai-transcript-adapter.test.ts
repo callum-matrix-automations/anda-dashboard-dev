@@ -153,4 +153,18 @@ describe("Read AI transcript adapter", () => {
       code: "empty_transcript",
     }));
   });
+
+  it("preserves a malformed participant email for safe unmatched handling", () => {
+    const result = adaptReadAiWebhook({
+      ...meetingEnd,
+      participants: [{ name: "Unmatched Guest", email: "not-an-email" }],
+    });
+
+    expect(result).toMatchObject({
+      status: "ready",
+      packet: {
+        attendees: [{ displayName: "Unmatched Guest", email: "not-an-email" }],
+      },
+    });
+  });
 });

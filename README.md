@@ -65,6 +65,10 @@ and adapts the provider payload, then calls a separate backend workflow that sto
 including nullable participant emails and the original speaker blocks, is retained on
 the transcript record.
 
+Valid participant emails are matched exactly against normalized current profile emails.
+Only successful matches create `meeting_attendees`; display names never establish identity.
+Unmatched participants remain in transcript metadata for later server-side resolution.
+
 Source meeting and transcript identifiers provide durable database idempotency
 across restarts and multiple server instances. Meeting and transcript creation
 is atomic. Receipt processing makes one initial attempt and up to three retries.

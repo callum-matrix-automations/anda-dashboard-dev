@@ -26,7 +26,9 @@ Required completed-meeting fields include:
 - `platform` and `platform_meeting_id`
 - `report_url`
 
-Read AI participant emails are nullable. They are preserved as source data for the email-to-profile resolution tracked separately in work item #20.
+Read AI participant emails are nullable. ANDA trims and lowercases valid emails, then matches them exactly against the current email of one active member profile. Display names are never used for identity matching.
+
+Successful matches create `meeting_attendees` associations using permanent profile IDs and retain the source display name and email snapshots. Missing, invalid, unknown, or ambiguous emails do not create associations. Those participants remain available in immutable transcript metadata and can be checked again by the backend `resolveUnmatchedTranscriptParticipants` function after a profile becomes available.
 
 ## Authentication
 

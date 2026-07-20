@@ -4,6 +4,7 @@ import type {
   ReadAiPerson,
   ReadAiWebhookPayload,
 } from "../../../shared/contracts/readAiWebhook";
+import { normalizeProfileEmail } from "../../../shared/schemas/profileEmail";
 
 export class ReadAiTranscriptAdapterError extends Error {
   constructor(
@@ -133,10 +134,13 @@ function deduplicateParticipants(participants: ReadAiPerson[]) {
   const seen = new Set<string>();
   return participants.flatMap((participant) => {
     const displayName = participant.name.trim().replace(/\s+/gu, " ");
-    const email = participant.email?.trim().toLocaleLowerCase("en") ?? null;
-    const key = email ? `email:${email}` : `name:${displayName.toLocaleLowerCase("en-GB")}`;
+    const sourceEmail = participant.email?.trim() || null;
+    const normalizedEmail = normalizeProfileEmail(sourceEmail);
+    const key = normalizedEmail
+      ? `email:${normalizedEmail}`
+      : `name:${displayName.toLocaleLowerCase("en-GB")}`;
     if (seen.has(key)) return [];
     seen.add(key);
-    return [{ displayName, email }];
+    return [{ displayName, email: normalizedEmail ?? sourceEmail }];
   });
 }

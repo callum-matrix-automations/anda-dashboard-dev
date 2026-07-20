@@ -16,8 +16,9 @@ const packet: TranscriptWebhookPacket = {
     durationMinutes: 45,
   },
   attendees: [
-    { displayName: "  Eleanor   Hughes " },
-    { displayName: "Unknown Guest" },
+    { displayName: "  Source   Eleanor ", email: " ELEANOR.HUGHES@EXAMPLE.TEST " },
+    { displayName: "Eleanor Hughes" },
+    { displayName: "Unknown Guest", email: "unknown@example.test" },
   ],
   transcript: {
     sourceTranscriptId: "transcript_store_test_001",
@@ -32,6 +33,7 @@ describe("storeTranscriptImport", () => {
     const listActiveMemberProfiles = vi.fn().mockResolvedValue([{
       profileId: "10000000-0000-4000-8000-000000000001",
       displayName: "Eleanor Hughes",
+      email: "eleanor.hughes@example.test",
     }]);
     const storeImport = vi.fn().mockResolvedValue({
       status: "stored",
@@ -39,7 +41,11 @@ describe("storeTranscriptImport", () => {
       transcriptId: "22222222-2222-4222-8222-222222222222",
       importedAt: "2026-07-19T03:46:01.000Z",
     });
-    const repository: TranscriptRepository = { listActiveMemberProfiles, storeImport };
+    const repository: TranscriptRepository = {
+      listActiveMemberProfiles,
+      storeImport,
+      resolveUnmatchedParticipants: vi.fn(),
+    };
 
     await createTranscriptImportStore(repository)(packet);
 
@@ -53,7 +59,8 @@ describe("storeTranscriptImport", () => {
       metadata: {},
       attendees: [{
         profileId: "10000000-0000-4000-8000-000000000001",
-        displayNameSnapshot: "Eleanor Hughes",
+        displayNameSnapshot: "Source Eleanor",
+        sourceEmailSnapshot: "eleanor.hughes@example.test",
       }],
     });
     expect(listActiveMemberProfiles).toHaveBeenCalledOnce();

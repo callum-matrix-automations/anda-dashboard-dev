@@ -88,17 +88,19 @@ insert into public.profiles (
   member_role,
   is_admin,
   display_name,
+  email,
   account_status
 )
 values
-  ('10000000-0000-4000-8000-000000000001', 'MEMBER', 'OFFICER', true, 'Eleanor Hughes', 'ACTIVE'),
-  ('10000000-0000-4000-8000-000000000002', 'MEMBER', 'OFFICER', false, 'Marcus Patel', 'ACTIVE'),
-  ('10000000-0000-4000-8000-000000000003', 'MEMBER', 'TREASURER', false, 'Priya Shah', 'ACTIVE'),
-  ('10000000-0000-4000-8000-000000000004', 'MEMBER', 'USER', false, 'Daniel Brooks', 'ACTIVE'),
-  ('10000000-0000-4000-8000-000000000005', 'MEMBER', 'USER', false, 'Amelia Clarke', 'ACTIVE')
+  ('10000000-0000-4000-8000-000000000001', 'MEMBER', 'OFFICER', true, 'Eleanor Hughes', 'eleanor.hughes@example.test', 'ACTIVE'),
+  ('10000000-0000-4000-8000-000000000002', 'MEMBER', 'OFFICER', false, 'Marcus Patel', 'marcus.patel@example.test', 'ACTIVE'),
+  ('10000000-0000-4000-8000-000000000003', 'MEMBER', 'TREASURER', false, 'Priya Shah', 'priya.shah@example.test', 'ACTIVE'),
+  ('10000000-0000-4000-8000-000000000004', 'MEMBER', 'USER', false, 'Daniel Brooks', 'daniel.brooks@example.test', 'ACTIVE'),
+  ('10000000-0000-4000-8000-000000000005', 'MEMBER', 'USER', false, 'Amelia Clarke', 'amelia.clarke@example.test', 'ACTIVE')
 on conflict (id) do update set
   account_type = excluded.account_type,
   member_role = excluded.member_role,
   is_admin = excluded.is_admin,
   display_name = excluded.display_name,
+  email = excluded.email,
   account_status = excluded.account_status;
