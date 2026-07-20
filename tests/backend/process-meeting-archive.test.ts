@@ -23,11 +23,13 @@ describe("meeting archive processor", () => {
     const repository = repositoryMock();
     const storage = storageMock();
     const provider = providerMock();
+    const alerts = alertServiceMock();
     const process = createMeetingArchiveProcessor({
       repository,
       storage,
       provider,
       retryCount: 0,
+      alerts,
     });
 
     await expect(process(meetingId)).resolves.toEqual({
@@ -53,6 +55,7 @@ describe("meeting archive processor", () => {
       pageCount: 1,
     });
     expect(repository.recordFailure).not.toHaveBeenCalled();
+    expect(alerts.resolveFailure).toHaveBeenCalledWith({ stage: "ARCHIVE", meetingId });
   });
 
   it("retries three temporary failures before completing the same archive claim", async () => {
@@ -85,6 +88,7 @@ describe("meeting archive processor", () => {
     const repository = repositoryMock();
     const storage = storageMock();
     storage.storeSignedPdf = vi.fn().mockRejectedValue(new Error("storage offline"));
+    const alerts = alertServiceMock();
     const process = createMeetingArchiveProcessor({
       repository,
       storage,
@@ -92,6 +96,7 @@ describe("meeting archive processor", () => {
       retryCount: 2,
       retryDelayMs: 0,
       waitImplementation: vi.fn().mockResolvedValue(undefined),
+      alerts,
     });
 
     await expect(process(meetingId)).resolves.toEqual({
@@ -106,6 +111,12 @@ describe("meeting archive processor", () => {
     expect(repository.recordFailure).toHaveBeenCalledWith(meetingId, runId, {
       code: "archive_failed",
       message: "storage offline",
+    });
+    expect(alerts.recordFailure).toHaveBeenCalledWith({
+      stage: "ARCHIVE",
+      meetingId,
+      failureCode: "archive_failed",
+      workflowStatus: "ARCHIVE_FAILED",
     });
   });
 
@@ -143,6 +154,13 @@ describe("meeting archive processor", () => {
     expect(provider.downloadCompletedDocument).not.toHaveBeenCalled();
   });
 });
+
+function alertServiceMock() {
+  return {
+    recordFailure: vi.fn().mockResolvedValue(undefined),
+    resolveFailure: vi.fn().mockResolvedValue(1),
+  };
+}
 
 function claim() {
   return {

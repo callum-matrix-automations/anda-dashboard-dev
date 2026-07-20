@@ -3,16 +3,39 @@ import type {
   TranscriptImportFailureRepository,
 } from "../../repositories/transcripts/transcriptRepository";
 import { supabaseTranscriptRepository } from "../../repositories/supabase/supabaseTranscriptRepository";
+import {
+  operationalAlertService,
+  safelyRecordOperationalFailure,
+  safelyResolveOperationalFailure,
+  type OperationalAlertService,
+} from "../operations/operationalAlertService";
 
-export function createTranscriptImportAlertService(repository: TranscriptImportFailureRepository) {
+export function createTranscriptImportAlertService(
+  repository: TranscriptImportFailureRepository,
+  alerts?: OperationalAlertService,
+) {
   return {
-    recordFailure(record: TranscriptImportFailureRecord) {
-      return repository.recordFailure(record);
+    async recordFailure(record: TranscriptImportFailureRecord) {
+      await repository.recordFailure(record);
+      await safelyRecordOperationalFailure(alerts, {
+        stage: "TRANSCRIPT_IMPORT",
+        entityRef: record.sourceMeetingId,
+        failureCode: record.errorCode,
+        workflowStatus: "IMPORT_FAILED",
+      });
     },
-    resolveFailure(sourceMeetingId: string, resolvedAt: string) {
-      return repository.resolveFailure("read_ai", sourceMeetingId, resolvedAt);
+    async resolveFailure(sourceMeetingId: string, resolvedAt: string) {
+      await repository.resolveFailure("read_ai", sourceMeetingId, resolvedAt);
+      await safelyResolveOperationalFailure(alerts, {
+        stage: "TRANSCRIPT_IMPORT",
+        entityRef: sourceMeetingId,
+        resolvedAt,
+      });
     },
   };
 }
 
-export const transcriptImportAlertService = createTranscriptImportAlertService(supabaseTranscriptRepository);
+export const transcriptImportAlertService = createTranscriptImportAlertService(
+  supabaseTranscriptRepository,
+  operationalAlertService,
+);

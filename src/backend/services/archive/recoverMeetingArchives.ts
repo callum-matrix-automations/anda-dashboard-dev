@@ -10,9 +10,12 @@ export function createMeetingArchiveRecovery({
   repository?: MeetingArchiveRepository;
   processor?: (meetingId: string) => Promise<MeetingArchiveProcessResult>;
 } = {}) {
-  return async function recoverMeetingArchives(limit = 25) {
+  return async function recoverMeetingArchives(limit = 25, maxAttempts?: number) {
     const validatedLimit = z.number().int().min(1).max(100).parse(limit);
-    const meetingIds = await repository.listRecoveryCandidates(validatedLimit);
+    const validatedMaxAttempts = maxAttempts === undefined
+      ? undefined
+      : z.number().int().min(1).max(20).parse(maxAttempts);
+    const meetingIds = await repository.listRecoveryCandidates(validatedLimit, validatedMaxAttempts);
     const results: MeetingArchiveProcessResult[] = [];
     for (const meetingId of meetingIds) results.push(await processor(meetingId));
     return { processed: results.length, results };

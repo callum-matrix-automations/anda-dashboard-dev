@@ -20,7 +20,13 @@ describe("signing outcome processor", () => {
   it("verifies the expected signer and complete PDF before marking it ready for archive", async () => {
     const repository = repositoryMock();
     const provider = providerMock();
-    const processor = createSigningOutcomeProcessor({ repository, provider, signerEmail: "treasurer@example.test" });
+    const alerts = alertServiceMock();
+    const processor = createSigningOutcomeProcessor({
+      repository,
+      provider,
+      signerEmail: "treasurer@example.test",
+      alerts,
+    });
 
     await expect(processor.processWebhookEvent("evt_1")).resolves.toEqual({
       status: "ready_for_archive",
@@ -40,6 +46,7 @@ describe("signing outcome processor", () => {
       signedDocumentSha256: createHash("sha256").update(signedPdf).digest("hex"),
       signedDocumentSizeBytes: signedPdf.byteLength,
     });
+    expect(alerts.resolveFailure).toHaveBeenCalledWith({ stage: "SIGNING", meetingId });
   });
 
   it("supports missed-callback recovery through the same authoritative provider check", async () => {
@@ -123,10 +130,12 @@ describe("signing outcome processor", () => {
     "locks terminal provider status %s as a non-retryable failure",
     async (status) => {
       const repository = repositoryMock();
+      const alerts = alertServiceMock();
       const processor = createSigningOutcomeProcessor({
         repository,
         provider: providerMock(status),
         signerEmail: "treasurer@example.test",
+        alerts,
       });
       await expect(processor.processWebhookEvent("evt_1")).resolves.toMatchObject({
         status: "failed",
@@ -137,6 +146,12 @@ describe("signing outcome processor", () => {
         claim(),
         expect.objectContaining({ retryable: false, providerStatus: status }),
       );
+      expect(alerts.recordFailure).toHaveBeenCalledWith({
+        stage: "SIGNING",
+        meetingId,
+        failureCode: `firma_request_${status}`,
+        workflowStatus: "ESIGN_FAILED",
+      });
     },
   );
 
@@ -213,6 +228,13 @@ describe("signing outcome processor", () => {
     expect(provider.getRequest).not.toHaveBeenCalled();
   });
 });
+
+function alertServiceMock() {
+  return {
+    recordFailure: vi.fn().mockResolvedValue(undefined),
+    resolveFailure: vi.fn().mockResolvedValue(1),
+  };
+}
 
 function claim(overrides: Partial<Extract<MeetingSigningOutcomeClaim, { status: "claimed" }>> = {}) {
   return {

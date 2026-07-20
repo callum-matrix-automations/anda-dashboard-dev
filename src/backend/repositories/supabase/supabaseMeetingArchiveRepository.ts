@@ -122,10 +122,16 @@ export function createSupabaseMeetingArchiveRepository({
         p_error_message: failure.message,
       }), "archive failure");
     },
-    async listRecoveryCandidates(limit) {
-      return parse(RecoveryCandidatesSchema, await callRpc("list_archive_recovery_candidates", {
-        p_limit: limit,
-      }), "archive recovery candidates");
+    async listRecoveryCandidates(limit, maxAttempts) {
+      const operational = maxAttempts !== undefined;
+      return parse(RecoveryCandidatesSchema, await callRpc(
+        operational
+          ? "list_operational_archive_recovery_candidates"
+          : "list_archive_recovery_candidates",
+        operational
+          ? { p_limit: limit, p_max_attempts: maxAttempts }
+          : { p_limit: limit },
+      ), "archive recovery candidates");
     },
     async search(query) {
       const input = MeetingArchiveQuerySchema.parse(query);

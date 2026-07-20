@@ -16,6 +16,12 @@ import {
   type SigningRecipient,
 } from "../../../shared/contracts/meetingSigning";
 import { TREASURER_SIGNATURE_ANCHOR } from "../pdf/renderMinutesPdf";
+import {
+  operationalAlertService,
+  safelyRecordOperationalFailure,
+  safelyResolveOperationalFailure,
+  type OperationalAlertService,
+} from "../operations/operationalAlertService";
 
 export type MeetingSigningProcessResult =
   | {
@@ -41,6 +47,7 @@ interface MeetingSigningProcessorOptions {
   pdfSource?: ApprovedPdfSource;
   provider?: SigningRequestProvider;
   recipient?: SigningRecipient;
+  alerts?: OperationalAlertService;
 }
 
 export function createMeetingSigningProcessor({
@@ -48,6 +55,7 @@ export function createMeetingSigningProcessor({
   pdfSource = supabaseMinutesPdfStorage,
   provider = firmaSigningClient,
   recipient,
+  alerts,
 }: MeetingSigningProcessorOptions = {}) {
   return async function processMeetingSigning(meetingId: string): Promise<MeetingSigningProcessResult> {
     const parsedMeetingId = z.string().uuid().parse(meetingId);
@@ -101,6 +109,10 @@ export function createMeetingSigningProcessor({
           attempt: claim.attempt,
         };
       }
+      await safelyResolveOperationalFailure(alerts, {
+        stage: "SIGNING",
+        meetingId: parsedMeetingId,
+      });
       return {
         status: "completed",
         meetingId: parsedMeetingId,
@@ -121,6 +133,12 @@ export function createMeetingSigningProcessor({
           attempt: claim.attempt,
         };
       }
+      await safelyRecordOperationalFailure(alerts, {
+        stage: "SIGNING",
+        meetingId: parsedMeetingId,
+        failureCode: failure.code,
+        workflowStatus: "ESIGN_FAILED",
+      });
       return {
         status: "failed",
         meetingId: parsedMeetingId,
@@ -194,4 +212,4 @@ function safeMessage(value: string, fallback: string): string {
   return message ? message.slice(0, 2_000) : fallback;
 }
 
-export const processMeetingSigning = createMeetingSigningProcessor();
+export const processMeetingSigning = createMeetingSigningProcessor({ alerts: operationalAlertService });

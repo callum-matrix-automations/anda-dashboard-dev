@@ -37,7 +37,7 @@ export interface MeetingArchiveRepository {
     runId: string,
     failure: MeetingArchiveFailure,
   ): Promise<MeetingArchiveFailurePersistence>;
-  listRecoveryCandidates(limit: number): Promise<string[]>;
+  listRecoveryCandidates(limit: number, maxAttempts?: number): Promise<string[]>;
   search(query: MeetingArchiveQuery): Promise<MeetingArchiveSearchResult>;
   get(meetingId: string): Promise<StoredMeetingArchiveResult>;
 }

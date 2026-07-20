@@ -21,7 +21,8 @@ describe("meeting signing processor", () => {
     const repository = repositoryMock();
     const pdfSource = pdfSourceMock();
     const provider = providerMock();
-    const processSigning = createMeetingSigningProcessor({ repository, pdfSource, provider, recipient });
+    const alerts = alertServiceMock();
+    const processSigning = createMeetingSigningProcessor({ repository, pdfSource, provider, recipient, alerts });
 
     await expect(processSigning(meetingId)).resolves.toEqual({
       status: "completed",
@@ -49,6 +50,7 @@ describe("meeting signing processor", () => {
     expect(provider.sendRequest).toHaveBeenCalledWith("firma-request-1");
     expect(repository.completeDelivery).toHaveBeenCalledWith(meetingId, runId);
     expect(repository.recordFailure).not.toHaveBeenCalled();
+    expect(alerts.resolveFailure).toHaveBeenCalledWith({ stage: "SIGNING", meetingId });
   });
 
   it("reuses the durable external request reference on retry", async () => {
@@ -117,11 +119,13 @@ describe("meeting signing processor", () => {
   it("fails safely without contacting Firma when the stored PDF size has changed", async () => {
     const repository = repositoryMock(claim({ pdfSizeBytes: document.byteLength + 1 }));
     const provider = providerMock();
+    const alerts = alertServiceMock();
     const processSigning = createMeetingSigningProcessor({
       repository,
       pdfSource: pdfSourceMock(),
       provider,
       recipient,
+      alerts,
     });
 
     await expect(processSigning(meetingId)).resolves.toMatchObject({
@@ -135,6 +139,12 @@ describe("meeting signing processor", () => {
     expect(repository.recordFailure).toHaveBeenCalledWith(meetingId, runId, {
       code: "approved_pdf_size_mismatch",
       message: "The stored approved PDF size does not match its immutable record.",
+    });
+    expect(alerts.recordFailure).toHaveBeenCalledWith({
+      stage: "SIGNING",
+      meetingId,
+      failureCode: "approved_pdf_size_mismatch",
+      workflowStatus: "ESIGN_FAILED",
     });
   });
 
@@ -196,6 +206,13 @@ describe("meeting signing processor", () => {
     expect(repository.recordFailure).not.toHaveBeenCalled();
   });
 });
+
+function alertServiceMock() {
+  return {
+    recordFailure: vi.fn().mockResolvedValue(undefined),
+    resolveFailure: vi.fn().mockResolvedValue(1),
+  };
+}
 
 function claim(overrides: Partial<Extract<MeetingSigningClaim, { status: "claimed" }>> = {}) {
   return {

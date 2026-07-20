@@ -5,6 +5,12 @@ import { MinutesPdfStorageError, supabaseMinutesPdfStorage } from "../../reposit
 import type { MinutesPdfStorage } from "../../repositories/storage/minutesPdfStorage";
 import { buildMinutesDocument } from "./buildMinutesDocument";
 import { renderMinutesPdf } from "./renderMinutesPdf";
+import {
+  operationalAlertService,
+  safelyRecordOperationalFailure,
+  safelyResolveOperationalFailure,
+  type OperationalAlertService,
+} from "../operations/operationalAlertService";
 
 export type MeetingPdfProcessResult =
   | { status: "completed"; meetingId: string; attempt: number; path: string }
@@ -15,12 +21,14 @@ interface MeetingPdfProcessorOptions {
   repository?: MeetingApprovalRepository;
   storage?: MinutesPdfStorage;
   render?: typeof renderMinutesPdf;
+  alerts?: OperationalAlertService;
 }
 
 export function createMeetingPdfProcessor({
   repository = supabaseMeetingApprovalRepository,
   storage = supabaseMinutesPdfStorage,
   render = renderMinutesPdf,
+  alerts,
 }: MeetingPdfProcessorOptions = {}) {
   return async function processMeetingPdf(meetingId: string): Promise<MeetingPdfProcessResult> {
     const parsedMeetingId = z.string().uuid().parse(meetingId);
@@ -46,6 +54,10 @@ export function createMeetingPdfProcessor({
           attempt: claim.attempt,
         };
       }
+      await safelyResolveOperationalFailure(alerts, {
+        stage: "PDF_GENERATION",
+        meetingId: parsedMeetingId,
+      });
       return {
         status: "completed",
         meetingId: parsedMeetingId,
@@ -66,6 +78,12 @@ export function createMeetingPdfProcessor({
           attempt: claim.attempt,
         };
       }
+      await safelyRecordOperationalFailure(alerts, {
+        stage: "PDF_GENERATION",
+        meetingId: parsedMeetingId,
+        failureCode: failure.code,
+        workflowStatus: "PDF_FAILED",
+      });
       return {
         status: "failed",
         meetingId: parsedMeetingId,
@@ -96,4 +114,4 @@ function safeMessage(value: string, fallback: string): string {
   return message ? message.slice(0, 2_000) : fallback;
 }
 
-export const processMeetingPdf = createMeetingPdfProcessor();
+export const processMeetingPdf = createMeetingPdfProcessor({ alerts: operationalAlertService });
