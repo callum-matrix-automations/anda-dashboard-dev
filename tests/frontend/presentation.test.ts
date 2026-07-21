@@ -19,9 +19,11 @@ describe("frontend presentation helpers", () => {
     expect(history.map((entry) => entry.id)).toEqual(["1", "2"]);
   });
 
-  it("polls meeting detail only while AI analysis is active", () => {
+  it("polls meeting detail while background processing or signing completion is active", () => {
     expect(meetingDetailRefreshInterval({ status: "AI_PROCESSING" })).toBe(2_000);
     expect(meetingDetailRefreshInterval({ status: "PDF_PROCESSING" })).toBe(2_000);
+    expect(meetingDetailRefreshInterval({ status: "AWAITING_SIGNATURE" })).toBe(3_000);
+    expect(meetingDetailRefreshInterval({ status: "ARCHIVE_FAILED" })).toBe(3_000);
     expect(meetingDetailRefreshInterval({ status: "PENDING_APPROVAL" })).toBe(false);
     expect(meetingDetailRefreshInterval({ status: "AI_FAILED" })).toBe(false);
     expect(meetingDetailRefreshInterval(undefined)).toBe(false);

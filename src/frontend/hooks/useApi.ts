@@ -8,6 +8,7 @@ import {
 } from "@/frontend/presentation/meetingRefresh";
 import type { ModuleName } from "@/shared/contracts/api";
 import type { MeetingApiQueue } from "@/shared/contracts/meetingApi";
+import type { MeetingArchiveQuery } from "@/shared/contracts/meetingArchive";
 import type { MeetingReviewDraft } from "@/shared/contracts/meetingReview";
 
 export function useMeetings(queue: MeetingApiQueue = "all") {
@@ -99,6 +100,53 @@ export function useRetryMeetingSigning() {
       apiClient.meetings.retrySigning(meetingId, expectedVersion)
     ),
   );
+}
+
+export function useMeetingSigningSession(meetingId: string, documentVersion: number | null, enabled: boolean) {
+  return useQuery({
+    queryKey: ["meeting-signing-session", meetingId, documentVersion],
+    queryFn: () => apiClient.meetings.signingSession(meetingId),
+    enabled,
+    retry: false,
+    staleTime: 30_000,
+  });
+}
+
+export function useRejectMeetingSigning() {
+  return useMeetingMutation(
+    ({ meetingId, expectedVersion, comment }: { meetingId: string; expectedVersion: number; comment: string }) => (
+      apiClient.meetings.rejectSigning(meetingId, expectedVersion, comment)
+    ),
+  );
+}
+
+export function useRetryMeetingSigningOutcome() {
+  return useMeetingMutation(
+    ({ meetingId, expectedVersion }: { meetingId: string; expectedVersion: number }) => (
+      apiClient.meetings.retrySigningOutcome(meetingId, expectedVersion)
+    ),
+  );
+}
+
+export function useArchive(query: Partial<MeetingArchiveQuery>, enabled = true) {
+  return useQuery({
+    queryKey: ["archive", query],
+    queryFn: () => apiClient.archive.list(query),
+    enabled,
+    retry: false,
+  });
+}
+
+export function useArchiveMeeting(meetingId: string) {
+  return useQuery({
+    queryKey: ["archive-meeting", meetingId],
+    queryFn: () => apiClient.archive.get(meetingId),
+    retry: false,
+  });
+}
+
+export function useArchiveDocumentAccess() {
+  return useMutation({ mutationFn: (meetingId: string) => apiClient.archive.documentAccess(meetingId) });
 }
 
 export function useAccounts() {

@@ -17,6 +17,7 @@ import { MeetingTabs, type MeetingTab } from "./MeetingTabs";
 import { MeetingSourcePanel } from "./MeetingSourcePanel";
 import { MeetingWorkflowState } from "./MeetingWorkflowState";
 import { ReviewHistoryTimeline } from "./ReviewHistoryTimeline";
+import { TreasurerRejectionNotice } from "./TreasurerRejectionNotice";
 
 const TABS = ["Minutes", "Transcript", "Attendance", "Motions", "History"] as const;
 type MeetingReviewTab = (typeof TABS)[number];
@@ -66,6 +67,7 @@ export function MeetingReview({ meetingId, mode }: { meetingId: string; mode: "r
           <MeetingPdfPreview meeting={meeting} />
         </header>
         <MeetingAnalysisState meeting={meeting} />
+        <TreasurerRejectionNotice meeting={meeting} />
         <MeetingWorkflowState meeting={meeting} onFeedback={showFeedback} />
         <MeetingSourcePanel source={meeting.source} sourceParticipants={meeting.sourceParticipants} />
         {editing ? (

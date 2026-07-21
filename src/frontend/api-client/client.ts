@@ -8,11 +8,22 @@ import {
   MeetingApiErrorResponseSchema,
   MeetingApiListResponseSchema,
   MeetingApiMutationResponseSchema,
+  MeetingApiSigningSessionSchema,
   type MeetingApiDetail,
   type MeetingApiListQuery,
   type MeetingApiListResponse,
   type MeetingApiMutationResponse,
+  type MeetingApiSigningSession,
 } from "../../shared/contracts/meetingApi";
+import {
+  MeetingArchiveAccessSchema,
+  MeetingArchiveDetailSchema,
+  MeetingArchiveSearchResultSchema,
+  type MeetingArchiveAccess,
+  type MeetingArchiveDetail,
+  type MeetingArchiveQuery,
+  type MeetingArchiveSearchResult,
+} from "../../shared/contracts/meetingArchive";
 import type { MeetingReviewDraft } from "../../shared/contracts/meetingReview";
 import type { z } from "zod";
 
@@ -110,8 +121,34 @@ export const apiClient = {
     async retrySigning(id: string, expectedVersion: number): Promise<MeetingApiMutationResponse> {
       return meetingMutation(id, "signing/retry", "POST", { expectedVersion });
     },
+    async signingSession(id: string): Promise<MeetingApiSigningSession> {
+      return request(
+        `/api/meetings/${encodeURIComponent(id)}/signing-session`,
+        MeetingApiSigningSessionSchema,
+      );
+    },
+    async rejectSigning(id: string, expectedVersion: number, comment: string): Promise<MeetingApiMutationResponse> {
+      return meetingMutation(id, "signing/reject", "POST", { expectedVersion, comment });
+    },
+    async retrySigningOutcome(id: string, expectedVersion: number): Promise<MeetingApiMutationResponse> {
+      return meetingMutation(id, "signing-outcome/retry", "POST", { expectedVersion });
+    },
     async previewPdf(id: string): Promise<Blob> {
       return requestBlob(`/api/meetings/${encodeURIComponent(id)}/pdf/preview`);
+    },
+  },
+  archive: {
+    async list(query: Partial<MeetingArchiveQuery> = {}): Promise<MeetingArchiveSearchResult> {
+      return request(`/api/archive${archiveSearch(query)}`, MeetingArchiveSearchResultSchema);
+    },
+    async get(meetingId: string): Promise<MeetingArchiveDetail> {
+      return request(`/api/archive/${encodeURIComponent(meetingId)}`, MeetingArchiveDetailSchema);
+    },
+    async documentAccess(meetingId: string): Promise<MeetingArchiveAccess> {
+      return request(
+        `/api/archive/${encodeURIComponent(meetingId)}/document`,
+        MeetingArchiveAccessSchema,
+      );
     },
   },
   accounts: {
@@ -149,6 +186,17 @@ function meetingListSearch(query: Partial<MeetingApiListQuery>): string {
   const search = new URLSearchParams();
   if (query.queue) search.set("queue", query.queue);
   if (query.status) search.set("status", query.status);
+  if (query.limit !== undefined) search.set("limit", String(query.limit));
+  if (query.offset !== undefined) search.set("offset", String(query.offset));
+  const serialized = search.toString();
+  return serialized ? `?${serialized}` : "";
+}
+
+function archiveSearch(query: Partial<MeetingArchiveQuery>): string {
+  const search = new URLSearchParams();
+  if (query.query) search.set("q", query.query);
+  if (query.year !== undefined) search.set("year", String(query.year));
+  if (query.category) search.set("category", query.category);
   if (query.limit !== undefined) search.set("limit", String(query.limit));
   if (query.offset !== undefined) search.set("offset", String(query.offset));
   const serialized = search.toString();

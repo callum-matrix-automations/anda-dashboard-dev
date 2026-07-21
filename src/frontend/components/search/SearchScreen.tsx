@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useDeferredValue, useState } from "react";
 import { useMeetingSearch } from "@/frontend/hooks/useApi";
 import { ErrorState } from "@/frontend/components/shared/States";
-import { statusLabel, statusText } from "@/frontend/components/shared/meetingPresentation";
+import { meetingHref, statusLabel, statusText } from "@/frontend/components/shared/meetingPresentation";
 
 const MAX_QUERY_LENGTH = 200;
 
@@ -21,7 +21,7 @@ export function SearchScreen() {
       {deferredQuery && results.isError && <ErrorState message={errorMessage(results.error)} retry={() => void results.refetch()} />}
       {deferredQuery && results.isLoading && <p role="status" className="text-sm opacity-60">Searching…</p>}
       {deferredQuery && results.data && meetings.length === 0 && <p role="status" className="text-sm opacity-60">No matching records were returned.</p>}
-      {meetings.length > 0 && <ul className="grid gap-2">{meetings.map((meeting) => <li key={meeting.id} className="card border border-base-300 bg-base-200"><div className="card-body flex-row items-center justify-between p-3"><div><strong>{meeting.title}</strong><div className={`text-sm ${statusText[meeting.status]}`}>{statusLabel[meeting.status]}</div></div><Link className="btn btn-outline btn-sm" href={`/app/meetings/${meeting.id}`}>Open</Link></div></li>)}</ul>}
+      {meetings.length > 0 && <ul className="grid gap-2">{meetings.map((meeting) => <li key={meeting.id} className="card border border-base-300 bg-base-200"><div className="card-body flex-row items-center justify-between p-3"><div><strong>{meeting.title}</strong><div className={`text-sm ${statusText[meeting.status]}`}>{statusLabel[meeting.status]}</div></div><Link className="btn btn-outline btn-sm" href={meetingHref(meeting.status, meeting.id)}>Open</Link></div></li>)}</ul>}
     </div>
   );
 }

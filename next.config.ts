@@ -13,7 +13,7 @@ const securityHeaders = [
       "img-src 'self' data:",
       "font-src 'self'",
       "connect-src 'self'",
-      "frame-src 'self' blob:",
+      "frame-src 'self' blob: https://app.firma.dev",
       "object-src 'self' blob:",
       "frame-ancestors 'none'",
       "base-uri 'self'",

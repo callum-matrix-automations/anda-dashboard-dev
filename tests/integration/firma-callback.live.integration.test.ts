@@ -57,7 +57,9 @@ describe.skipIf(!enabled)("live Firma callback workflow", () => {
     if (session.status !== "available") {
       throw new Error(`The live signing session is ${session.status}.`);
     }
-    process.stdout.write(`\nSign the live Firma document, then leave this test running:\n${session.signingUrl}\n`);
+    const localPort = Number(process.env.FIRMA_CALLBACK_LOCAL_PORT ?? "3010");
+    process.stdout.write(`\nOpen the ANDA Treasurer screen and sign the live document, then leave this test running:\nhttp://127.0.0.1:${localPort}/app/signing/${meetingId}\n`);
+    process.stdout.write(`Direct Firma fallback:\n${session.signingUrl}\n`);
     process.stdout.write(`Waiting up to ${Math.round(waitMilliseconds / 60_000)} minutes for the verified callback and completed archive...\n\n`);
 
     const finalState = await waitForCompletedArchive(meetingId, session.requestId, waitMilliseconds);
