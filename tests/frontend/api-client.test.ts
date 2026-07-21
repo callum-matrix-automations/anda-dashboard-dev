@@ -77,6 +77,50 @@ describe("frontend API client", () => {
     );
   });
 
+  it("loads a Treasurer signing session and sends rejection and outcome recovery commands", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({
+        meetingId,
+        documentVersion: 4,
+        providerStatus: "pending",
+        recipientEmail: "treasurer@example.test",
+        signingUrl: "https://app.firma.dev/signing/recipient-1",
+      }))
+      .mockResolvedValueOnce(jsonResponse({ action: "signing_rejected", meetingId, version: 7, documentVersion: 4 }))
+      .mockResolvedValueOnce(jsonResponse({ action: "signing_outcome_retry_started", meetingId, version: 8, documentVersion: 4 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(apiClient.meetings.signingSession(meetingId)).resolves.toMatchObject({ providerStatus: "pending" });
+    await apiClient.meetings.rejectSigning(meetingId, 6, "Correct the vote count.");
+    await apiClient.meetings.retrySigningOutcome(meetingId, 7);
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(`/api/meetings/${meetingId}/signing-session`);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(`/api/meetings/${meetingId}/signing/reject`);
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ body: JSON.stringify({ expectedVersion: 6, comment: "Correct the vote count." }) });
+    expect(fetchMock.mock.calls[2]?.[0]).toBe(`/api/meetings/${meetingId}/signing-outcome/retry`);
+  });
+
+  it("uses the real archive filters, detail, and temporary document-access APIs", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ items: [archiveListItem()], total: 1, limit: 10, offset: 0 }))
+      .mockResolvedValueOnce(jsonResponse(archiveDetailResponse()))
+      .mockResolvedValueOnce(jsonResponse({
+        meetingId,
+        pdfId: "55555555-5555-4555-8555-555555555555",
+        url: "https://supabase.example.test/storage/signed.pdf?token=temporary",
+        expiresAt: "2026-07-21T13:05:00.000Z",
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await apiClient.archive.list({ query: "budget reserve", year: 2026, category: "Board Meeting", limit: 10, offset: 0 });
+    await expect(apiClient.archive.get(meetingId)).resolves.toMatchObject({ meetingId, title: "ANDA Board Meeting" });
+    await expect(apiClient.archive.documentAccess(meetingId)).resolves.toMatchObject({ meetingId });
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/archive?q=budget+reserve&year=2026&category=Board+Meeting&limit=10&offset=0");
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(`/api/archive/${meetingId}`);
+    expect(fetchMock.mock.calls[2]?.[0]).toBe(`/api/archive/${meetingId}/document`);
+  });
+
   it.each([
     ["resume", () => apiClient.meetings.resume(meetingId, 4), "POST", { expectedVersion: 4 }],
     ["ready", () => apiClient.meetings.markReady(meetingId, 4), "POST", { expectedVersion: 4 }],
@@ -172,6 +216,36 @@ describe("frontend API client", () => {
 
 function listResponse() {
   return { items: [summary()], total: 1, limit: 25, offset: 0 };
+}
+
+function archiveListItem() {
+  return {
+    meetingId,
+    title: "ANDA Board Meeting",
+    meetingDate: "2026-07-21",
+    category: "Board Meeting",
+    tags: ["budget"],
+    signedBy: profileId,
+    signedAt: "2026-07-21T12:00:00.000Z",
+    signedPdfId: "55555555-5555-4555-8555-555555555555",
+    completedAt: "2026-07-21T12:01:00.000Z",
+    version: 8,
+  };
+}
+
+function archiveDetailResponse() {
+  return {
+    ...archiveListItem(),
+    minutes: { summary: "The board approved the reserve.", sections: [{ heading: "Budget", content: "Approved." }] },
+    motions: [{ id: "66666666-6666-4666-8666-666666666666", text: "Approve the reserve.", outcome: "CARRIED" }],
+    document: {
+      pdfId: "55555555-5555-4555-8555-555555555555",
+      sha256: "a".repeat(64),
+      sizeBytes: 12_000,
+      pageCount: 3,
+      documentVersion: 4,
+    },
+  };
 }
 
 function summary() {

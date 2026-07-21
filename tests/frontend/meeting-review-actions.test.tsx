@@ -117,6 +117,53 @@ describe("meeting review workflow actions", () => {
     ));
     await waitFor(() => expect(feedback).toHaveBeenCalledWith("PDF generation restarted.", "success"));
   });
+
+  it("offers signing delivery and missed-callback recovery for e-signature failures", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      action: "signing_outcome_retry_started", meetingId, version: 5, documentVersion: 4,
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const feedback = vi.fn();
+    const meeting = reviewMeeting({
+      status: "ESIGN_FAILED",
+      capabilities: {
+        ...reviewMeeting().capabilities,
+        canEdit: false,
+        canDefer: false,
+        canApprove: false,
+        canRetrySigning: true,
+        canRetrySigningOutcome: true,
+      },
+      failure: { code: "esign_failed", message: "Firma callback was missed.", at: "2026-07-21T10:00:00.000Z" },
+    });
+    renderWithQuery(createElement(MeetingWorkflowState, { meeting, onFeedback: feedback }));
+
+    expect(screen.getByRole("button", { name: "Retry signing delivery" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Check Firma status" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      `/api/meetings/${meetingId}/signing-outcome/retry`,
+      expect.objectContaining({ body: JSON.stringify({ expectedVersion: 4 }) }),
+    ));
+  });
+
+  it("keeps archive failures locked without exposing a manual retry", () => {
+    const meeting = reviewMeeting({
+      status: "ARCHIVE_FAILED",
+      capabilities: {
+        ...reviewMeeting().capabilities,
+        canEdit: false,
+        canDefer: false,
+        canApprove: false,
+        canRetrySigning: false,
+        canRetrySigningOutcome: false,
+      },
+      failure: { code: "archive_failed", message: "Storage is temporarily unavailable.", at: "2026-07-21T10:00:00.000Z" },
+    });
+    renderWithQuery(createElement(MeetingWorkflowState, { meeting, onFeedback: vi.fn() }));
+    expect(screen.getByText(/automatic recovery will continue/i)).toBeTruthy();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
 });
 
 function renderWithQuery(node: ReactNode) {

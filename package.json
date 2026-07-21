@@ -21,6 +21,7 @@
     "test:operations:live:telegram": "node --env-file-if-exists=.env.local scripts/run-live-telegram-alert-test.mjs",
     "test:signing:live:webhook": "node --env-file-if-exists=.env.local scripts/run-live-signing-callback-test.mjs --preflight-only",
     "test:signing:live:callback": "node --env-file-if-exists=.env.local scripts/run-live-signing-callback-test.mjs",
+    "test:signing:live:frontend": "node --env-file-if-exists=.env.local scripts/run-live-signing-callback-test.mjs --manual-frontend",
     "test:workflow:live": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/pre-approval-workflow.live.integration.test.ts",
     "test:workflow:live:full": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/full-workflow.live.integration.test.ts",
     "test:openai": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/openai-connection.integration.test.ts",

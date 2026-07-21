@@ -9,6 +9,11 @@ const apiKey = requiredSecret("FIRMA_API_KEY");
 const workspaceId = requiredUuid("FIRMA_WORKSPACE_ID");
 requiredSecret("FIRMA_WEBHOOK_SECRET");
 const preflightOnly = process.argv.includes("--preflight-only");
+const manualFrontend = process.argv.includes("--manual-frontend");
+const liveTreasurerProfileId = optionalUuid(
+  "FIRMA_LIVE_TREASURER_PROFILE_ID",
+  "10000000-0000-4000-8000-000000000003",
+);
 
 let nextProcess;
 let tunnelProcess;
@@ -22,7 +27,7 @@ try {
     String(localPort),
   ], {
     cwd: process.cwd(),
-    env: process.env,
+    env: { ...process.env, ANDA_DEV_ACTOR_PROFILE_ID: liveTreasurerProfileId },
     stdio: ["ignore", "pipe", "pipe"],
   });
   pipeOutput(nextProcess, "next");
@@ -51,6 +56,22 @@ try {
 
   if (preflightOnly) {
     process.stdout.write("Webhook preflight completed; no meeting, signing request, or archive was created.\n");
+  } else if (manualFrontend) {
+    process.stdout.write([
+      "Manual frontend signing environment is ready.",
+      "",
+      `Frontend: http://127.0.0.1:${localPort}/app/dashboard`,
+      `Transcript webhook: http://127.0.0.1:${localPort}/api/webhooks/transcripts`,
+      "",
+      "In a second terminal, create the meeting with:",
+      `npm.cmd run mock:transcript -- http://127.0.0.1:${localPort}/api/webhooks/transcripts`,
+      "",
+      "Complete review, approval, Treasurer signing, and archive verification in the frontend.",
+      "Keep this terminal open so the temporary Firma callback remains available.",
+      "Press Ctrl+C after the meeting appears in the archive.",
+      "",
+    ].join("\n"));
+    await waitForManualShutdown();
   } else {
     const exitCode = await runVitest({
       ...process.env,
@@ -223,6 +244,14 @@ function requiredUuid(name) {
   return value;
 }
 
+function optionalUuid(name, fallback) {
+  const value = process.env[name]?.trim() || fallback;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value)) {
+    throw new Error(`${name} must be a UUID.`);
+  }
+  return value;
+}
+
 async function readJson(response) {
   const text = await response.text();
   if (!text) return null;
@@ -235,4 +264,15 @@ function delay(milliseconds) {
 
 function safeMessage(error) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function waitForManualShutdown() {
+  return new Promise((resolveShutdown) => {
+    const finish = () => {
+      process.stdout.write("\nStopping the manual frontend signing environment...\n");
+      resolveShutdown();
+    };
+    process.once("SIGINT", finish);
+    process.once("SIGTERM", finish);
+  });
 }
