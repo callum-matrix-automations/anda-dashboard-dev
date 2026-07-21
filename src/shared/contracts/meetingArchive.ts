@@ -79,7 +79,7 @@ export const MeetingArchiveSearchResultSchema = z.object({
 export const MeetingArchiveMotionSchema = z.object({
   id: z.string().uuid(),
   text: z.string().nullable(),
-  outcome: z.enum(["CARRIED", "FAILED", "TABLED"]).nullable(),
+  outcome: z.enum(["CARRIED", "FAILED", "TABLED", "NOT_SECONDED"]).nullable(),
 }).strict();
 
 export const MeetingArchiveDocumentSchema = z.object({

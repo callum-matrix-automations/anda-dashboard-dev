@@ -31,11 +31,11 @@ export function MeetingTabs({ meeting, tab }: { meeting: MeetingApiDetail; tab: 
             <div className="card-body gap-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <h3 className="font-medium">{motion.text}</h3>
-                <span className="badge badge-outline capitalize">{motion.outcome}</span>
+                <span className="badge badge-outline">{outcomeLabel(motion.outcome)}</span>
               </div>
               <dl className="grid gap-2 text-sm sm:grid-cols-2">
                 <div><dt className="opacity-55">Moved by</dt><dd>{profileName(motion.moverProfileId, displayNames)}</dd></div>
-                <div><dt className="opacity-55">Seconded by</dt><dd>{profileName(motion.seconderProfileId, displayNames)}</dd></div>
+                <div><dt className="opacity-55">Seconded by</dt><dd>{motion.outcome === "not_seconded" ? "No seconder — not put to vote" : profileName(motion.seconderProfileId, displayNames)}</dd></div>
               </dl>
               <div className="flex flex-wrap gap-2">
                 {motion.votes.map((vote) => (
@@ -75,4 +75,9 @@ export function MeetingTabs({ meeting, tab }: { meeting: MeetingApiDetail; tab: 
 function profileName(profileId: string | null, displayNames: Map<string, string>): string {
   if (!profileId) return "Not identified";
   return displayNames.get(profileId) ?? "Unknown attendee";
+}
+
+function outcomeLabel(outcome: MeetingApiDetail["motions"][number]["outcome"]): string {
+  if (outcome === "not_seconded") return "Not seconded";
+  return outcome.charAt(0).toUpperCase() + outcome.slice(1);
 }

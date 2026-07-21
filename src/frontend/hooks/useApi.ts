@@ -1,13 +1,14 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/frontend/api-client/client";
+import { ApiClientError, apiClient } from "@/frontend/api-client/client";
 import {
   MEETING_QUEUE_REFRESH_MS,
   meetingDetailRefreshInterval,
 } from "@/frontend/presentation/meetingRefresh";
 import type { ModuleName } from "@/shared/contracts/api";
 import type { MeetingApiQueue } from "@/shared/contracts/meetingApi";
+import type { MeetingReviewDraft } from "@/shared/contracts/meetingReview";
 
 export function useMeetings(queue: MeetingApiQueue = "all") {
   return useQuery({
@@ -37,19 +38,67 @@ export function useMeetingSearch(query: string) {
 }
 
 export function useRetryMeetingAnalysis() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ meetingId, expectedVersion }: { meetingId: string; expectedVersion: number }) => (
+  return useMeetingMutation(
+    ({ meetingId, expectedVersion }: { meetingId: string; expectedVersion: number }) => (
       apiClient.meetings.retryAnalysis(meetingId, expectedVersion)
     ),
-    onSuccess: async (_result, variables) => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["meeting", variables.meetingId] }),
-        queryClient.invalidateQueries({ queryKey: ["meetings"] }),
-        queryClient.invalidateQueries({ queryKey: ["meeting-search"] }),
-      ]);
-    },
-  });
+  );
+}
+
+export function useSaveMeetingDraft() {
+  return useMeetingMutation(
+    ({ meetingId, expectedVersion, draft }: { meetingId: string; expectedVersion: number; draft: MeetingReviewDraft }) => (
+      apiClient.meetings.saveDraft(meetingId, expectedVersion, draft)
+    ),
+  );
+}
+
+export function useDeferMeeting() {
+  return useMeetingMutation(
+    ({ meetingId, expectedVersion, note }: { meetingId: string; expectedVersion: number; note: string }) => (
+      apiClient.meetings.defer(meetingId, expectedVersion, note)
+    ),
+  );
+}
+
+export function useResumeMeeting() {
+  return useMeetingMutation(
+    ({ meetingId, expectedVersion }: { meetingId: string; expectedVersion: number }) => (
+      apiClient.meetings.resume(meetingId, expectedVersion)
+    ),
+  );
+}
+
+export function useMarkMeetingReady() {
+  return useMeetingMutation(
+    ({ meetingId, expectedVersion }: { meetingId: string; expectedVersion: number }) => (
+      apiClient.meetings.markReady(meetingId, expectedVersion)
+    ),
+  );
+}
+
+export function useApproveMeeting() {
+  return useMeetingMutation(
+    ({ meetingId, expectedVersion, acknowledgeUnresolvedVotes }: { meetingId: string; expectedVersion: number; acknowledgeUnresolvedVotes: boolean }) => (
+      apiClient.meetings.approve(meetingId, expectedVersion, acknowledgeUnresolvedVotes)
+    ),
+  );
+}
+
+export function useRetryMeetingPdf() {
+  return useMeetingMutation(
+    ({ meetingId, expectedVersion }: { meetingId: string; expectedVersion: number }) => (
+      apiClient.meetings.retryPdf(meetingId, expectedVersion)
+    ),
+  );
+}
+
+export function useRetryMeetingSigning() {
+  return useMeetingMutation(
+    ({ meetingId, expectedVersion }: { meetingId: string; expectedVersion: number }) => (
+      apiClient.meetings.retrySigning(meetingId, expectedVersion)
+    ),
+  );
 }
 
 export function useAccounts() {
@@ -58,4 +107,25 @@ export function useAccounts() {
 
 export function useModuleRecords(name: ModuleName) {
   return useQuery({ queryKey: ["module", name], queryFn: () => apiClient.modules.list(name), retry: false });
+}
+
+function useMeetingMutation<TVariables extends { meetingId: string }>(
+  mutationFn: (variables: TVariables) => ReturnType<typeof apiClient.meetings.retryAnalysis>,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSuccess: async (_result, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["meeting", variables.meetingId] }),
+        queryClient.invalidateQueries({ queryKey: ["meetings"] }),
+        queryClient.invalidateQueries({ queryKey: ["meeting-search"] }),
+      ]);
+    },
+    onError: async (error, variables) => {
+      if (error instanceof ApiClientError && error.code === "version_conflict") {
+        await queryClient.invalidateQueries({ queryKey: ["meeting", variables.meetingId] });
+      }
+    },
+  });
 }

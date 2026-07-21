@@ -122,6 +122,10 @@ export const MeetingApiDetailSchema = MeetingApiSummarySchema.extend({
   }).strict(),
   source: MeetingApiSourceSchema,
   sourceParticipants: z.array(MeetingApiSourceParticipantSchema),
+  attendeeOptions: z.array(z.object({
+    profileId: z.string().uuid(),
+    displayName: z.string().trim().min(1),
+  }).strict()),
   attendees: z.array(z.object({
     attendeeId: z.string().uuid(),
     profileId: z.string().uuid(),
@@ -225,3 +229,4 @@ export type MeetingApiListResponse = z.infer<typeof MeetingApiListResponseSchema
 export type MeetingApiDetail = z.infer<typeof MeetingApiDetailSchema>;
 export type MeetingApiMutationResponse = z.infer<typeof MeetingApiMutationResponseSchema>;
 export type MeetingApiSigningSession = z.infer<typeof MeetingApiSigningSessionSchema>;
+export type MeetingApiErrorResponse = z.infer<typeof MeetingApiErrorResponseSchema>;

@@ -178,6 +178,10 @@ describe("meeting controller authentication and reads", () => {
         matchStatus: "unmatched",
       },
     ]);
+    expect(body.attendeeOptions).toEqual([{
+      profileId: attendeeId,
+      displayName: "General Member",
+    }]);
     expect(JSON.stringify(body)).not.toContain("must-not-leave-server");
     expect(body.pdfArtifact.path).toBeUndefined();
     expect((await handler(request("/api/meetings/not-valid"), context("not-valid"))).status).toBe(400);
@@ -413,6 +417,10 @@ function servicesMock() {
   return {
     listMeetingReviews: vi.fn().mockResolvedValue([summary()]),
     getMeetingReview: vi.fn().mockResolvedValue(detail()),
+    listMeetingAttendeeOptions: vi.fn().mockResolvedValue([{
+      profileId: attendeeId,
+      displayName: "General Member",
+    }]),
     saveMeetingDraft: vi.fn().mockResolvedValue({ status: "saved", meetingId, version: 5 }),
     deferMeetingReview: vi.fn().mockResolvedValue({ status: "deferred", meetingId, version: 5 }),
     resumeMeetingReview: vi.fn().mockResolvedValue({ status: "resumed", meetingId, version: 5 }),

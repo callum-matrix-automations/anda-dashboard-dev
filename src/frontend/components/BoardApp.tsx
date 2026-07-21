@@ -35,7 +35,6 @@ export function BoardApp() {
   else if (section === "meetings" && depth === 3 && id) content = <MeetingReview meetingId={id} mode="review" />;
   else if (section === "signing" && depth === 3 && id) content = <MeetingReview meetingId={id} mode="signing" />;
   else if (section === "archive" && depth === 3 && id) content = <MeetingReview meetingId={id} mode="archive" />;
-  else if (section === "failures" && depth === 3 && id && ["pdf", "esign", "archive"].includes(id)) content = <FailureScreen kind={id as "pdf" | "esign" | "archive"} />;
   else if (section === "members" && depth === 2) content = <AccountAdministration />;
   else if (["financials", "properties", "vendors", "contacts"].includes(section)) content = <SideModule module={section} />;
   else content = <FailureScreen kind="not-found" />;

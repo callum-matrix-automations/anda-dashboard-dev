@@ -20,6 +20,19 @@ describe("meeting approval contracts", () => {
     expect(result.success).toBe(false);
   });
 
+  it("accepts a final not-seconded motion without a seconder", () => {
+    const snapshot = approvedSnapshot();
+    expect(ApprovedMeetingSnapshotSchema.safeParse({
+      ...snapshot,
+      motions: [{
+        ...snapshot.motions[0],
+        seconderProfileId: null,
+        seconderDisplayName: null,
+        outcome: "not_seconded",
+      }],
+    }).success).toBe(true);
+  });
+
   it("requires an explicit acknowledgement boolean and positive expected version", () => {
     expect(ApproveMeetingCommandSchema.safeParse({ expectedVersion: 4 }).success).toBe(false);
     expect(ApproveMeetingCommandSchema.safeParse({

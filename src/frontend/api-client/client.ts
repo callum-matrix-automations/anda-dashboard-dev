@@ -13,6 +13,7 @@ import {
   type MeetingApiListResponse,
   type MeetingApiMutationResponse,
 } from "../../shared/contracts/meetingApi";
+import type { MeetingReviewDraft } from "../../shared/contracts/meetingReview";
 import type { z } from "zod";
 
 export class ApiClientError extends Error {
@@ -21,6 +22,8 @@ export class ApiClientError extends Error {
     readonly status: number,
     readonly code?: string,
     readonly currentVersion?: number | null,
+    readonly issues?: Array<{ path: string; message: string }>,
+    readonly unresolvedVoteCount?: number,
   ) {
     super(message);
     this.name = "ApiClientError";
@@ -44,10 +47,26 @@ async function request<T>(path: string, schema: z.ZodType<T>, init?: RequestInit
       response.status,
       apiError.success ? apiError.data.error.code : undefined,
       apiError.success ? apiError.data.error.currentVersion : undefined,
+      apiError.success ? apiError.data.error.issues : undefined,
+      apiError.success ? apiError.data.error.unresolvedVoteCount : undefined,
     );
   }
 
   return schema.parse(await response.json());
+}
+
+async function requestBlob(path: string): Promise<Blob> {
+  const response = await fetch(path, { cache: "no-store" });
+  if (!response.ok) {
+    const body: unknown = await response.json().catch(() => null);
+    const apiError = MeetingApiErrorResponseSchema.safeParse(body);
+    throw new ApiClientError(
+      apiError.success ? apiError.data.error.message : "The PDF preview is not available.",
+      response.status,
+      apiError.success ? apiError.data.error.code : undefined,
+    );
+  }
+  return response.blob();
 }
 
 export const apiClient = {
@@ -70,6 +89,30 @@ export const apiClient = {
         { method: "POST", body: JSON.stringify({ expectedVersion }) },
       );
     },
+    async saveDraft(id: string, expectedVersion: number, draft: MeetingReviewDraft): Promise<MeetingApiMutationResponse> {
+      return meetingMutation(id, "draft", "PATCH", { expectedVersion, draft });
+    },
+    async defer(id: string, expectedVersion: number, note: string): Promise<MeetingApiMutationResponse> {
+      return meetingMutation(id, "defer", "POST", { expectedVersion, note });
+    },
+    async resume(id: string, expectedVersion: number): Promise<MeetingApiMutationResponse> {
+      return meetingMutation(id, "resume", "POST", { expectedVersion });
+    },
+    async markReady(id: string, expectedVersion: number): Promise<MeetingApiMutationResponse> {
+      return meetingMutation(id, "ready", "POST", { expectedVersion });
+    },
+    async approve(id: string, expectedVersion: number, acknowledgeUnresolvedVotes: boolean): Promise<MeetingApiMutationResponse> {
+      return meetingMutation(id, "approve", "POST", { expectedVersion, acknowledgeUnresolvedVotes });
+    },
+    async retryPdf(id: string, expectedVersion: number): Promise<MeetingApiMutationResponse> {
+      return meetingMutation(id, "pdf/retry", "POST", { expectedVersion });
+    },
+    async retrySigning(id: string, expectedVersion: number): Promise<MeetingApiMutationResponse> {
+      return meetingMutation(id, "signing/retry", "POST", { expectedVersion });
+    },
+    async previewPdf(id: string): Promise<Blob> {
+      return requestBlob(`/api/meetings/${encodeURIComponent(id)}/pdf/preview`);
+    },
   },
   accounts: {
     async list(): Promise<AccountListResponse["accounts"]> {
@@ -88,6 +131,19 @@ export const apiClient = {
     },
   },
 };
+
+function meetingMutation(
+  id: string,
+  action: string,
+  method: "PATCH" | "POST",
+  body: unknown,
+): Promise<MeetingApiMutationResponse> {
+  return request(
+    `/api/meetings/${encodeURIComponent(id)}/${action}`,
+    MeetingApiMutationResponseSchema,
+    { method, body: JSON.stringify(body) },
+  );
+}
 
 function meetingListSearch(query: Partial<MeetingApiListQuery>): string {
   const search = new URLSearchParams();

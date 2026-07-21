@@ -116,13 +116,13 @@ function prepareApprovableDraft(aiDraft: MeetingDraft): MeetingReviewDraft {
     motions: aiDraft.motions.flatMap((motion) => {
       if (
         motion.mover.status !== "resolved"
-        || motion.seconder.status !== "resolved"
         || motion.outcome === "unresolved"
+        || (motion.outcome !== "not_seconded" && motion.seconder.status !== "resolved")
       ) return [];
       return [{
         text: motion.text,
         moverProfileId: motion.mover.participantRef,
-        seconderProfileId: motion.seconder.participantRef,
+        seconderProfileId: motion.seconder.status === "resolved" ? motion.seconder.participantRef : null,
         outcome: motion.outcome,
         votes: motion.votes.map((vote) => ({
           profileId: vote.participantRef,

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { MeetingReviewRepository } from "../reviews/meetingReviewRepository";
 import {
+  MeetingReviewAttendeeOptionSchema,
   MeetingReviewDetailSchema,
   MeetingReviewMutationResultSchema,
   MeetingReviewSummarySchema,
@@ -16,6 +17,11 @@ const SupabaseErrorSchema = z.object({
   code: z.string().optional(),
   message: z.string(),
 });
+
+const StoredAttendeeOptionSchema = z.object({
+  id: z.string().uuid(),
+  display_name: z.string().trim().min(1),
+}).strict();
 
 export class MeetingReviewRepositoryError extends Error {
   readonly status?: number;
@@ -104,6 +110,50 @@ export function createSupabaseMeetingReviewRepository({
         });
       }
       return parsed.data;
+    },
+
+    async listAttendeeOptions() {
+      const configuration = resolveConfiguration(apiUrl, secretKey, fetchImplementation);
+      const profilesUrl = new URL("/rest/v1/profiles", configuration.apiUrl);
+      profilesUrl.searchParams.set("select", "id,display_name");
+      profilesUrl.searchParams.set("account_type", "eq.MEMBER");
+      profilesUrl.searchParams.set("account_status", "eq.ACTIVE");
+      profilesUrl.searchParams.set("order", "display_name.asc,id.asc");
+
+      let response: Response;
+      try {
+        response = await configuration.fetchImplementation(profilesUrl, {
+          headers: {
+            accept: "application/json",
+            apikey: configuration.secretKey,
+            authorization: `Bearer ${configuration.secretKey}`,
+          },
+        });
+      } catch (error) {
+        throw new MeetingReviewRepositoryError("Supabase attendee options request failed.", {
+          code: "supabase_request_failed",
+          cause: error,
+        });
+      }
+
+      const responseBody = await readResponseBody(response);
+      if (!response.ok) {
+        throw new MeetingReviewRepositoryError("Supabase attendee options request failed.", {
+          status: response.status,
+          code: "supabase_response_failed",
+        });
+      }
+      const parsed = StoredAttendeeOptionSchema.array().safeParse(responseBody);
+      if (!parsed.success) {
+        throw new MeetingReviewRepositoryError("Supabase returned invalid attendee options.", {
+          code: "invalid_supabase_response",
+          cause: parsed.error,
+        });
+      }
+      return MeetingReviewAttendeeOptionSchema.array().parse(parsed.data.map((profile) => ({
+        profileId: profile.id,
+        displayName: profile.display_name,
+      })));
     },
 
     async saveDraft(command) {

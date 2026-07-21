@@ -65,7 +65,7 @@ describe.skipIf(!localIntegrationConfigured)("pre-approval workflow with a prede
       "CARRIED",
       "FAILED",
       "TABLED",
-      null,
+      "NOT_SECONDED",
     ]));
 
     expect(result.duplicateResponseStatus).toBe(200);

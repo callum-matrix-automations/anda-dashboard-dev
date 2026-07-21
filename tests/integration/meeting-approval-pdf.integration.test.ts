@@ -53,6 +53,15 @@ describe.skipIf(!localIntegrationConfigured)("local approval-to-PDF workflow", (
       acknowledgeUnresolvedVotes: false,
     })).resolves.toMatchObject({ status: "invalid_actor" });
 
+    const incomplete = await review.saveMeetingDraft({
+      meetingId,
+      expectedVersion: detail.version,
+      actorProfileId: eleanorId,
+      draft: incompleteDraft(),
+    });
+    detail = await requiredReview(review, meetingId);
+    expect(detail.version).toBe(incomplete.version);
+
     await expect(approvalService.approveMeeting({
       meetingId,
       expectedVersion: detail.version,
@@ -176,6 +185,46 @@ describe.skipIf(!localIntegrationConfigured)("local approval-to-PDF workflow", (
       draft: completeDraft(false),
     })).resolves.toMatchObject({ status: "protected" });
     await expect(attemptDirectMotionEdit(meetingId)).resolves.toBe(false);
+  }, 30_000);
+
+  it("approves, renders, and delivers a motion that was explicitly not seconded", async () => {
+    const predefinedDraft = await loadPredefinedMeetingDraft();
+    const workflow = await runPreApprovalWorkflow({
+      analyze: vi.fn().mockResolvedValue(predefinedDraft),
+      idPrefix: "approval-not-seconded",
+    });
+    const meetingId = requiredMeetingId(workflow.meetings[0]?.id);
+    const review = reviewService();
+    const approvalRepository = createSupabaseMeetingApprovalRepository(configuration);
+    const approvalService = createMeetingApprovalService({
+      repository: approvalRepository,
+      processPdf: createMeetingPdfProcessor({
+        repository: approvalRepository,
+        storage: createSupabaseMinutesPdfStorage(configuration),
+      }),
+      processSigning: signingProcessor(new FakeSigningProvider()),
+    });
+    const detail = await requiredReview(review, meetingId);
+
+    await expect(approvalService.approveMeeting({
+      meetingId,
+      expectedVersion: detail.version,
+      actorProfileId: eleanorId,
+      acknowledgeUnresolvedVotes: false,
+    })).resolves.toMatchObject({ status: "approved" });
+
+    const approved = await requiredReview(review, meetingId);
+    expect(approved.status).toBe("AWAITING_SIGNATURE");
+    expect(approved.motions).toContainEqual(expect.objectContaining({
+      outcome: "not_seconded",
+      seconderProfileId: null,
+    }));
+    const snapshot = await loadApprovedSnapshot(meetingId);
+    expect(snapshot.motions).toContainEqual(expect.objectContaining({
+      outcome: "not_seconded",
+      seconderProfileId: null,
+      seconderDisplayName: null,
+    }));
   }, 30_000);
 
   it("keeps PDF_FAILED locked and retries from the exact approved snapshot", async () => {
@@ -312,6 +361,18 @@ function completeDraft(unresolvedVote: boolean): MeetingReviewDraft {
       ],
     }],
     tags: ["approved", "governance"],
+  };
+}
+
+function incompleteDraft(): MeetingReviewDraft {
+  const draft = completeDraft(false);
+  return {
+    ...draft,
+    motions: [{
+      ...draft.motions[0]!,
+      seconderProfileId: null,
+      outcome: "unresolved",
+    }],
   };
 }
 
