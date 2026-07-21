@@ -54,7 +54,7 @@ export function AppShell({ children, currentSection }: { children: React.ReactNo
               <input name="q" type="search" className="min-w-0 grow" placeholder="Search meetings" aria-label="Search from header" />
             </label>
           </form>
-          <span className="badge badge-outline min-h-8 justify-self-end">Frontend preview</span>
+          <span className="badge badge-outline min-h-8 justify-self-end">Live data</span>
         </header>
         <main className="w-full min-w-0 p-4 sm:p-6 lg:p-8">{children}</main>
       </div>

@@ -1,15 +1,30 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/frontend/api-client/client";
+import {
+  MEETING_QUEUE_REFRESH_MS,
+  meetingDetailRefreshInterval,
+} from "@/frontend/presentation/meetingRefresh";
 import type { ModuleName } from "@/shared/contracts/api";
+import type { MeetingApiQueue } from "@/shared/contracts/meetingApi";
 
-export function useMeetings(queue?: string) {
-  return useQuery({ queryKey: ["meetings", queue ?? "all"], queryFn: () => apiClient.meetings.list(queue), retry: false });
+export function useMeetings(queue: MeetingApiQueue = "all") {
+  return useQuery({
+    queryKey: ["meetings", queue],
+    queryFn: () => apiClient.meetings.list({ queue, limit: 100, offset: 0 }),
+    retry: false,
+    refetchInterval: MEETING_QUEUE_REFRESH_MS,
+  });
 }
 
 export function useMeeting(id: string) {
-  return useQuery({ queryKey: ["meeting", id], queryFn: () => apiClient.meetings.get(id), retry: false });
+  return useQuery({
+    queryKey: ["meeting", id],
+    queryFn: () => apiClient.meetings.get(id),
+    retry: false,
+    refetchInterval: (query) => meetingDetailRefreshInterval(query.state.data),
+  });
 }
 
 export function useMeetingSearch(query: string) {
@@ -18,6 +33,22 @@ export function useMeetingSearch(query: string) {
     queryFn: () => apiClient.meetings.search(query),
     enabled: query.trim().length > 0,
     retry: false,
+  });
+}
+
+export function useRetryMeetingAnalysis() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ meetingId, expectedVersion }: { meetingId: string; expectedVersion: number }) => (
+      apiClient.meetings.retryAnalysis(meetingId, expectedVersion)
+    ),
+    onSuccess: async (_result, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["meeting", variables.meetingId] }),
+        queryClient.invalidateQueries({ queryKey: ["meetings"] }),
+        queryClient.invalidateQueries({ queryKey: ["meeting-search"] }),
+      ]);
+    },
   });
 }
 

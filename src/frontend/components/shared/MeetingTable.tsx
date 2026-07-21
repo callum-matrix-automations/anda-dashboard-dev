@@ -1,12 +1,12 @@
 import Link from "next/link";
-import type { Meeting } from "@/shared/types";
+import type { MeetingApiSummary } from "@/shared/contracts/meetingApi";
 import { meetingActionFor, statusLabel, statusText } from "./meetingPresentation";
 
 function meetingDate(date: string): string {
   return new Date(`${date}T12:00:00`).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
 }
 
-export function MeetingTable({ meetings, browseAll = false, reviewAccess = false, signerAccess = false, emptyMessage = "Nothing needs attention here." }: { meetings: Meeting[]; browseAll?: boolean; reviewAccess?: boolean; signerAccess?: boolean; emptyMessage?: string }) {
+export function MeetingTable({ meetings, browseAll = false, reviewAccess = false, signerAccess = false, emptyMessage = "Nothing needs attention here." }: { meetings: MeetingApiSummary[]; browseAll?: boolean; reviewAccess?: boolean; signerAccess?: boolean; emptyMessage?: string }) {
   if (!meetings.length) return <div className="py-12 text-center text-sm opacity-60">{emptyMessage}</div>;
   return (
     <>
@@ -19,7 +19,7 @@ export function MeetingTable({ meetings, browseAll = false, reviewAccess = false
               <div className="text-xs opacity-55">{meeting.category}</div>
               <div className="my-3 flex items-center justify-between gap-2">
                 <span className={`text-sm font-medium ${statusText[meeting.status]}`}>{statusLabel[meeting.status]}</span>
-                <time dateTime={meeting.date} className="text-sm opacity-70">{meetingDate(meeting.date)}</time>
+                <time dateTime={meeting.meetingDate} className="text-sm opacity-70">{meetingDate(meeting.meetingDate)}</time>
               </div>
               <Link
                 aria-label={`${action.label} for ${meeting.title}`}
@@ -40,7 +40,7 @@ export function MeetingTable({ meetings, browseAll = false, reviewAccess = false
           return <tr key={meeting.id} className="hover">
             <td><div className="font-medium">{meeting.title}</div><div className="text-xs opacity-55">{meeting.category}</div></td>
             <td><span className={`whitespace-nowrap text-sm font-medium ${statusText[meeting.status]}`}>{statusLabel[meeting.status]}</span></td>
-            <td className="whitespace-nowrap">{meetingDate(meeting.date)}</td>
+            <td className="whitespace-nowrap">{meetingDate(meeting.meetingDate)}</td>
             <td><Link aria-label={`${action.label} for ${meeting.title}`} className="btn btn-outline btn-sm min-h-11 whitespace-nowrap px-3" href={action.href}>{action.label} <span aria-hidden>→</span></Link></td>
           </tr>
         })}</tbody>

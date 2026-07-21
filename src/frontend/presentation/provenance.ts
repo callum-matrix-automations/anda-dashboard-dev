@@ -1,12 +1,11 @@
-import type { MatchedParticipant, MeetingSource, UnmatchedParticipant } from "@/shared/types";
+import type { MeetingApiDetail } from "@/shared/contracts/meetingApi";
 
-// AIDEV-NOTE: Grouping lives here (not in components) so review, signing, and archive
-// modes all present the same matched/unmatched split of Teams participants.
+type SourceParticipant = MeetingApiDetail["sourceParticipants"][number];
 
-export function matchedParticipants(source: Pick<MeetingSource, "participants">): MatchedParticipant[] {
-  return source.participants.filter((p): p is MatchedParticipant => p.matched);
+export function matchedParticipants(participants: readonly SourceParticipant[]): SourceParticipant[] {
+  return participants.filter((participant) => participant.matchStatus === "matched");
 }
 
-export function unmatchedParticipants(source: Pick<MeetingSource, "participants">): UnmatchedParticipant[] {
-  return source.participants.filter((p): p is UnmatchedParticipant => !p.matched);
+export function unmatchedParticipants(participants: readonly SourceParticipant[]): SourceParticipant[] {
+  return participants.filter((participant) => participant.matchStatus === "unmatched");
 }
