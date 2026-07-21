@@ -12,6 +12,13 @@ import { SideModule } from "@/frontend/components/modules/SideModule";
 import { AccountAdministration } from "@/frontend/components/modules/AccountAdministration";
 import { FailureScreen } from "@/frontend/components/meetings/FailureScreen";
 
+const MEETING_QUEUES = ["meetings", "needs-review", "deferred", "signing", "archive"] as const;
+type MeetingQueue = (typeof MEETING_QUEUES)[number];
+
+function isMeetingQueue(value: string): value is MeetingQueue {
+  return MEETING_QUEUES.some((queue) => queue === value);
+}
+
 export function BoardApp() {
   const pathname = usePathname();
   const parts = pathname.split("/").filter(Boolean);
@@ -24,7 +31,7 @@ export function BoardApp() {
   else if (section === "search" && depth === 2) content = <SearchScreen />;
   else if (section === "settings" && depth === 2) content = <SettingsScreen />;
   else if (section === "reports" && depth === 3 && id && REPORT_PLACEHOLDERS[id]) content = <PlaceholderScreen copy={REPORT_PLACEHOLDERS[id]} />;
-  else if (["meetings", "needs-review", "deferred", "signing", "archive"].includes(section) && depth === 2) content = <QueueScreen queue={section} />;
+  else if (isMeetingQueue(section) && depth === 2) content = <QueueScreen queue={section} />;
   else if (section === "meetings" && depth === 3 && id) content = <MeetingReview meetingId={id} mode="review" />;
   else if (section === "signing" && depth === 3 && id) content = <MeetingReview meetingId={id} mode="signing" />;
   else if (section === "archive" && depth === 3 && id) content = <MeetingReview meetingId={id} mode="archive" />;
