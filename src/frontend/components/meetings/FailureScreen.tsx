@@ -1,9 +1,6 @@
 import Link from "next/link";
 
 const detail = {
-  pdf: ["PDF generation unavailable", "The backend PDF service is not connected."],
-  esign: ["E-signature unavailable", "The backend e-signature service is not connected."],
-  archive: ["Archive unavailable", "The backend archive service is not connected."],
   "not-found": ["Page not found", "That ANDA Dashboard route does not exist."],
 } as const;
 

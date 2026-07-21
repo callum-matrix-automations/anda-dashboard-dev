@@ -57,8 +57,8 @@ export function buildMinutesDocument(snapshotInput: ApprovedMeetingSnapshot): Mi
     motions: snapshot.motions.map((motion) => ({
       text: motion.text,
       mover: motion.moverDisplayName,
-      seconder: motion.seconderDisplayName,
-      outcome: titleCase(motion.outcome),
+      seconder: motion.seconderDisplayName ?? "No seconder recorded",
+      outcome: motion.outcome === "not_seconded" ? "Not seconded - not put to vote" : titleCase(motion.outcome),
       votes: motion.votes.map((vote) => ({
         voter: vote.displayName,
         selection: titleCase(vote.selection),
@@ -76,7 +76,8 @@ export function buildMinutesDocument(snapshotInput: ApprovedMeetingSnapshot): Mi
 }
 
 function titleCase(value: string): string {
-  return `${value.charAt(0).toUpperCase()}${value.slice(1).toLowerCase()}`;
+  const normalized = value.replaceAll("_", " ");
+  return `${normalized.charAt(0).toUpperCase()}${normalized.slice(1).toLowerCase()}`;
 }
 
 function formatMeetingDate(value: string): string {

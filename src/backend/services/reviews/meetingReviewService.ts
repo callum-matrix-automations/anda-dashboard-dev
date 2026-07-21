@@ -24,6 +24,10 @@ export function createMeetingReviewService(repository: MeetingReviewRepository) 
       return repository.getReview(MeetingIdSchema.parse(meetingId));
     },
 
+    listMeetingAttendeeOptions() {
+      return repository.listAttendeeOptions();
+    },
+
     saveMeetingDraft(command: SaveMeetingReviewDraftCommand) {
       return repository.saveDraft(SaveMeetingReviewDraftCommandSchema.parse(command));
     },
@@ -46,6 +50,7 @@ export const meetingReviewService = createMeetingReviewService(supabaseMeetingRe
 
 export const listMeetingReviews = meetingReviewService.listMeetingReviews;
 export const getMeetingReview = meetingReviewService.getMeetingReview;
+export const listMeetingAttendeeOptions = meetingReviewService.listMeetingAttendeeOptions;
 export const saveMeetingDraft = meetingReviewService.saveMeetingDraft;
 export const deferMeetingReview = meetingReviewService.deferMeetingReview;
 export const resumeMeetingReview = meetingReviewService.resumeMeetingReview;

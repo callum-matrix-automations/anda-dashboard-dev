@@ -29,11 +29,19 @@ const ApprovedMotionSchema = z.object({
   text: z.string().trim().min(1),
   moverProfileId: z.string().uuid(),
   moverDisplayName: z.string().trim().min(1),
-  seconderProfileId: z.string().uuid(),
-  seconderDisplayName: z.string().trim().min(1),
+  seconderProfileId: z.string().uuid().nullable(),
+  seconderDisplayName: z.string().trim().min(1).nullable(),
   outcome: MeetingReviewOutcomeSchema.exclude(["unresolved"]),
   votes: z.array(ApprovedVoteSchema),
-}).strict();
+}).strict().superRefine((motion, context) => {
+  const hasSeconder = Boolean(motion.seconderProfileId && motion.seconderDisplayName);
+  if (motion.outcome === "not_seconded" && hasSeconder) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["seconderProfileId"], message: "A motion marked not seconded cannot name a seconder." });
+  }
+  if (motion.outcome !== "not_seconded" && !hasSeconder) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["seconderProfileId"], message: "A completed motion requires a seconder." });
+  }
+});
 
 const ApprovalIdentitySchema = z.object({
   approvedByProfileId: z.string().uuid(),

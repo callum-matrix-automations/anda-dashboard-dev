@@ -112,8 +112,8 @@ npm.cmd run test:workflow:live:full
 ```
 
 The test preserves the AI-produced minutes and complete formal motions. It
-simulates human review by omitting motions whose mover, seconder, or outcome is
-still unresolved, then writes the final PDF to
+simulates human review by omitting motions whose mover or final outcome is still
+unresolved, while retaining proposals explicitly recorded as not seconded, then writes the final PDF to
 `output/pdf/anda-live-gpt41-meeting-minutes.pdf` for local visual QA.
 
 ## Signing completion and rejection

@@ -21,6 +21,7 @@ describe("frontend presentation helpers", () => {
 
   it("polls meeting detail only while AI analysis is active", () => {
     expect(meetingDetailRefreshInterval({ status: "AI_PROCESSING" })).toBe(2_000);
+    expect(meetingDetailRefreshInterval({ status: "PDF_PROCESSING" })).toBe(2_000);
     expect(meetingDetailRefreshInterval({ status: "PENDING_APPROVAL" })).toBe(false);
     expect(meetingDetailRefreshInterval({ status: "AI_FAILED" })).toBe(false);
     expect(meetingDetailRefreshInterval(undefined)).toBe(false);

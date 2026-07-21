@@ -28,11 +28,13 @@ describe("meeting review service", () => {
     };
 
     await service.saveMeetingDraft(command);
+    await service.listMeetingAttendeeOptions();
     await service.deferMeetingReview({ ...reviewIdentity, note: "Awaiting information." });
     await service.resumeMeetingReview(reviewIdentity);
     await service.markMeetingReady(reviewIdentity);
 
     expect(repository.saveDraft).toHaveBeenCalledWith(command);
+    expect(repository.listAttendeeOptions).toHaveBeenCalledOnce();
     expect(repository.deferReview).toHaveBeenCalledWith({
       meetingId,
       expectedVersion: 4,
@@ -63,6 +65,7 @@ function repositoryMock(): MeetingReviewRepository {
   return {
     listReviews: vi.fn().mockResolvedValue([]),
     getReview: vi.fn().mockResolvedValue(null),
+    listAttendeeOptions: vi.fn().mockResolvedValue([]),
     saveDraft: vi.fn().mockResolvedValue({ status: "saved", meetingId, version: 5 }),
     deferReview: vi.fn().mockResolvedValue({ status: "deferred", meetingId, version: 5 }),
     resumeReview: vi.fn().mockResolvedValue({ status: "resumed", meetingId, version: 5 }),

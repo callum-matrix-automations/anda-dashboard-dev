@@ -63,6 +63,26 @@ describe("Supabase meeting review repository", () => {
     });
   });
 
+  it("lists only safe active member profile fields as attendee options", async () => {
+    const fetchImplementation = vi.fn().mockResolvedValue(Response.json([{
+      id: actorProfileId,
+      display_name: "Eleanor Hughes",
+    }]));
+    const repository = createSupabaseMeetingReviewRepository({ apiUrl, secretKey, fetchImplementation });
+
+    await expect(repository.listAttendeeOptions()).resolves.toEqual([{
+      profileId: actorProfileId,
+      displayName: "Eleanor Hughes",
+    }]);
+
+    const [url, request] = fetchImplementation.mock.calls[0] as [URL, RequestInit];
+    expect(url.pathname).toBe("/rest/v1/profiles");
+    expect(url.searchParams.get("select")).toBe("id,display_name");
+    expect(url.searchParams.get("account_type")).toBe("eq.MEMBER");
+    expect(url.searchParams.get("account_status")).toBe("eq.ACTIVE");
+    expect(request.headers).toMatchObject({ apikey: secretKey });
+  });
+
   it.each([
     ["deferReview", "defer_meeting_review", { note: "Awaiting evidence." }, { p_note: "Awaiting evidence." }],
     ["resumeReview", "resume_meeting_review", {}, {}],

@@ -62,7 +62,7 @@ const MeetingDraftMotionSchema = z.object({
   text: z.string().trim().min(1),
   mover: ParticipantResolutionSchema,
   seconder: ParticipantResolutionSchema,
-  outcome: z.enum(["carried", "failed", "tabled", "unresolved"]),
+  outcome: z.enum(["carried", "failed", "tabled", "not_seconded", "unresolved"]),
   votes: z.array(MeetingDraftVoteSchema),
 }).strict();
 
@@ -100,6 +100,13 @@ export const MeetingDraftSchema = z.object({
           path: ["motions", motionIndex, role, "participantRef"],
         });
       }
+    }
+    if (motion.outcome === "not_seconded" && motion.seconder.status !== "unresolved") {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A motion marked not seconded cannot name a seconder.",
+        path: ["motions", motionIndex, "seconder"],
+      });
     }
 
     const voteReferences = new Set<string>();
@@ -188,7 +195,7 @@ export const MEETING_DRAFT_JSON_SCHEMA: Record<string, unknown> = {
           seconder: { $ref: "#/$defs/participantResolution" },
           outcome: {
             type: "string",
-            enum: ["carried", "failed", "tabled", "unresolved"],
+            enum: ["carried", "failed", "tabled", "not_seconded", "unresolved"],
           },
           votes: {
             type: "array",

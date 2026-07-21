@@ -39,7 +39,7 @@ describe.skipIf(!openAiConfigured)("live OpenAI transcript analysis", () => {
       "carried",
       "failed",
       "tabled",
-      "unresolved",
+      "not_seconded",
     ]));
     expect(draft.motions.some((motion) => motion.seconder.status === "unresolved")).toBe(true);
 

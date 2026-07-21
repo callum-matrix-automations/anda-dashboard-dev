@@ -6,5 +6,7 @@ export const MEETING_PROCESSING_REFRESH_MS = 2_000;
 export function meetingDetailRefreshInterval(
   meeting: Pick<MeetingApiDetail, "status"> | undefined,
 ): number | false {
-  return meeting?.status === "AI_PROCESSING" ? MEETING_PROCESSING_REFRESH_MS : false;
+  return meeting?.status === "AI_PROCESSING" || meeting?.status === "PDF_PROCESSING"
+    ? MEETING_PROCESSING_REFRESH_MS
+    : false;
 }

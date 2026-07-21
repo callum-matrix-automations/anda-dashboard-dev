@@ -62,6 +62,62 @@ describe("frontend API client", () => {
     );
   });
 
+  it("loads an approved PDF preview as private, uncached binary data", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("%PDF-1.7", {
+      headers: { "content-type": "application/pdf" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const pdf = await apiClient.meetings.previewPdf(meetingId);
+
+    expect(await pdf.text()).toBe("%PDF-1.7");
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/meetings/${meetingId}/pdf/preview`,
+      { cache: "no-store" },
+    );
+  });
+
+  it.each([
+    ["resume", () => apiClient.meetings.resume(meetingId, 4), "POST", { expectedVersion: 4 }],
+    ["ready", () => apiClient.meetings.markReady(meetingId, 4), "POST", { expectedVersion: 4 }],
+    ["approve", () => apiClient.meetings.approve(meetingId, 4, true), "POST", { expectedVersion: 4, acknowledgeUnresolvedVotes: true }],
+    ["pdf/retry", () => apiClient.meetings.retryPdf(meetingId, 4), "POST", { expectedVersion: 4 }],
+    ["signing/retry", () => apiClient.meetings.retrySigning(meetingId, 4), "POST", { expectedVersion: 4 }],
+  ] as const)("sends the %s meeting workflow mutation", async (path, call, method, body) => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      action: path === "approve" ? "approved" : path === "ready" ? "marked_ready" : path === "resume" ? "resumed" : path === "pdf/retry" ? "pdf_retry_started" : "signing_retry_started",
+      meetingId,
+      version: 5,
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await call();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/meetings/${meetingId}/${path}`,
+      expect.objectContaining({ method, body: JSON.stringify(body) }),
+    );
+  });
+
+  it("sends complete draft and defer payloads", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ action: "draft_saved", meetingId, version: 5 }))
+      .mockResolvedValueOnce(jsonResponse({ action: "deferred", meetingId, version: 6 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const draft = {
+      minutes: { summary: "Updated.", sections: [{ heading: "Opening", content: "Opened." }] },
+      attendeeProfileIds: [profileId],
+      motions: [],
+      tags: ["governance"],
+    };
+
+    await apiClient.meetings.saveDraft(meetingId, 4, draft);
+    await apiClient.meetings.defer(meetingId, 5, "Awaiting evidence.");
+
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: "PATCH", body: JSON.stringify({ expectedVersion: 4, draft }) });
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: "POST", body: JSON.stringify({ expectedVersion: 5, note: "Awaiting evidence." }) });
+  });
+
   it("preserves backend error messages, codes, and conflict versions", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({
       error: {
@@ -78,6 +134,25 @@ describe("frontend API client", () => {
         status: 409,
         code: "version_conflict",
         currentVersion: 6,
+      }),
+    );
+  });
+
+  it("preserves validation issues and unresolved-vote details", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({
+      error: {
+        code: "unresolved_votes",
+        message: "Approval requires acknowledgement.",
+        unresolvedVoteCount: 2,
+        issues: [{ path: "motions.0.votes", message: "Two votes remain unresolved." }],
+      },
+    }, 409)));
+
+    await expect(apiClient.meetings.approve(meetingId, 4, false)).rejects.toEqual(
+      expect.objectContaining({
+        code: "unresolved_votes",
+        unresolvedVoteCount: 2,
+        issues: [{ path: "motions.0.votes", message: "Two votes remain unresolved." }],
       }),
     );
   });
@@ -160,6 +235,10 @@ function detailResponse() {
       email: "eleanor@example.test",
       profileId,
       matchStatus: "matched",
+    }],
+    attendeeOptions: [{
+      profileId,
+      displayName: "Eleanor Hughes",
     }],
     attendees: [{
       attendeeId: "44444444-4444-4444-8444-444444444444",

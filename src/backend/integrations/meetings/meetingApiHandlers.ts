@@ -13,6 +13,7 @@ import { apiError, apiValidationError, requireServerActor } from "../http/apiRes
 import { mapMeetingApiSource } from "./meetingApiSourceMapper";
 import type {
   MeetingReviewDetail,
+  MeetingReviewAttendeeOption,
   MeetingReviewDraft,
   MeetingReviewMutationResult,
   MeetingReviewSummary,
@@ -53,6 +54,7 @@ type SigningRejectionResult = Awaited<ReturnType<typeof rejectMeetingSigning>>;
 interface MeetingControllerServices {
   listMeetingReviews(): Promise<MeetingReviewSummary[]>;
   getMeetingReview(meetingId: string): Promise<MeetingReviewDetail | null>;
+  listMeetingAttendeeOptions(): Promise<MeetingReviewAttendeeOption[]>;
   saveMeetingDraft(command: {
     meetingId: string;
     expectedVersion: number;
@@ -210,7 +212,8 @@ export function createMeetingDetailHandler(options: ControllerOptions = {}) {
     try {
       const meeting = await services.getMeetingReview(meetingId);
       if (!meeting) return apiError(404, "meeting_not_found", "Meeting was not found.");
-      return Response.json(toApiDetail(meeting, auth.actor));
+      const attendeeOptions = await services.listMeetingAttendeeOptions();
+      return Response.json(toApiDetail(meeting, auth.actor, attendeeOptions));
     } catch {
       return serviceUnavailable();
     }
@@ -500,7 +503,16 @@ function toApiSummary(meeting: MeetingReviewSummary, actor: ServerActor) {
   });
 }
 
-function toApiDetail(meeting: MeetingReviewDetail, actor: ServerActor) {
+function toApiDetail(
+  meeting: MeetingReviewDetail,
+  actor: ServerActor,
+  attendeeOptions: MeetingReviewAttendeeOption[],
+) {
+  const safeAttendeeOptions = new Map(attendeeOptions.map((option) => [option.profileId, option]));
+  meeting.attendees.forEach((attendee) => safeAttendeeOptions.set(attendee.profileId, {
+    profileId: attendee.profileId,
+    displayName: attendee.displayName,
+  }));
   return MeetingApiDetailSchema.parse({
     ...toApiSummary(meeting, actor),
     tags: meeting.tags,
@@ -512,6 +524,7 @@ function toApiDetail(meeting: MeetingReviewDetail, actor: ServerActor) {
       importedAt: meeting.transcript.importedAt,
     },
     ...mapMeetingApiSource(meeting),
+    attendeeOptions: [...safeAttendeeOptions.values()].sort((left, right) => left.displayName.localeCompare(right.displayName)),
     attendees: meeting.attendees.map((attendee) => ({
       attendeeId: attendee.attendeeId,
       profileId: attendee.profileId,

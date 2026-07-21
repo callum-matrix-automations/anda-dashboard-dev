@@ -173,7 +173,7 @@
         "status": "unresolved",
         "participantRef": null
       },
-      "outcome": "unresolved",
+      "outcome": "not_seconded",
       "votes": []
     }
   ]

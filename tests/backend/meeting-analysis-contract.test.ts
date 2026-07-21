@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   MeetingAnalysisInputSchema,
   MeetingDraftSchema,
+  type MeetingDraft,
 } from "../../src/shared/contracts/meetingAnalysis";
 
 describe("meeting analysis contracts", () => {
@@ -37,9 +38,18 @@ describe("meeting analysis contracts", () => {
 
     expect(MeetingDraftSchema.safeParse(draft).success).toBe(false);
   });
+
+  it("accepts a not-seconded motion only without a resolved seconder", () => {
+    const draft = createDraft();
+    draft.motions[0]!.outcome = "not_seconded";
+    expect(MeetingDraftSchema.safeParse(draft).success).toBe(true);
+
+    draft.motions[0]!.seconder = { status: "resolved", participantRef: "profile_002" };
+    expect(MeetingDraftSchema.safeParse(draft).success).toBe(false);
+  });
 });
 
-function createDraft() {
+function createDraft(): MeetingDraft {
   return {
     schemaVersion: "1.0" as const,
     minutes: {

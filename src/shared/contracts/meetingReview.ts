@@ -13,8 +13,13 @@ export const MeetingReviewMinutesSchema = z.object({
   }).strict()).min(1).max(250),
 }).strict();
 
-export const MeetingReviewOutcomeSchema = z.enum(["carried", "failed", "tabled", "unresolved"]);
+export const MeetingReviewOutcomeSchema = z.enum(["carried", "failed", "tabled", "not_seconded", "unresolved"]);
 export const MeetingReviewVoteSelectionSchema = z.enum(["for", "against", "abstain", "unresolved"]);
+
+export const MeetingReviewAttendeeOptionSchema = z.object({
+  profileId: z.string().uuid(),
+  displayName: z.string().trim().min(1),
+}).strict();
 
 export const MeetingReviewDraftSchema = z.object({
   minutes: MeetingReviewMinutesSchema,
@@ -59,6 +64,13 @@ export const MeetingReviewDraftSchema = z.object({
         code: z.ZodIssueCode.custom,
         path: ["motions", motionIndex, "seconderProfileId"],
         message: "A motion's mover and seconder must be different attendees.",
+      });
+    }
+    if (motion.outcome === "not_seconded" && motion.seconderProfileId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["motions", motionIndex, "seconderProfileId"],
+        message: "A motion marked not seconded cannot name a seconder.",
       });
     }
 
@@ -215,6 +227,7 @@ export const MeetingReviewMutationResultSchema = z.object({
 }).strict();
 
 export type MeetingReviewDraft = z.infer<typeof MeetingReviewDraftSchema>;
+export type MeetingReviewAttendeeOption = z.infer<typeof MeetingReviewAttendeeOptionSchema>;
 export type MeetingReviewSummary = z.infer<typeof MeetingReviewSummarySchema>;
 export type MeetingReviewDetail = z.infer<typeof MeetingReviewDetailSchema>;
 export type SaveMeetingReviewDraftCommand = z.infer<typeof SaveMeetingReviewDraftCommandSchema>;

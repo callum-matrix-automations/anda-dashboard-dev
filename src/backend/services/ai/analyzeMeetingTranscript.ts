@@ -23,6 +23,7 @@ Rules:
 - Include only formal motions supported by the transcript.
 - A resolved mover or seconder must use the exact participantRef of an allowed participant. If the identity is unclear, use status "unresolved" and participantRef null.
 - Add an individual vote only when it can be attributed to an allowed participant. If the participant is attributable but their choice is unclear, use "unresolved". Do not turn an aggregate vote into invented individual votes.
+- Use outcome "not_seconded" when the transcript clearly establishes that a proposal received no formal second and was not put to a vote. In that case the seconder must be unresolved with participantRef null.
 - Use outcome "unresolved" when the transcript does not establish whether a motion was carried, failed, or tabled.
 - Return only the structured meeting analysis requested by the response schema.`;
 
