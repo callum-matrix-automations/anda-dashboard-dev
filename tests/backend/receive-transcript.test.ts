@@ -12,7 +12,9 @@ const packet: TranscriptWebhookPacket = {
     title: "Test meeting",
     startedAt: "2026-07-18T17:00:00.000Z",
     endedAt: "2026-07-18T17:41:00.000Z",
+    durationMinutes: 41,
   },
+  attendees: [{ displayName: "Eleanor Hughes" }],
   transcript: {
     sourceTranscriptId: "transcript_test_001",
     contentType: "text/plain",
@@ -54,6 +56,152 @@ describe("receiveTranscript", () => {
     expect(processTranscript).toHaveBeenCalledOnce();
   });
 
+  it("sends a conflicting same-ID replay to persistence instead of trusting the memory cache", async () => {
+    const processTranscript = vi.fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValue(new Error("immutable transcript conflict"));
+    const receive = createTranscriptReceiver({ processTranscript, now: fixedNow, logger: logger(), delay: noDelay });
+
+    await receive(packet);
+    const result = await receive({
+      ...packet,
+      eventId: "evt_conflicting_replay",
+      transcript: { ...packet.transcript, content: "Chair: This content has changed." },
+    });
+
+    expect(result).toMatchObject({ status: "failed", attempts: 4 });
+    expect(processTranscript).toHaveBeenCalledTimes(5);
+  });
+
+  it("does not treat changed duration or attendees as the same in-memory delivery", async () => {
+    const processTranscript = vi.fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValue(new Error("source packet conflict"));
+    const receive = createTranscriptReceiver({ processTranscript, now: fixedNow, logger: logger(), delay: noDelay });
+
+    await receive(packet);
+    const result = await receive({
+      ...packet,
+      eventId: "evt_changed_meeting_context",
+      meeting: { ...packet.meeting, durationMinutes: 42 },
+      attendees: [{ displayName: "Marcus Patel" }],
+    });
+
+    expect(result).toMatchObject({ status: "failed", attempts: 4 });
+    expect(processTranscript).toHaveBeenCalledTimes(5);
+  });
+
+  it("recognizes a durable database duplicate after an application restart", async () => {
+    const processTranscript = vi.fn().mockResolvedValue({
+      status: "duplicate" as const,
+      meetingId: "11111111-1111-4111-8111-111111111111",
+      transcriptId: "22222222-2222-4222-8222-222222222222",
+      importedAt: "2026-07-18T17:45:00.000Z",
+    });
+    const receive = createTranscriptReceiver({ processTranscript, now: fixedNow, logger: logger(), delay: noDelay });
+
+    await expect(receive(packet)).resolves.toEqual({
+      status: "duplicate",
+      eventId: packet.eventId,
+      sourceMeetingId: packet.meeting.sourceMeetingId,
+      sourceTranscriptId: packet.transcript.sourceTranscriptId,
+      attempts: 0,
+      firstReceivedAt: "2026-07-18T17:45:00.000Z",
+    });
+    expect(processTranscript).toHaveBeenCalledOnce();
+  });
+
+  it("uses the persisted import timestamp in a successful receipt", async () => {
+    const processTranscript = vi.fn().mockResolvedValue({
+      status: "stored" as const,
+      meetingId: "11111111-1111-4111-8111-111111111111",
+      transcriptId: "22222222-2222-4222-8222-222222222222",
+      importedAt: "2026-07-18T17:59:30.000Z",
+    });
+    const resolveFailure = vi.fn().mockResolvedValue(undefined);
+    const receive = createTranscriptReceiver({
+      processTranscript,
+      resolveFailure,
+      now: fixedNow,
+      logger: logger(),
+      delay: noDelay,
+    });
+
+    await expect(receive(packet)).resolves.toMatchObject({
+      status: "received",
+      receivedAt: "2026-07-18T17:59:30.000Z",
+    });
+    expect(resolveFailure).toHaveBeenCalledWith(
+      packet.meeting.sourceMeetingId,
+      "2026-07-18T17:59:30.000Z",
+    );
+  });
+
+  it("starts meeting analysis after a new transcript is stored", async () => {
+    const meetingId = "11111111-1111-4111-8111-111111111111";
+    const processTranscript = vi.fn().mockResolvedValue({
+      status: "stored" as const,
+      meetingId,
+      transcriptId: "22222222-2222-4222-8222-222222222222",
+      importedAt: "2026-07-18T17:59:30.000Z",
+    });
+    const startAnalysis = vi.fn().mockResolvedValue({ status: "completed" });
+    const receive = createTranscriptReceiver({
+      processTranscript,
+      startAnalysis,
+      now: fixedNow,
+      logger: logger(),
+      delay: noDelay,
+    });
+
+    await expect(receive(packet)).resolves.toMatchObject({ status: "received" });
+    expect(startAnalysis).toHaveBeenCalledWith(meetingId);
+  });
+
+  it("keeps the stored transcript receipt successful if analysis cannot start", async () => {
+    const testLogger = logger();
+    const processTranscript = vi.fn().mockResolvedValue({
+      status: "stored" as const,
+      meetingId: "11111111-1111-4111-8111-111111111111",
+      transcriptId: "22222222-2222-4222-8222-222222222222",
+      importedAt: "2026-07-18T17:59:30.000Z",
+    });
+    const startAnalysis = vi.fn().mockRejectedValue(new Error("analysis infrastructure offline"));
+    const receive = createTranscriptReceiver({
+      processTranscript,
+      startAnalysis,
+      now: fixedNow,
+      logger: testLogger,
+      delay: noDelay,
+    });
+
+    await expect(receive(packet)).resolves.toMatchObject({ status: "received" });
+    expect(testLogger.error).toHaveBeenCalledWith(
+      "Transcript analysis could not be started",
+      expect.objectContaining({ reason: "analysis infrastructure offline" }),
+    );
+  });
+
+  it("does not restart analysis for a durable duplicate transcript", async () => {
+    const processTranscript = vi.fn().mockResolvedValue({
+      status: "duplicate" as const,
+      meetingId: "11111111-1111-4111-8111-111111111111",
+      transcriptId: "22222222-2222-4222-8222-222222222222",
+      importedAt: "2026-07-18T17:59:30.000Z",
+    });
+    const startAnalysis = vi.fn();
+    const receive = createTranscriptReceiver({
+      processTranscript,
+      startAnalysis,
+      now: fixedNow,
+      logger: logger(),
+      delay: noDelay,
+    });
+
+    await expect(receive(packet)).resolves.toMatchObject({ status: "duplicate" });
+    expect(startAnalysis).not.toHaveBeenCalled();
+  });
+
   it("recovers when the fourth attempt succeeds after three retries", async () => {
     const processTranscript = vi.fn()
       .mockRejectedValueOnce(new Error("attempt one"))
@@ -72,7 +220,14 @@ describe("receiveTranscript", () => {
     const testLogger = logger();
     const processTranscript = vi.fn().mockRejectedValue(new Error("receiver offline"));
     const delay = vi.fn().mockResolvedValue(undefined);
-    const receive = createTranscriptReceiver({ processTranscript, now: fixedNow, logger: testLogger, delay });
+    const recordFailure = vi.fn().mockResolvedValue(undefined);
+    const receive = createTranscriptReceiver({
+      processTranscript,
+      recordFailure,
+      now: fixedNow,
+      logger: testLogger,
+      delay,
+    });
 
     const result = await receive(packet);
 
@@ -86,5 +241,17 @@ describe("receiveTranscript", () => {
     expect(testLogger.error).toHaveBeenCalledWith("Transcript webhook failed", expect.objectContaining({
       reason: "receiver offline",
     }));
+    expect(recordFailure).toHaveBeenCalledOnce();
+    expect(recordFailure).toHaveBeenCalledWith({
+      sourceProvider: "read_ai",
+      sourceMeetingId: packet.meeting.sourceMeetingId,
+      requestId: packet.eventId,
+      title: packet.meeting.title,
+      platformMeetingId: null,
+      errorCode: "receive_failed",
+      errorMessage: "receiver offline",
+      attempts: 4,
+      failedAt: "2026-07-18T18:01:00.000Z",
+    });
   });
 });

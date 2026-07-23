@@ -1,0 +1,180 @@
+{
+  "schemaVersion": "1.0",
+  "minutes": {
+    "summary": "The board approved the corrected June minutes, received the financial report, appointed Northside Surveying for a roof inspection, rejected the courtyard garden proposal, tabled the procurement policy, and left the officer training proposal unresolved.",
+    "sections": [
+      {
+        "heading": "Opening and quorum",
+        "content": "Eleanor Hughes opened the meeting and all five board members were present, establishing a quorum."
+      },
+      {
+        "heading": "Previous minutes and finance",
+        "content": "The corrected June minutes were approved unanimously. Priya Shah presented the financial report, which the board received without a motion."
+      },
+      {
+        "heading": "Roof inspection",
+        "content": "The board appointed Northside Surveying to complete the north building roof inspection for no more than £3,600."
+      },
+      {
+        "heading": "Garden, procurement and training",
+        "content": "The courtyard garden proposal failed, the procurement policy was tabled until August, and the officer training motion remained unresolved because no formal seconder was identified."
+      },
+      {
+        "heading": "Close",
+        "content": "The meeting closed at 7:00 PM."
+      }
+    ]
+  },
+  "attendees": [
+    {
+      "participantRef": "10000000-0000-4000-8000-000000000001",
+      "displayName": "Eleanor Hughes"
+    },
+    {
+      "participantRef": "10000000-0000-4000-8000-000000000002",
+      "displayName": "Marcus Patel"
+    },
+    {
+      "participantRef": "10000000-0000-4000-8000-000000000003",
+      "displayName": "Priya Shah"
+    },
+    {
+      "participantRef": "10000000-0000-4000-8000-000000000004",
+      "displayName": "Daniel Brooks"
+    },
+    {
+      "participantRef": "10000000-0000-4000-8000-000000000005",
+      "displayName": "Amelia Clarke"
+    }
+  ],
+  "motions": [
+    {
+      "text": "Approve the minutes of the meeting held on 20 June 2026 as corrected.",
+      "mover": {
+        "status": "resolved",
+        "participantRef": "10000000-0000-4000-8000-000000000004"
+      },
+      "seconder": {
+        "status": "resolved",
+        "participantRef": "10000000-0000-4000-8000-000000000005"
+      },
+      "outcome": "carried",
+      "votes": [
+        {
+          "participantRef": "10000000-0000-4000-8000-000000000001",
+          "value": "for"
+        },
+        {
+          "participantRef": "10000000-0000-4000-8000-000000000002",
+          "value": "for"
+        },
+        {
+          "participantRef": "10000000-0000-4000-8000-000000000003",
+          "value": "for"
+        },
+        {
+          "participantRef": "10000000-0000-4000-8000-000000000004",
+          "value": "for"
+        },
+        {
+          "participantRef": "10000000-0000-4000-8000-000000000005",
+          "value": "for"
+        }
+      ]
+    },
+    {
+      "text": "Appoint Northside Surveying to conduct the north building roof condition survey for a fee not exceeding £3,600.",
+      "mover": {
+        "status": "resolved",
+        "participantRef": "10000000-0000-4000-8000-000000000005"
+      },
+      "seconder": {
+        "status": "resolved",
+        "participantRef": "10000000-0000-4000-8000-000000000002"
+      },
+      "outcome": "carried",
+      "votes": [
+        {
+          "participantRef": "10000000-0000-4000-8000-000000000001",
+          "value": "for"
+        },
+        {
+          "participantRef": "10000000-0000-4000-8000-000000000002",
+          "value": "for"
+        },
+        {
+          "participantRef": "10000000-0000-4000-8000-000000000003",
+          "value": "abstain"
+        },
+        {
+          "participantRef": "10000000-0000-4000-8000-000000000004",
+          "value": "against"
+        },
+        {
+          "participantRef": "10000000-0000-4000-8000-000000000005",
+          "value": "for"
+        }
+      ]
+    },
+    {
+      "text": "Approve the courtyard community garden project and allocate up to £7,500 from unrestricted reserves.",
+      "mover": {
+        "status": "resolved",
+        "participantRef": "10000000-0000-4000-8000-000000000004"
+      },
+      "seconder": {
+        "status": "resolved",
+        "participantRef": "10000000-0000-4000-8000-000000000002"
+      },
+      "outcome": "failed",
+      "votes": [
+        {
+          "participantRef": "10000000-0000-4000-8000-000000000001",
+          "value": "against"
+        },
+        {
+          "participantRef": "10000000-0000-4000-8000-000000000002",
+          "value": "against"
+        },
+        {
+          "participantRef": "10000000-0000-4000-8000-000000000003",
+          "value": "against"
+        },
+        {
+          "participantRef": "10000000-0000-4000-8000-000000000004",
+          "value": "for"
+        },
+        {
+          "participantRef": "10000000-0000-4000-8000-000000000005",
+          "value": "for"
+        }
+      ]
+    },
+    {
+      "text": "Adopt procurement policy version four with the quotation threshold set at £5,000.",
+      "mover": {
+        "status": "resolved",
+        "participantRef": "10000000-0000-4000-8000-000000000002"
+      },
+      "seconder": {
+        "status": "resolved",
+        "participantRef": "10000000-0000-4000-8000-000000000005"
+      },
+      "outcome": "tabled",
+      "votes": []
+    },
+    {
+      "text": "Allocate up to £2,000 for five people to attend governance training.",
+      "mover": {
+        "status": "resolved",
+        "participantRef": "10000000-0000-4000-8000-000000000004"
+      },
+      "seconder": {
+        "status": "unresolved",
+        "participantRef": null
+      },
+      "outcome": "not_seconded",
+      "votes": []
+    }
+  ]
+}

@@ -68,9 +68,9 @@ export const MinutesSectionSchema = z.object({
 });
 export type MinutesSection = z.infer<typeof MinutesSectionSchema>;
 
-// AIDEV-NOTE: Provenance is diagram-required metadata about how the transcript entered
-// the system (Teams import). There is deliberately NO intake/upload screen — this data
-// only surfaces on meeting detail as a read-only Meeting Source panel.
+// AIDEV-NOTE: Provenance records whether transcript evidence came from the configured
+// capture provider or the manual user-testing upload path. It remains read-only after
+// ingestion and surfaces on meeting detail through the Meeting Source panel.
 export const TRANSCRIPT_IMPORT_STATUSES = ["imported", "imported_with_gaps", "import_failed"] as const;
 export const TranscriptImportStatusSchema = z.enum(TRANSCRIPT_IMPORT_STATUSES);
 export type TranscriptImportStatus = z.infer<typeof TranscriptImportStatusSchema>;
@@ -174,8 +174,8 @@ export const MeetingSchema = z.object({
   // AIDEV-NOTE: Once a human edits AI output, retries may never replace the owned content.
   humanOwned: z.boolean().default(false),
   source: MeetingSourceSchema,
-  // Current automatic-analysis attempt (1..3). Meaningful pre-approval; frozen afterwards.
-  analysisAttempt: z.number().int().min(1).max(3).default(1),
+  // Zero before the first claim, then the current automatic-analysis attempt (1..3).
+  analysisAttempt: z.number().int().min(0).max(3).default(0),
   tags: z.array(MeetingTagSchema).max(20).default([]),
   pdfArtifact: DocumentArtifactSchema.nullable().default(null),
   archivedAt: z.string().nullable().default(null),

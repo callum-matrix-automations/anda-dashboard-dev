@@ -1,6 +1,5 @@
 import type {
   FinancialLine,
-  Meeting,
   Member,
   Property,
   Vendor,
@@ -10,14 +9,6 @@ import type {
 export interface ApiErrorBody {
   error: string;
   code?: string;
-}
-
-export interface MeetingListResponse {
-  meetings: Meeting[];
-}
-
-export interface MeetingResponse {
-  meeting: Meeting;
 }
 
 export interface AccountListResponse {

@@ -9,11 +9,9 @@ export function resolveInitialTheme(): BoardTheme {
     const stored = localStorage.getItem(THEME_STORAGE_KEY);
     if (stored === "board-dark" || stored === "board-light") return stored;
   } catch {
-    // Storage can be blocked by privacy settings; system preference remains safe.
+    // Storage can be blocked by privacy settings; the branded light theme remains safe.
   }
-  const prefersDark =
-    typeof window.matchMedia === "function" && window.matchMedia("(prefers-color-scheme: dark)").matches;
-  return prefersDark ? "board-dark" : "board-light";
+  return "board-light";
 }
 
 /** Applies to the document and persists — the theme is the only persisted preference. */

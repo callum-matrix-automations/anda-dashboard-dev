@@ -2,6 +2,21 @@ import type { MeetingStatus } from "@/shared/types";
 
 export const statusLabel: Record<MeetingStatus, string> = { AI_PROCESSING: "AI processing", AI_FAILED: "AI failed", PENDING_APPROVAL: "Pending approval", PDF_PROCESSING: "PDF processing", PDF_FAILED: "PDF failed", AWAITING_SIGNATURE: "Awaiting signature", ESIGN_FAILED: "Signature failed", ARCHIVE_FAILED: "Archive failed", COMPLETED: "Completed" };
 export const statusText: Record<MeetingStatus, string> = { AI_PROCESSING: "", AI_FAILED: "text-error", PENDING_APPROVAL: "", PDF_PROCESSING: "", PDF_FAILED: "text-error", AWAITING_SIGNATURE: "", ESIGN_FAILED: "text-error", ARCHIVE_FAILED: "text-error", COMPLETED: "" };
+
+// AIDEV-NOTE: Status tone drives the shared <StatusBadge>. Failures are destructive,
+// completed statuses are success, and actions awaiting an officer or signer are warning.
+export type StatusTone = "default" | "secondary" | "success" | "warning" | "destructive" | "outline";
+export const statusTone: Record<MeetingStatus, StatusTone> = {
+  AI_PROCESSING: "outline",
+  AI_FAILED: "destructive",
+  PENDING_APPROVAL: "warning",
+  PDF_PROCESSING: "outline",
+  PDF_FAILED: "destructive",
+  AWAITING_SIGNATURE: "warning",
+  ESIGN_FAILED: "destructive",
+  ARCHIVE_FAILED: "destructive",
+  COMPLETED: "success",
+};
 export const statusActionLabel: Record<MeetingStatus, string> = {
   AI_PROCESSING: "Monitor processing",
   AI_FAILED: "Complete draft",

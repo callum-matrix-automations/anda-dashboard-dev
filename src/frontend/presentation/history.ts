@@ -1,5 +1,3 @@
-import type { ReviewHistoryEntry } from "@/shared/types";
-
-export function newestFirst(history: readonly ReviewHistoryEntry[]): ReviewHistoryEntry[] {
-  return [...history].sort((left, right) => right.at.localeCompare(left.at));
+export function newestFirst<T extends { createdAt: string }>(history: readonly T[]): T[] {
+  return [...history].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 }
