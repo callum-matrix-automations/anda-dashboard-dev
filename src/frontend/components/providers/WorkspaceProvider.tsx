@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { TooltipProvider } from "@/frontend/components/design-system/primitives/tooltip";
 import { applyTheme, resolveInitialTheme, type BoardTheme } from "@/frontend/components/shell/theme";
 
 interface WorkspaceValue {
@@ -41,7 +42,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>
+      <TooltipProvider>
+        <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>
+      </TooltipProvider>
     </QueryClientProvider>
   );
 }

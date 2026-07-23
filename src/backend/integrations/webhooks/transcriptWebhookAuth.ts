@@ -1,40 +1,47 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-export const TRANSCRIPT_SIGNATURE_HEADER = "x-anda-webhook-signature";
-export const TRANSCRIPT_TIMESTAMP_HEADER = "x-anda-webhook-timestamp";
-export const WEBHOOK_TIMESTAMP_TOLERANCE_MS = 5 * 60 * 1_000;
+export const READ_AI_SIGNATURE_HEADER = "x-read-signature";
 
-export function createTranscriptWebhookSignature(secret: string, timestamp: string, rawBody: string): string {
-  return `sha256=${createHmac("sha256", secret).update(`${timestamp}.${rawBody}`, "utf8").digest("hex")}`;
+export function createReadAiWebhookSignature(signingKey: string, rawBody: string): string {
+  const key = decodeSigningKey(signingKey);
+  return createHmac("sha256", key).update(rawBody, "utf8").digest("hex");
 }
 
-export function verifyTranscriptWebhookSignature({
-  secret,
-  timestamp,
+export function verifyReadAiWebhookSignature({
+  signingKey,
   signature,
   rawBody,
-  now = () => new Date(),
 }: {
-  secret: string;
-  timestamp: string | null;
+  signingKey: string;
   signature: string | null;
   rawBody: string;
-  now?: () => Date;
 }): { ok: true } | { ok: false; reason: string } {
-  if (!timestamp || !signature) return { ok: false, reason: "Webhook signature headers are required." };
-  if (!/^\d+$/.test(timestamp)) return { ok: false, reason: "Webhook timestamp is invalid." };
-
-  const timestampMs = Number(timestamp) * 1_000;
-  if (!Number.isSafeInteger(timestampMs)) return { ok: false, reason: "Webhook timestamp is invalid." };
-  if (Math.abs(now().getTime() - timestampMs) > WEBHOOK_TIMESTAMP_TOLERANCE_MS) {
-    return { ok: false, reason: "Webhook timestamp is outside the allowed window." };
+  if (!signature) return { ok: false, reason: "Read AI webhook signature is required." };
+  if (!/^[a-f0-9]{64}$/iu.test(signature)) {
+    return { ok: false, reason: "Read AI webhook signature is malformed." };
   }
 
-  const expected = Buffer.from(createTranscriptWebhookSignature(secret, timestamp, rawBody));
-  const actual = Buffer.from(signature);
+  let expected: Buffer;
+  try {
+    expected = Buffer.from(createReadAiWebhookSignature(signingKey, rawBody), "hex");
+  } catch {
+    return { ok: false, reason: "Read AI webhook signing key is invalid." };
+  }
+  const actual = Buffer.from(signature, "hex");
   if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
-    return { ok: false, reason: "Webhook signature is invalid." };
+    return { ok: false, reason: "Read AI webhook signature is invalid." };
   }
-
   return { ok: true };
+}
+
+function decodeSigningKey(signingKey: string): Buffer {
+  const value = signingKey.trim();
+  if (!value || !/^[A-Za-z0-9+/]+={0,2}$/u.test(value) || value.length % 4 !== 0) {
+    throw new Error("Read AI webhook signing key must be valid Base64.");
+  }
+  const decoded = Buffer.from(value, "base64");
+  if (decoded.length < 16 || decoded.toString("base64") !== value) {
+    throw new Error("Read AI webhook signing key must decode to at least 16 bytes.");
+  }
+  return decoded;
 }

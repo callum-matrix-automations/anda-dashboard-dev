@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const MAX_TRANSCRIPT_WEBHOOK_BYTES = 1_048_576;
+export const MAX_TRANSCRIPT_WEBHOOK_BYTES = 10_485_760;
 
 export const TranscriptWebhookPacketSchema = z.object({
   eventId: z.string().trim().min(1).max(200),
@@ -12,12 +12,21 @@ export const TranscriptWebhookPacketSchema = z.object({
     title: z.string().trim().min(1).max(500),
     startedAt: z.string().datetime({ offset: true }),
     endedAt: z.string().datetime({ offset: true }),
+    durationMinutes: z.number().int().positive().max(1_440),
   }).strict(),
+  attendees: z.array(z.object({
+    displayName: z.string().trim().min(1).max(200),
+    email: z.string().trim().max(320).nullable().optional(),
+  }).strict()).max(250),
   transcript: z.object({
     sourceTranscriptId: z.string().trim().min(1).max(500),
     contentType: z.literal("text/plain"),
     language: z.string().trim().min(1).max(50),
-    content: z.string().trim().min(1).max(MAX_TRANSCRIPT_WEBHOOK_BYTES),
+    content: z.string()
+      .min(1)
+      .max(MAX_TRANSCRIPT_WEBHOOK_BYTES)
+      .refine((content) => content.trim().length > 0, { message: "Transcript content must not be blank." }),
+    metadata: z.record(z.unknown()).optional(),
   }).strict(),
 }).strict();
 

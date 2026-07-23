@@ -26,15 +26,15 @@ contain authoritative lifecycle, authorization, persistence, integration, or
 credential-handling logic. Data-backed screens call typed `/api/...` endpoints
 and intentionally show an unavailable state until those endpoints are built.
 
-The `supabase/` directory remains as database infrastructure for the later
-backend implementation; no application code currently connects to it.
+The `supabase/` directory contains the local database infrastructure and atomic
+transcript-ingestion operation used by the backend.
 
-## Dummy transcript sender
+## Read AI transcript sender
 
-The first transcript-intake stage is a provider-neutral HTTPS sender. It combines
+The transcript-intake fixture emulates Read AI's completed-meeting webhook. It combines
 the committed metadata fixture in `fixtures/transcripts/dummy-transcript-packet.json`
 with the transcript in `fixtures/transcripts/anda-board-meeting.txt` and sends the
-complete JSON packet with an HTTPS POST request.
+complete `meeting_end` JSON packet with an HTTPS POST request.
 
 Inspect the packet without sending it:
 
@@ -52,20 +52,112 @@ Alternatively, set `MOCK_TRANSCRIPT_WEBHOOK_URL` in `.env.local` or the current
 shell environment and run `npm.cmd run mock:transcript`. HTTPS is required for
 remote endpoints; local loopback URLs may use HTTP for development.
 
-The sender and receiver must share `TRANSCRIPT_WEBHOOK_SECRET`. The sender signs
-the exact JSON body and current timestamp with HMAC-SHA256; the receiver rejects
-missing, invalid, or stale signatures.
+The Read AI webhook and receiver must share `READ_AI_WEBHOOK_SIGNING_KEY`. Read AI signs
+the exact raw JSON body with HMAC-SHA256 using the decoded Base64 key and sends the
+lowercase hexadecimal digest in `X-Read-Signature`. The receiver rejects missing,
+malformed, or invalid signatures.
 
-The Next.js backend receives the packet at `POST /api/webhooks/transcripts` and
-returns HTTP `202` with the event, meeting, and transcript identifiers. This
-first receiver stage validates and acknowledges the transcript but does not
-persist or process it.
+The Next.js backend receives the packet at `POST /api/webhooks/transcripts`. A valid
+`meeting_start` event is acknowledged and ignored; a valid `meeting_end` event returns
+HTTP `202` with the event, meeting, and transcript identifiers. The receiver validates
+and adapts the provider payload, then calls a separate backend workflow that stores an
+`AI_PROCESSING` meeting and its immutable transcript in Supabase. Provider metadata,
+including nullable participant emails and the original speaker blocks, is retained on
+the transcript record.
 
-Successful source transcript identifiers are idempotent while the current
-Next.js process is running. Receipt processing makes one initial attempt and up
-to three retries. Exhausted retries return a structured `failed` response and
-write a metadata-only failure log. Durable idempotency across restarts or
-multiple server instances will be added with the persistence repository.
+Valid participant emails are matched exactly against normalized current profile emails.
+Only successful matches create `meeting_attendees`; display names never establish identity.
+Unmatched participants remain in transcript metadata for later server-side resolution.
+
+Source meeting and transcript identifiers provide durable database idempotency
+across restarts and multiple server instances. Meeting and transcript creation
+is atomic. Receipt processing makes one initial attempt and up to three retries.
+Exhausted retries return a structured `failed` response and create or refresh one
+unresolved `transcript_import_failures` alert per Read AI session. A later successful
+or duplicate delivery resolves that alert.
+
+## Operational recovery
+
+The backend exposes `POST /api/internal/operations/recover` for an external
+scheduler. It reconciles aged Firma requests through the existing callback
+processor, retries recoverable archives, and safely dispatches deduplicated
+operational alerts. The endpoint uses a dedicated server-only scheduler secret;
+overlapping calls use atomic database claims. Telegram is optional and can be
+configured later without changing the recovery flow. See
+`docs/operations/workflow-recovery.md` for the complete contract and local test
+command.
+
+## Meeting approval and PDF generation
+
+The backend `approveMeeting` function explicitly approves reviewed minutes. It
+uses the current meeting version, records the supplied existing profile as the
+approver, requires acknowledgement of unresolved individual votes, stores an
+immutable approved snapshot, and locks the structured meeting record. API
+exposure and application authorisation are intentionally deferred.
+
+The backend then generates a versioned unsigned PDF and stores it in the private
+`meeting-minutes` Supabase Storage bucket. A `meeting_pdfs` record owns the PDF
+metadata and the meeting references it through `unsigned_pdf_id`. The backend
+then sends that exact stored PDF to Firma for the configured test Treasurer.
+Only confirmed delivery moves the meeting to `AWAITING_SIGNATURE`; PDF failures
+remain locked in `PDF_FAILED`, while signing-delivery failures remain locked in
+`ESIGN_FAILED`. Both stages have backend retry functions that preserve the
+approved snapshot and PDF version.
+
+To run the opt-in live path from the signed dummy webhook through GPT-5.6 Terra,
+simulated human review, approval, PDF generation, and Firma delivery:
+
+```powershell
+npm.cmd run test:workflow:live:full
+```
+
+The test preserves the AI-produced minutes and complete formal motions. It
+simulates human review by omitting motions whose mover or final outcome is still
+unresolved, while retaining proposals explicitly recorded as not seconded, then writes the final PDF to
+`output/pdf/anda-live-gpt56-terra-meeting-minutes.pdf` for local visual QA.
+
+## Signing completion and rejection
+
+Firma sends lifecycle events to `POST /api/webhooks/firma`. The endpoint verifies
+Firma's timestamped HMAC against the exact raw body, accepts the old signature
+during secret rotation, stores immutable event evidence, and schedules outcome
+processing after returning. Duplicate event IDs are idempotent; reusing an ID
+with different content is rejected.
+
+The outcome processor asks Firma for the authoritative request and recipient
+state. A complete request is accepted only when the configured Treasurer has
+finished and Firma supplies a full PDF. The PDF header, byte length, and SHA-256
+are recorded as `READY_FOR_ARCHIVE`; storing the final signed PDF and moving the
+meeting to `COMPLETED` belong to ANDA-009. Missed callbacks can be recovered with
+the backend `reconcileMeetingSigning` function.
+
+The backend also provides `getMeetingSigningSession`, `rejectMeetingSigning`, and
+`retryMeetingSigningOutcome`. Rejection requires an active Treasurer profile and
+a comment, cancels the Firma request, keeps the old PDF/request as history, and
+returns the meeting to editable `PENDING_APPROVAL`. These action functions do not
+have HTTP routes yet; ANDA-018 owns those APIs.
+
+To run the opt-in live GPT-5.6 Terra/Firma callback test, including a temporary HTTPS
+Cloudflare tunnel and temporary Firma webhook:
+
+```powershell
+npm.cmd run test:signing:live:callback
+```
+
+To verify only the tunnel, workspace webhook, and Firma signature without
+creating a meeting or signing request:
+
+```powershell
+npm.cmd run test:signing:live:webhook
+```
+
+The command prints the Firma signing URL and waits up to 15 minutes for you to
+sign. It then verifies the real callback, recipient, completed PDF metadata, and
+database state before removing the temporary webhook. It requires local
+Supabase, `OPENAI_API_KEY`, `FIRMA_API_KEY`, `FIRMA_WORKSPACE_ID`, the matching
+workspace-level `FIRMA_WEBHOOK_SECRET`, the test signer values, and `cloudflared`
+(the default Windows path is documented in `.env.example`). The runner verifies
+a signed test delivery before creating the meeting and printing the signing URL.
 
 ## Local development
 
@@ -83,8 +175,15 @@ npm.cmd run supabase:env
 npm.cmd run dev
 ```
 
+Run the local database integration test after applying pending migrations:
+
+```powershell
+npm.cmd exec supabase migration up --local
+npm.cmd run test:integration
+```
+
 `supabase:start` starts the CLI-managed Docker stack. `supabase:env` creates or
-updates the three Supabase values in `.env.local` without overwriting other
+updates the four Supabase values in `.env.local` without overwriting other
 application settings. Do not commit `.env.local`.
 
 Keep the operating system firewall enabled. Supabase CLI publishes its local

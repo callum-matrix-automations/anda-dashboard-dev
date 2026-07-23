@@ -1,16 +1,78 @@
 {
-  "eventId": "evt_anda_mock_20260718_001",
-  "eventType": "transcript.ready",
-  "occurredAt": "2026-07-18T17:41:00.000Z",
-  "meeting": {
-    "sourceMeetingId": "anda-board-2026-07-18",
-    "title": "ANDA Board Meeting - July 2026",
-    "startedAt": "2026-07-18T17:02:00.000Z",
-    "endedAt": "2026-07-18T17:41:00.000Z"
+  "session_id": "01KREADAIBOARD20260725001",
+  "trigger": "meeting_end",
+  "title": "ANDA Board Meeting - 25 July 2026",
+  "start_time": "2026-07-25T17:30:00.000Z",
+  "end_time": "2026-07-25T19:00:00.000Z",
+  "participants": [
+    {
+      "name": "Eleanor Hughes",
+      "first_name": "Eleanor",
+      "last_name": "Hughes",
+      "email": "eleanor.hughes@example.test"
+    },
+    {
+      "name": "Marcus Patel",
+      "first_name": "Marcus",
+      "last_name": "Patel",
+      "email": "marcus.patel@example.test"
+    },
+    {
+      "name": "Priya Shah",
+      "first_name": "Priya",
+      "last_name": "Shah",
+      "email": "priya.shah@example.test"
+    },
+    {
+      "name": "Daniel Brooks",
+      "first_name": "Daniel",
+      "last_name": "Brooks",
+      "email": "daniel.brooks@example.test"
+    },
+    {
+      "name": "Amelia Clarke",
+      "first_name": "Amelia",
+      "last_name": "Clarke",
+      "email": "amelia.clarke@example.test"
+    }
+  ],
+  "owner": {
+    "name": "Eleanor Hughes",
+    "first_name": "Eleanor",
+    "last_name": "Hughes",
+    "email": "eleanor.hughes@example.test"
   },
+  "summary": "A fictional board meeting covering governance, finance, maintenance, procurement and officer training.",
+  "action_items": [
+    { "text": "Circulate the approved procurement policy." }
+  ],
+  "key_questions": [
+    { "text": "Should the courtyard garden proposal proceed this quarter?" }
+  ],
+  "topics": [
+    { "text": "Governance" },
+    { "text": "Finance" },
+    { "text": "Property maintenance" }
+  ],
+  "report_url": "https://app.read.ai/analytics/meetings/01KREADAIBOARD20260725001",
+  "chapter_summaries": [
+    {
+      "title": "Opening and governance",
+      "description": "The board confirmed attendance, quorum and the agenda.",
+      "topics": [{ "text": "Governance" }]
+    }
+  ],
   "transcript": {
-    "sourceTranscriptId": "anda-transcript-2026-07-18",
-    "contentType": "text/plain",
-    "language": "en-GB"
-  }
+    "speaker_blocks": [],
+    "speakers": [
+      { "name": "Eleanor Hughes" },
+      { "name": "Marcus Patel" },
+      { "name": "Priya Shah" },
+      { "name": "Daniel Brooks" },
+      { "name": "Amelia Clarke" }
+    ]
+  },
+  "platform_meeting_id": "anda-board-2026-07-25",
+  "platform": "teams",
+  "request_id": "01KREADAIWEBHOOK2026072501"
 }
