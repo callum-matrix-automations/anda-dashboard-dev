@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   createApproveMeetingHandler,
+  createCheckMeetingSigningStatusHandler,
   createDeferMeetingHandler,
   createMarkMeetingReadyHandler,
   createMeetingDetailHandler,
@@ -61,6 +62,7 @@ describe("meeting controller authentication and reads", () => {
       () => createMeetingSigningSessionHandler(options)(request(`/api/meetings/${meetingId}/signing-session`), context(meetingId)),
       () => createRetryMeetingSigningHandler(options)(versionedRequest("signing/retry"), context(meetingId)),
       () => createRejectMeetingSigningHandler(options)(versionedRequest("signing/reject"), context(meetingId)),
+      () => createCheckMeetingSigningStatusHandler(options)(versionedRequest("signing-status/check"), context(meetingId)),
       () => createRetryMeetingSigningOutcomeHandler(options)(versionedRequest("signing-outcome/retry"), context(meetingId)),
     ];
 
@@ -188,6 +190,49 @@ describe("meeting controller authentication and reads", () => {
 
     services.getMeetingReview = vi.fn().mockResolvedValue(null);
     expect((await handler(request(`/api/meetings/${meetingId}`), context(meetingId))).status).toBe(404);
+  });
+
+  it("only exposes signing status actions that match the persisted outcome state", async () => {
+    const services = servicesMock();
+    services.getMeetingReview = vi.fn()
+      .mockResolvedValueOnce({ ...detail(), status: "AWAITING_SIGNATURE" })
+      .mockResolvedValueOnce({ ...detail(), status: "ESIGN_FAILED" });
+    services.getMeetingSigningSessionRecord = vi.fn()
+      .mockResolvedValueOnce({
+        status: "available",
+        meetingId,
+        requestId: "55555555-5555-4555-8555-555555555555",
+        externalRequestId: "firma-request-1",
+        documentVersion: 4,
+        outcomeStatus: "AWAITING",
+        recipientEmail: "treasurer@example.test",
+      })
+      .mockResolvedValueOnce({
+        status: "available",
+        meetingId,
+        requestId: "55555555-5555-4555-8555-555555555555",
+        externalRequestId: "firma-request-1",
+        documentVersion: 4,
+        outcomeStatus: "COMPLETION_FAILED",
+        recipientEmail: "treasurer@example.test",
+      });
+    const handler = createMeetingDetailHandler({ services, actorResolver: treasurerResolver });
+
+    const awaiting = await handler(request(`/api/meetings/${meetingId}`), context(meetingId));
+    const failed = await handler(request(`/api/meetings/${meetingId}`), context(meetingId));
+    await expect(awaiting.json()).resolves.toMatchObject({
+      capabilities: {
+        canCheckSigningStatus: true,
+        canRetrySigningOutcome: false,
+      },
+    });
+    await expect(failed.json()).resolves.toMatchObject({
+      capabilities: {
+        canCheckSigningStatus: false,
+        canRetrySigningOutcome: true,
+      },
+    });
+    expect(services.getMeetingSigningSession).not.toHaveBeenCalled();
   });
 });
 
@@ -372,11 +417,12 @@ describe("meeting signing controllers", () => {
     expect(body.recipientId).toBeUndefined();
   });
 
-  it("injects the Treasurer into retry, rejection, and outcome recovery actions", async () => {
+  it("injects the Treasurer into signing delivery, status, rejection, and outcome recovery actions", async () => {
     const services = servicesMock();
     const options = { services, actorResolver: treasurerResolver };
     const retry = createRetryMeetingSigningHandler(options);
     const reject = createRejectMeetingSigningHandler(options);
+    const checkStatus = createCheckMeetingSigningStatusHandler(options);
     const retryOutcome = createRetryMeetingSigningOutcomeHandler(options);
 
     const retryResponse = await retry(versionedRequest("signing/retry"), context(meetingId));
@@ -384,16 +430,19 @@ describe("meeting signing controllers", () => {
       expectedVersion: 4,
       comment: "Please correct the minutes.",
     }), context(meetingId));
+    const statusResponse = await checkStatus(versionedRequest("signing-status/check"), context(meetingId));
     const outcomeResponse = await retryOutcome(versionedRequest("signing-outcome/retry"), context(meetingId));
 
     expect(retryResponse.status).toBe(200);
     expect(rejectResponse.status).toBe(200);
+    expect(statusResponse.status).toBe(200);
     expect(outcomeResponse.status).toBe(200);
     expect(services.retryMeetingSigning).toHaveBeenCalledWith(expect.objectContaining({ actorProfileId: treasurerId }));
     expect(services.rejectMeetingSigning).toHaveBeenCalledWith(expect.objectContaining({
       actorProfileId: treasurerId,
       comment: "Please correct the minutes.",
     }));
+    expect(services.checkMeetingSigningStatus).toHaveBeenCalledWith(expect.objectContaining({ actorProfileId: treasurerId }));
     expect(services.retryMeetingSigningOutcome).toHaveBeenCalledWith(expect.objectContaining({ actorProfileId: treasurerId }));
   });
 
@@ -450,10 +499,20 @@ function servicesMock() {
       requestId: "55555555-5555-4555-8555-555555555555",
       externalRequestId: "firma-request-1",
       documentVersion: 4,
+      outcomeStatus: "AWAITING",
       providerStatus: "in_progress",
       recipientId: "firma-recipient-1",
       recipientEmail: "treasurer@example.test",
       signingUrl: "https://app.firma.dev/signing/firma-recipient-1",
+    }),
+    getMeetingSigningSessionRecord: vi.fn().mockResolvedValue({
+      status: "available",
+      meetingId,
+      requestId: "55555555-5555-4555-8555-555555555555",
+      externalRequestId: "firma-request-1",
+      documentVersion: 4,
+      outcomeStatus: "AWAITING",
+      recipientEmail: "treasurer@example.test",
     }),
     retryMeetingSigning: vi.fn().mockResolvedValue({
       status: "retry_started",
@@ -474,6 +533,13 @@ function servicesMock() {
       version: 5,
       documentVersion: 4,
       reconciliation: { status: "no_change" },
+    }),
+    checkMeetingSigningStatus: vi.fn().mockResolvedValue({
+      status: "checked",
+      meetingId,
+      version: 4,
+      attempt: 2,
+      reconciliation: { status: "no_change", meetingId, attempt: 2, providerStatus: "in_progress" },
     }),
     searchArchive: vi.fn().mockResolvedValue({ items: [], total: 0, limit: 100, offset: 0 }),
   };

@@ -25,13 +25,13 @@ const liveWorkflowConfigured = configuration.configured
   && configuredValue(process.env.SIGNING_TEST_SIGNER_LAST_NAME)
   && configuredValue(process.env.SIGNING_TEST_SIGNER_EMAIL);
 const approverProfileId = "10000000-0000-4000-8000-000000000001";
-const outputPath = resolve("output/pdf/anda-live-gpt41-meeting-minutes.pdf");
+const outputPath = resolve("output/pdf/anda-live-gpt56-terra-meeting-minutes.pdf");
 
 describe.skipIf(!liveWorkflowConfigured)("live webhook-to-Firma workflow", () => {
-  it("runs the dummy transcript through GPT-4.1, approval, PDF generation, and Firma delivery", async () => {
+  it("runs the dummy transcript through GPT-5.6 Terra, approval, PDF generation, and Firma delivery", async () => {
     const workflow = await runPreApprovalWorkflow({
       analyze: analyzeMeetingTranscript,
-      idPrefix: "live-gpt41-full-workflow",
+      idPrefix: "live-gpt56-terra-full-workflow",
     });
     const meetingId = requiredValue(workflow.meetings[0]?.id, "meeting ID");
     const review = createMeetingReviewService(createSupabaseMeetingReviewRepository(configuration));
@@ -90,7 +90,7 @@ describe.skipIf(!liveWorkflowConfigured)("live webhook-to-Firma workflow", () =>
     await writeFile(outputPath, pdfBytes);
 
     const omittedIncompleteMotions = workflow.draft.motions.length - reviewedDraft.motions.length;
-    process.stdout.write(`\nLive GPT-4.1 full workflow completed:\n${JSON.stringify({
+    process.stdout.write(`\nLive GPT-5.6 Terra full workflow completed:\n${JSON.stringify({
       sourceMeetingId: workflow.packet.meeting.sourceMeetingId,
       meetingId,
       status: completed.status,
@@ -130,7 +130,7 @@ function prepareApprovableDraft(aiDraft: MeetingDraft): MeetingReviewDraft {
         })),
       }];
     }),
-    tags: ["live-gpt41"],
+    tags: ["live-gpt56-terra"],
   };
 }
 

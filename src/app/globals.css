@@ -1,41 +1,197 @@
 @import "tailwindcss";
-@plugin "daisyui" { themes: false; }
-/* AIDEV-NOTE: Both themes are deliberately monochrome (chroma 0 everywhere except
-   error). Success/info/warning map to neutral grays by product decision: green is
-   banned as an accent and status color; warning/info/success are neutral and only
-   restrained red communicates exceptions or actionable notification counts. */
-@plugin "daisyui/theme" { name:"board-light"; default:true; color-scheme:light; --color-base-100:oklch(99% 0 0); --color-base-200:oklch(96.5% 0 0); --color-base-300:oklch(90% 0 0); --color-base-content:oklch(22% 0 0); --color-primary:oklch(25% 0 0); --color-primary-content:oklch(98% 0 0); --color-secondary:oklch(45% 0 0); --color-secondary-content:oklch(98% 0 0); --color-accent:oklch(35% 0 0); --color-accent-content:oklch(98% 0 0); --color-neutral:oklch(28% 0 0); --color-neutral-content:oklch(98% 0 0); --color-info:oklch(52% 0 0); --color-info-content:oklch(98% 0 0); --color-success:oklch(42% 0 0); --color-success-content:oklch(98% 0 0); --color-warning:oklch(72% 0 0); --color-warning-content:oklch(20% 0 0); --color-error:oklch(56% .17 27); --color-error-content:oklch(98% 0 0); --radius-box:.55rem; --radius-field:.35rem; }
-@plugin "daisyui/theme" { name:"board-dark"; color-scheme:dark; --color-base-100:oklch(21% 0 0); --color-base-200:oklch(17% 0 0); --color-base-300:oklch(29% 0 0); --color-base-content:oklch(93% 0 0); --color-primary:oklch(90% 0 0); --color-primary-content:oklch(18% 0 0); --color-secondary:oklch(70% 0 0); --color-secondary-content:oklch(18% 0 0); --color-accent:oklch(80% 0 0); --color-accent-content:oklch(18% 0 0); --color-neutral:oklch(32% 0 0); --color-neutral-content:oklch(96% 0 0); --color-info:oklch(68% 0 0); --color-info-content:oklch(15% 0 0); --color-success:oklch(65% 0 0); --color-success-content:oklch(15% 0 0); --color-warning:oklch(68% 0 0); --color-warning-content:oklch(14% 0 0); --color-error:oklch(62% .16 27); --color-error-content:oklch(98% 0 0); --radius-box:.45rem; --radius-field:.3rem; }
-:root{font-family:Inter,ui-sans-serif,system-ui,sans-serif}
-/* Neutral gray backdrops replace the former green/chartreuse contour surfaces. */
-body{min-height:100vh;min-height:100dvh;margin:0;overflow:hidden;background-color:var(--color-base-200)}
-[data-theme="board-dark"] body{background-color:var(--color-base-200)}
-/* AIDEV-NOTE: The shell owns the viewport; drawer content scrolls without moving the desktop sidebar. */
-.app-frame{height:100vh;height:100dvh;min-width:0;overflow:hidden}
-.app-frame>.drawer-content{height:100%;min-width:0;overflow-x:hidden;overflow-y:auto}
-.app-frame>.drawer-side{height:100%;overflow-y:auto}
-/* Premium rhythm keeps controls and panels spacious without widening dense tables. */
-.dashboard-grid{display:grid;gap:1.25rem}
-.compact-stat{padding:.8rem 1rem}
-.compact-card{padding:1rem}
-@media(min-width:640px){.compact-card{padding:1.25rem}}
-.chart-bar{width:100%;background:var(--color-primary);border-radius:.2rem .2rem 0 0}
-.operational-table :where(th,td){padding-block:.45rem}
-.menu a{color:var(--color-base-content)}
-/* AIDEV-NOTE: Navigation and actions must look interactive before hover; monochrome
-   borders and underlines provide affordance without introducing accent colors. */
-a[href],button:not(:disabled),summary,select{cursor:pointer}
-.btn{border-width:1px}
-.btn:not(.btn-square):not(.btn-circle){min-height:2.75rem;padding-inline:1rem}
-.btn-sm:not(.btn-square):not(.btn-circle),.btn-xs:not(.btn-square):not(.btn-circle){min-height:2.75rem;padding-inline:.875rem}
-.link{font-weight:600;text-decoration-thickness:1.5px;text-underline-offset:3px}
-.btn-ghost{border-color:color-mix(in oklab,var(--color-base-content),transparent 78%)}
-.menu a{border:1px solid transparent;border-radius:var(--radius-field);transition:background-color .15s,border-color .15s}
-.menu a:not(.menu-active){border-color:color-mix(in oklab,var(--color-base-content),transparent 88%);background:color-mix(in oklab,var(--color-base-content),transparent 97%)}
-.menu a:hover{border-color:color-mix(in oklab,var(--color-base-content),transparent 65%);background:color-mix(in oklab,var(--color-base-content),transparent 91%)}
-a.badge{font-weight:600;text-decoration:underline;text-underline-offset:2px}
-/* AIDEV-NOTE: Active navigation is monochrome by spec — neutral surface, inset
-   current-color bar, and weight. Never a colored fill. */
-.menu a.menu-active{background:color-mix(in oklab,var(--color-base-content),transparent 91%);box-shadow:inset 3px 0 0 currentColor;color:var(--color-base-content);font-weight:600}
-a:focus-visible,.btn:focus-visible,.tab:focus-visible,.input:focus-visible,.select:focus-visible,.radio:focus-visible{outline:3px solid color-mix(in oklab,var(--color-base-content),transparent 45%);outline-offset:2px}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:where([data-theme="board-dark"], [data-theme="board-dark"] *));
+
+/* AIDEV-NOTE: The restrained interface palette comes from the ANDA identity:
+   navy provides structure, teal communicates progress, and orange is reserved
+   for attention. Components should not introduce additional accent families.
+   DaisyUI has been removed; all surfaces come from the tokens below and the
+   design-system primitives in src/frontend/components/design-system. */
+:root {
+  --font-anda-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-anda-sans);
+  font-synthesis: none;
+  color-scheme: light;
+  --background: oklch(97% .012 246);
+  --foreground: oklch(27% .065 258);
+  --card: oklch(100% 0 0);
+  --card-foreground: oklch(27% .065 258);
+  --popover: oklch(100% 0 0);
+  --popover-foreground: oklch(27% .065 258);
+  --primary: oklch(31% .115 258);
+  --primary-foreground: oklch(98% .005 245);
+  --secondary: oklch(54% .11 190);
+  --secondary-foreground: oklch(98% .005 195);
+  --muted: oklch(94.5% .016 245);
+  --muted-foreground: oklch(47% .045 254);
+  --accent: oklch(72% .17 55);
+  --accent-foreground: oklch(25% .075 45);
+  --destructive: oklch(56% .17 27);
+  --border: oklch(88% .026 246);
+  --input: oklch(88% .026 246);
+  --ring: oklch(54% .11 190);
+  --info: oklch(60% .10 220);
+  --success: oklch(56% .16 145);
+  --warning: oklch(74% .15 67);
+  --neutral: oklch(24% .085 258);
+  --neutral-foreground: oklch(97% .008 245);
+  --chart-1: oklch(31% .115 258);
+  --chart-2: oklch(54% .11 190);
+  --chart-3: oklch(72% .17 55);
+  --chart-4: oklch(60% .10 220);
+  --chart-5: oklch(56% .10 181);
+  --radius: 0.65rem;
+  --sidebar: oklch(94.5% .021 248);
+  --sidebar-foreground: oklch(27% .065 258);
+  --sidebar-primary: oklch(31% .115 258);
+  --sidebar-primary-foreground: oklch(98% .005 245);
+  --sidebar-accent: oklch(91.5% .035 194);
+  --sidebar-accent-foreground: oklch(27% .065 258);
+  --sidebar-border: oklch(86% .034 246);
+  --sidebar-ring: oklch(54% .11 190);
+  --workspace-background:
+    radial-gradient(circle at 82% -12%, oklch(91% .045 190 / 55%), transparent 34rem),
+    radial-gradient(circle at 12% 108%, oklch(94% .055 58 / 42%), transparent 28rem);
+}
+
+[data-theme="board-dark"] {
+  color-scheme: dark;
+  --background: oklch(19% .035 258);
+  --foreground: oklch(93% .014 245);
+  --card: oklch(23% .035 258);
+  --card-foreground: oklch(93% .014 245);
+  --popover: oklch(23% .035 258);
+  --popover-foreground: oklch(93% .014 245);
+  --primary: oklch(70% .105 195);
+  --primary-foreground: oklch(18% .045 258);
+  --secondary: oklch(76% .14 59);
+  --secondary-foreground: oklch(20% .06 45);
+  --muted: oklch(30% .045 255);
+  --muted-foreground: oklch(74% .025 245);
+  --accent: oklch(76% .14 59);
+  --accent-foreground: oklch(20% .06 45);
+  --destructive: oklch(64% .16 27);
+  --border: oklch(93% .014 245 / 14%);
+  --input: oklch(93% .014 245 / 18%);
+  --ring: oklch(70% .105 195);
+  --info: oklch(70% .09 220);
+  --success: oklch(70% .16 145);
+  --warning: oklch(76% .14 67);
+  --neutral: oklch(15% .045 258);
+  --neutral-foreground: oklch(96% .01 245);
+  --chart-1: oklch(70% .105 195);
+  --chart-2: oklch(76% .14 59);
+  --chart-3: oklch(70% .09 220);
+  --chart-4: oklch(68% .10 181);
+  --chart-5: oklch(64% .16 27);
+  --sidebar: oklch(15% .045 258);
+  --sidebar-foreground: oklch(96% .01 245);
+  --sidebar-primary: oklch(70% .105 195);
+  --sidebar-primary-foreground: oklch(18% .045 258);
+  --sidebar-accent: oklch(26% .05 255);
+  --sidebar-accent-foreground: oklch(96% .01 245);
+  --sidebar-border: oklch(93% .014 245 / 14%);
+  --sidebar-ring: oklch(70% .105 195);
+  --workspace-background: none;
+}
+
+html { font-size: 15px; }
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0;
+  overflow: hidden;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-size: .9375rem;
+  line-height: 1.45;
+  text-rendering: optimizeLegibility;
+}
+
+button, input, select, textarea { font: inherit; }
+h1, h2, h3 { letter-spacing: -.025em; text-wrap: balance; }
+p { text-wrap: pretty; }
+time, .stat-value, .tabular-nums { font-variant-numeric: tabular-nums; }
+
+/* The shell owns the viewport; its content scrolls independently of the sidebar. */
+.app-frame {
+  height: 100vh;
+  height: 100dvh;
+  min-width: 0;
+  overflow: hidden;
+  background-color: var(--background);
+  background-image: var(--workspace-background);
+  background-attachment: fixed;
+}
+.app-frame > * { min-height: 0; }
+.app-content { height: 100%; min-height: 0; overflow: hidden; }
+.app-frame > div > aside { height: 100%; overflow-y: auto; }
+.app-header { box-shadow: 0 1px 0 color-mix(in oklab, var(--primary), transparent 88%); }
+.app-main { margin-inline: auto; max-width: 100rem; }
+
+a[href], button:not(:disabled), summary, select { cursor: pointer; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+}
+
+@theme inline {
+  --font-heading: var(--font-anda-sans);
+  --font-sans: var(--font-anda-sans);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-info: var(--info);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-neutral: var(--neutral);
+  --color-neutral-content: var(--neutral-foreground);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50; }
+  body {
+    @apply bg-background text-foreground; }
+  button:not(:disabled), [role="button"]:not(:disabled) {
+    cursor: pointer; }
+  html {
+    @apply font-sans; } }

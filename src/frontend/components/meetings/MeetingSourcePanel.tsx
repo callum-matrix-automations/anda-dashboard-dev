@@ -3,6 +3,10 @@
 import { useState } from "react";
 import type { MeetingApiDetail } from "@/shared/contracts/meetingApi";
 import { matchedParticipants, unmatchedParticipants } from "@/frontend/presentation/provenance";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/frontend/components/design-system/primitives/collapsible";
+import { Badge } from "@/frontend/components/design-system/primitives/badge";
+import { Button } from "@/frontend/components/design-system/primitives/button";
+import { CaretDownIcon } from "@phosphor-icons/react";
 
 type MeetingSourcePanelProps = Pick<MeetingApiDetail, "source" | "sourceParticipants">;
 
@@ -22,17 +26,18 @@ export function MeetingSourcePanel({ source, sourceParticipants }: MeetingSource
   };
 
   return (
-    <details className="collapse-arrow collapse border-b border-base-300 bg-base-100">
-      <summary className="collapse-title min-h-11 cursor-pointer px-4 py-2.5 text-sm font-medium hover:bg-base-200">
+    <Collapsible className="border-b border-border bg-card">
+      <CollapsibleTrigger className="group flex min-h-11 w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
+        <CaretDownIcon aria-hidden className="size-4 shrink-0 text-muted-foreground transition-transform group-data-panel-open:rotate-180" />
         <span>Meeting source · Read AI</span>
-        <span className="badge badge-outline badge-sm ml-2 align-middle">Imported</span>
+        <Badge variant="outline">Imported</Badge>
         {unmatched.length > 0 && (
-          <span className="badge badge-error badge-sm ml-2 align-middle">
+          <Badge variant="destructive">
             {unmatched.length} unmatched participant{unmatched.length === 1 ? "" : "s"}
-          </span>
+          </Badge>
         )}
-      </summary>
-      <div className="collapse-content space-y-4 px-4 text-sm">
+      </CollapsibleTrigger>
+      <CollapsibleContent className="space-y-4 px-4 pb-4 text-sm">
         <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <SourceValue label="Started" value={formatDateTime(source.startedAt)} />
           <SourceValue label="Ended" value={formatDateTime(source.endedAt)} />
@@ -40,51 +45,51 @@ export function MeetingSourcePanel({ source, sourceParticipants }: MeetingSource
           <SourceValue label="Imported" value={formatDateTime(source.importedAt)} />
         </dl>
         <div className="grid min-w-0 gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide opacity-55">Read AI meeting reference</span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Read AI meeting reference</span>
           <code className="select-all break-words text-xs leading-5 [overflow-wrap:anywhere]">{source.sourceMeetingId}</code>
-          <button type="button" className="btn btn-outline btn-sm min-h-11 w-full sm:w-fit" onClick={() => void copyReference()}>Copy reference</button>
-          {copyStatus && <span role="status" aria-live="polite" className="text-xs opacity-70">{copyStatus}</span>}
+          <Button variant="outline" size="sm" className="w-full sm:w-fit" onClick={() => void copyReference()}>Copy reference</Button>
+          {copyStatus && <span role="status" aria-live="polite" className="text-xs text-muted-foreground">{copyStatus}</span>}
         </div>
         {sourceParticipants.length === 0 ? (
-          <p className="opacity-60">Read AI did not supply participant details for this meeting.</p>
+          <p className="text-muted-foreground">Read AI did not supply participant details for this meeting.</p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
             <section>
-              <h3 className="text-xs font-semibold uppercase tracking-wide opacity-55">Matched participants</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Matched participants</h3>
               <ul aria-label="Matched participants" className="mt-2 space-y-2">
                 {matched.map((participant, index) => (
-                  <li key={participantKey(participant, index)} className="rounded-field border border-base-300 p-2">
+                  <li key={participantKey(participant, index)} className="rounded-lg border border-border p-2">
                     <span className="font-medium">{participant.displayName}</span>
-                    <span className="badge badge-success badge-sm ml-2">Profile linked</span>
-                    <span className="block text-xs opacity-60">{participant.email ?? "No email supplied"}</span>
+                    <Badge variant="success" className="ml-2">Profile linked</Badge>
+                    <span className="block text-xs text-muted-foreground">{participant.email ?? "No email supplied"}</span>
                   </li>
                 ))}
-                {matched.length === 0 && <li className="opacity-60">No participants matched an active profile.</li>}
+                {matched.length === 0 && <li className="text-muted-foreground">No participants matched an active profile.</li>}
               </ul>
             </section>
             <section>
-              <h3 className="text-xs font-semibold uppercase tracking-wide opacity-55">Unmatched participants</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Unmatched participants</h3>
               <ul aria-label="Unmatched participants" className="mt-2 space-y-2">
                 {unmatched.map((participant, index) => (
-                  <li key={participantKey(participant, index)} className="rounded-field border border-base-300 p-2">
+                  <li key={participantKey(participant, index)} className="rounded-lg border border-border p-2">
                     <span className="font-medium">{participant.displayName}</span>
-                    <span className="block text-xs opacity-60">{participant.email ?? "No valid email supplied"}</span>
-                    <span className="block text-xs opacity-60">No active ANDA profile was matched.</span>
+                    <span className="block text-xs text-muted-foreground">{participant.email ?? "No valid email supplied"}</span>
+                    <span className="block text-xs text-muted-foreground">No active ANDA profile was matched.</span>
                   </li>
                 ))}
-                {unmatched.length === 0 && <li className="opacity-60">Every supplied participant is linked to a profile.</li>}
+                {unmatched.length === 0 && <li className="text-muted-foreground">Every supplied participant is linked to a profile.</li>}
               </ul>
             </section>
           </div>
         )}
-        <p className="text-xs opacity-60">The source transcript is read-only. Unmatched participants remain in the transcript but are not added to structured attendance or voting.</p>
-      </div>
-    </details>
+        <p className="text-xs text-muted-foreground">The source transcript is read-only. Unmatched participants remain in the transcript but are not added to structured attendance or voting.</p>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
 function SourceValue({ label, value }: { label: string; value: string }) {
-  return <div><dt className="text-xs font-semibold uppercase tracking-wide opacity-55">{label}</dt><dd className="mt-1">{value}</dd></div>;
+  return <div><dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</dt><dd className="mt-1">{value}</dd></div>;
 }
 
 function formatDateTime(iso: string | null): string {

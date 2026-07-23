@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { buttonVariants } from "@/frontend/components/design-system/primitives/button";
 
 const FIRMA_APP_ORIGIN = "https://app.firma.dev";
 
@@ -34,13 +35,13 @@ export function EmbeddedFirmaSigning({
   }, [onCompleted, onDeclined, onError, onStarted]);
 
   return (
-    <section className="overflow-hidden rounded-box border border-base-300 bg-base-100" aria-labelledby="firma-signing-title">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-base-300 px-4 py-3">
+    <section className="overflow-hidden rounded-xl border border-border bg-card" aria-labelledby="firma-signing-title">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div>
           <h2 id="firma-signing-title" className="font-semibold">Firma signing session</h2>
-          <p className="text-xs opacity-60">Complete the Treasurer signature below. ANDA waits for Firma&apos;s verified callback before completing the record.</p>
+          <p className="text-xs text-muted-foreground">Complete the Treasurer signature below. ANDA waits for Firma&apos;s verified callback before completing the record.</p>
         </div>
-        <a className="btn btn-outline btn-sm" href={signingUrl} target="_blank" rel="noreferrer">Open in new tab</a>
+        <a className={buttonVariants({ size: "sm", variant: "outline" })} href={signingUrl} target="_blank" rel="noreferrer">Open in new tab</a>
       </div>
       <iframe
         className="h-[min(900px,78vh)] min-h-[36rem] w-full bg-white"

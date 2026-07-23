@@ -1,5 +1,6 @@
 import type {
   ActiveMemberProfile,
+  ManualTranscriptAttendeeLink,
   TranscriptImportAttendee,
 } from "../../repositories/transcripts/transcriptRepository";
 import { normalizeProfileEmail } from "../../../shared/schemas/profileEmail";
@@ -17,6 +18,11 @@ export interface UnmatchedTranscriptAttendee {
 
 export interface TranscriptAttendeeMatches {
   matched: TranscriptImportAttendee[];
+  unmatched: UnmatchedTranscriptAttendee[];
+}
+
+export interface ManualTranscriptAttendeeMatches {
+  matched: ManualTranscriptAttendeeLink[];
   unmatched: UnmatchedTranscriptAttendee[];
 }
 
@@ -83,4 +89,52 @@ export function matchTranscriptAttendees(
   }
 
   return { matched, unmatched };
+}
+
+export function matchManualTranscriptAttendeesByName(
+  attendees: readonly SourceAttendee[],
+  profiles: readonly ActiveMemberProfile[],
+): ManualTranscriptAttendeeMatches {
+  const profilesByName = new Map<string, ActiveMemberProfile[]>();
+  for (const profile of profiles) {
+    const key = normalizedDisplayNameKey(profile.displayName);
+    const matchingProfiles = profilesByName.get(key) ?? [];
+    matchingProfiles.push(profile);
+    profilesByName.set(key, matchingProfiles);
+  }
+
+  const matched: ManualTranscriptAttendeeLink[] = [];
+  const unmatched: UnmatchedTranscriptAttendee[] = [];
+  const processedProfiles = new Set<string>();
+  const processedNames = new Set<string>();
+  for (const attendee of attendees) {
+    const displayName = normalizeDisplayName(attendee.displayName);
+    const key = normalizedDisplayNameKey(displayName);
+    if (processedNames.has(key)) continue;
+    processedNames.add(key);
+
+    const matchingProfiles = profilesByName.get(key) ?? [];
+    if (matchingProfiles.length !== 1 || !matchingProfiles[0]) {
+      unmatched.push({
+        displayName,
+        email: null,
+        reason: matchingProfiles.length > 1 ? "ambiguous" : "not_found",
+      });
+      continue;
+    }
+
+    const profile = matchingProfiles[0];
+    if (processedProfiles.has(profile.profileId)) continue;
+    processedProfiles.add(profile.profileId);
+    matched.push({
+      profileId: profile.profileId,
+      displayNameSnapshot: displayName,
+    });
+  }
+
+  return { matched, unmatched };
+}
+
+function normalizedDisplayNameKey(displayName: string): string {
+  return normalizeDisplayName(displayName).toLocaleLowerCase("en-GB");
 }

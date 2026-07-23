@@ -7,19 +7,29 @@ import {
   useMarkMeetingReady,
   useResumeMeeting,
 } from "@/frontend/hooks/useApi";
-import { useModalDialog } from "@/frontend/components/shared/useModalDialog";
 import { meetingMutationErrorMessage } from "@/frontend/presentation/meetingMutationError";
-import { meetingApprovalReadinessIssues } from "@/frontend/presentation/meetingApprovalReadiness";
+import { meetingApprovalInvalidMotionIndexes, meetingApprovalReadinessIssues } from "@/frontend/presentation/meetingApprovalReadiness";
+import { Button } from "@/frontend/components/design-system/primitives/button";
+import { Textarea } from "@/frontend/components/design-system/primitives/textarea";
+import { Checkbox } from "@/frontend/components/design-system/primitives/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/frontend/components/design-system/primitives/dialog";
 import type { MeetingApiDetail } from "@/shared/contracts/meetingApi";
 
 interface MeetingReviewActionsProps {
   meeting: MeetingApiDetail;
   editing: boolean;
-  onEdit: () => void;
+  onGoToMotions?: (motionIndexes: number[]) => void;
   onFeedback: (message: string, tone: "error" | "success") => void;
 }
 
-export function MeetingReviewActions({ meeting, editing, onEdit, onFeedback }: MeetingReviewActionsProps) {
+export function MeetingReviewActions({ meeting, editing, onGoToMotions, onFeedback }: MeetingReviewActionsProps) {
   const [dialog, setDialog] = useState<"defer" | "approve" | null>(null);
   const resume = useResumeMeeting();
   const markReady = useMarkMeetingReady();
@@ -41,8 +51,7 @@ export function MeetingReviewActions({ meeting, editing, onEdit, onFeedback }: M
   );
 
   if (editing) return null;
-  const hasReviewAction = meeting.capabilities.canEdit
-    || meeting.capabilities.canDefer
+  const hasReviewAction = meeting.capabilities.canDefer
     || meeting.capabilities.canResume
     || meeting.capabilities.canMarkReady
     || meeting.capabilities.canApprove;
@@ -50,25 +59,23 @@ export function MeetingReviewActions({ meeting, editing, onEdit, onFeedback }: M
 
   return (
     <>
-      <div className="flex flex-wrap justify-end gap-2 border-t border-base-300 p-4">
-        {meeting.capabilities.canEdit && <button type="button" className="btn btn-outline btn-sm" disabled={anyPending} onClick={onEdit}>Edit draft</button>}
-        {meeting.capabilities.canDefer && <button type="button" className="btn btn-outline btn-sm" disabled={anyPending} onClick={() => setDialog("defer")}>Defer review</button>}
-        {meeting.capabilities.canResume && <button type="button" className="btn btn-outline btn-sm" disabled={anyPending} onClick={runResume}>{resume.isPending ? "Resuming..." : "Resume review"}</button>}
+      <div className="flex flex-wrap justify-end gap-2 border-t border-border p-4">
+        {meeting.capabilities.canDefer && <Button type="button" size="sm" variant="outline" className="!font-bold" disabled={anyPending} onClick={() => setDialog("defer")}>Defer review</Button>}
+        {meeting.capabilities.canResume && <Button type="button" size="sm" variant="outline" loading={resume.isPending} disabled={anyPending} onClick={runResume}>{resume.isPending ? "Resuming..." : "Resume review"}</Button>}
         {meeting.capabilities.canMarkReady && (
-          <button type="button" className="btn btn-primary btn-sm" disabled={anyPending || !meeting.minutes} onClick={runMarkReady}>
+          <Button type="button" size="sm" className="!font-bold" loading={markReady.isPending} disabled={anyPending || !meeting.minutes} onClick={runMarkReady}>
             {markReady.isPending ? "Updating..." : "Mark ready"}
-          </button>
+          </Button>
         )}
-        {meeting.capabilities.canApprove && <button type="button" className="btn btn-primary btn-sm" disabled={anyPending} onClick={() => setDialog("approve")}>Approve minutes</button>}
+        {meeting.capabilities.canApprove && <Button type="button" size="sm" className="!font-bold" disabled={anyPending} onClick={() => setDialog("approve")}>Approve minutes</Button>}
       </div>
-      {dialog === "defer" && <DeferDialog meeting={meeting} dismiss={() => setDialog(null)} onFeedback={onFeedback} />}
-      {dialog === "approve" && <ApproveDialog meeting={meeting} dismiss={() => setDialog(null)} onFeedback={onFeedback} />}
+      <DeferDialog open={dialog === "defer"} meeting={meeting} dismiss={() => setDialog(null)} onFeedback={onFeedback} />
+      <ApproveDialog open={dialog === "approve"} meeting={meeting} dismiss={() => setDialog(null)} onFeedback={onFeedback} onGoToMotions={onGoToMotions} />
     </>
   );
 }
 
-function DeferDialog({ meeting, dismiss, onFeedback }: DialogProps) {
-  const dialogRef = useModalDialog(dismiss);
+function DeferDialog({ open, meeting, dismiss, onFeedback }: DialogProps) {
   const defer = useDeferMeeting();
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
@@ -88,29 +95,31 @@ function DeferDialog({ meeting, dismiss, onFeedback }: DialogProps) {
   };
 
   return (
-    <dialog ref={dialogRef} className="modal" aria-labelledby="defer-title">
-      <div className="modal-box">
-        <h2 id="defer-title" className="text-lg font-semibold">Defer this review?</h2>
-        <p className="mt-2 text-sm opacity-70">The record stays editable but leaves the active review queue until it is resumed.</p>
-        <textarea className="textarea textarea-bordered mt-4 w-full" aria-label="Deferral reason" maxLength={2_000} placeholder="Reason for deferral" value={note} onChange={(event) => setNote(event.target.value)} />
-        {error && <p role="alert" className="mt-2 text-sm text-error">{error}</p>}
-        <div className="modal-action">
-          <button type="button" className="btn btn-ghost" disabled={defer.isPending} onClick={dismiss}>Cancel</button>
-          <button type="button" className="btn btn-primary" disabled={defer.isPending} onClick={submit}>{defer.isPending ? "Deferring..." : "Defer review"}</button>
-        </div>
-      </div>
-    </dialog>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) dismiss(); }}>
+      <DialogContent aria-labelledby="defer-title">
+        <DialogHeader>
+          <DialogTitle id="defer-title">Defer this review?</DialogTitle>
+          <DialogDescription>The record stays editable but leaves the active review queue until it is resumed.</DialogDescription>
+        </DialogHeader>
+        <Textarea aria-label="Deferral reason" maxLength={2_000} placeholder="Reason for deferral" value={note} onChange={(event) => setNote(event.target.value)} />
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        <DialogFooter>
+          <Button type="button" variant="ghost" disabled={defer.isPending} onClick={dismiss}>Cancel</Button>
+          <Button type="button" className="!font-bold" loading={defer.isPending} disabled={defer.isPending} onClick={submit}>{defer.isPending ? "Deferring..." : "Defer review"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-function ApproveDialog({ meeting, dismiss, onFeedback }: DialogProps) {
-  const dialogRef = useModalDialog(dismiss);
+function ApproveDialog({ open, meeting, dismiss, onFeedback, onGoToMotions }: DialogProps) {
   const approve = useApproveMeeting();
   const unresolvedVoteCount = meeting.motions.reduce(
     (total, motion) => total + motion.votes.filter((vote) => vote.selection === "unresolved").length,
     0,
   );
   const readinessIssues = meetingApprovalReadinessIssues(meeting);
+  const invalidMotionIndexes = meetingApprovalInvalidMotionIndexes(meeting);
   const [acknowledged, setAcknowledged] = useState(false);
   const [error, setError] = useState("");
 
@@ -129,39 +138,54 @@ function ApproveDialog({ meeting, dismiss, onFeedback }: DialogProps) {
   };
 
   return (
-    <dialog ref={dialogRef} className="modal" aria-labelledby="approve-title">
-      <div className="modal-box">
-        <h2 id="approve-title" className="text-lg font-semibold">Approve these minutes?</h2>
-        <p className="mt-2 text-sm opacity-70">Approval locks this version and starts PDF generation for Treasurer signing.</p>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) dismiss(); }}>
+      <DialogContent aria-labelledby="approve-title">
+        <DialogHeader>
+          <DialogTitle id="approve-title">Approve these minutes?</DialogTitle>
+          <DialogDescription>Approval locks this version and starts PDF generation for Treasurer signing.</DialogDescription>
+        </DialogHeader>
         {readinessIssues.length > 0 && (
-          <div role="alert" className="alert alert-error mt-4 items-start">
-            <div>
-              <strong>This meeting is not ready for approval.</strong>
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
-                {readinessIssues.map((issue) => <li key={issue}>{issue}</li>)}
-              </ul>
-              <p className="mt-2 text-sm">Close this dialog and edit the draft to correct these items.</p>
-            </div>
+          <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            <strong>This meeting is not ready for approval.</strong>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              {readinessIssues.map((issue) => <li key={issue}>{issue}</li>)}
+            </ul>
+            <p className="mt-2">Close this dialog and edit the draft to correct these items.</p>
           </div>
         )}
         {unresolvedVoteCount > 0 && (
-          <label className="mt-4 flex items-start gap-3 rounded-box border border-warning p-3">
-            <input type="checkbox" className="checkbox checkbox-warning mt-0.5" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} />
+          <label className="flex items-start gap-3 rounded-lg border border-warning/50 bg-warning/5 p-3">
+            <Checkbox className="mt-0.5" checked={acknowledged} onCheckedChange={(checked) => setAcknowledged(checked === true)} />
             <span className="text-sm">I acknowledge that {unresolvedVoteCount} {unresolvedVoteCount === 1 ? "vote is" : "votes are"} unresolved.</span>
           </label>
         )}
-        {error && <p role="alert" className="mt-2 text-sm text-error">{error}</p>}
-        <div className="modal-action">
-          <button type="button" className="btn btn-ghost" disabled={approve.isPending} onClick={dismiss}>Cancel</button>
-          <button type="button" className="btn btn-primary" disabled={approve.isPending || readinessIssues.length > 0} onClick={submit}>{approve.isPending ? "Approving..." : "Approve minutes"}</button>
-        </div>
-      </div>
-    </dialog>
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        <DialogFooter>
+          <Button type="button" variant="ghost" disabled={approve.isPending} onClick={dismiss}>Cancel</Button>
+          {invalidMotionIndexes.length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={approve.isPending}
+              onClick={() => {
+                dismiss();
+                onGoToMotions?.(invalidMotionIndexes);
+              }}
+            >
+              Go to motions
+            </Button>
+          )}
+          <Button type="button" className="!font-bold" loading={approve.isPending} disabled={approve.isPending || readinessIssues.length > 0} onClick={submit}>{approve.isPending ? "Approving..." : "Approve minutes"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
 interface DialogProps {
+  open: boolean;
   meeting: MeetingApiDetail;
   dismiss: () => void;
+  onGoToMotions?: (motionIndexes: number[]) => void;
   onFeedback: (message: string, tone: "error" | "success") => void;
 }

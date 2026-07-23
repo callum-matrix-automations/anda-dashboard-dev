@@ -19,6 +19,7 @@ const ActiveMemberProfileRowSchema = z.object({
   display_name: z.string().trim().min(1),
   email: z.string().trim().min(1),
 });
+const LinkedManualAttendeeCountSchema = z.number().int().nonnegative();
 
 interface SupabaseTranscriptRepositoryOptions {
   apiUrl?: string;
@@ -142,6 +143,32 @@ export function createSupabaseTranscriptRepository({
       };
     },
 
+    async linkManualAttendees(meetingId, attendees): Promise<number> {
+      const configuration = resolveConfiguration(apiUrl, secretKey, fetchImplementation);
+      const rpcUrl = new URL("/rest/v1/rpc/link_manual_transcript_attendees", configuration.apiUrl);
+      const responseBody = await requestSupabaseMutation({
+        url: rpcUrl,
+        secretKey: configuration.secretKey,
+        fetchImplementation: configuration.fetchImplementation,
+        body: {
+          p_meeting_id: meetingId,
+          p_attendees: attendees.map((attendee) => ({
+            profile_id: attendee.profileId,
+            display_name_snapshot: attendee.displayNameSnapshot,
+          })),
+        },
+        operation: "manual transcript attendee linking",
+        returnResponse: true,
+      });
+      const parsed = LinkedManualAttendeeCountSchema.safeParse(responseBody);
+      if (!parsed.success) {
+        throw new TranscriptRepositoryError("Supabase returned an invalid manual attendee link response.", {
+          code: "invalid_supabase_response",
+        });
+      }
+      return parsed.data;
+    },
+
     async resolveUnmatchedParticipants(meetingId): Promise<number> {
       const configuration = resolveConfiguration(apiUrl, secretKey, fetchImplementation);
       const rpcUrl = new URL("/rest/v1/rpc/resolve_unmatched_transcript_participants", configuration.apiUrl);
@@ -231,13 +258,15 @@ async function requestSupabaseMutation({
   fetchImplementation,
   body,
   operation,
+  returnResponse = false,
 }: {
   url: URL;
   secretKey: string;
   fetchImplementation: typeof fetch;
   body: Record<string, unknown>;
   operation: string;
-}): Promise<void> {
+  returnResponse?: boolean;
+}): Promise<unknown> {
   let response: Response;
   try {
     response = await fetchImplementation(url, {
@@ -264,6 +293,7 @@ async function requestSupabaseMutation({
       { status: response.status, code: details.success ? details.data.code : "supabase_response_failed" },
     );
   }
+  return returnResponse ? responseBody : undefined;
 }
 
 function resolveConfiguration(

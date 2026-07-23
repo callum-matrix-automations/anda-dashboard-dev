@@ -25,6 +25,11 @@ import {
   type MeetingArchiveSearchResult,
 } from "../../shared/contracts/meetingArchive";
 import type { MeetingReviewDraft } from "../../shared/contracts/meetingReview";
+import {
+  ManualTranscriptUploadResponseSchema,
+  type ManualTranscriptUploadRequest,
+  type ManualTranscriptUploadResponse,
+} from "../../shared/contracts/manualTranscriptUpload";
 import type { z } from "zod";
 
 export class ApiClientError extends Error {
@@ -130,11 +135,23 @@ export const apiClient = {
     async rejectSigning(id: string, expectedVersion: number, comment: string): Promise<MeetingApiMutationResponse> {
       return meetingMutation(id, "signing/reject", "POST", { expectedVersion, comment });
     },
+    async checkSigningStatus(id: string, expectedVersion: number): Promise<MeetingApiMutationResponse> {
+      return meetingMutation(id, "signing-status/check", "POST", { expectedVersion });
+    },
     async retrySigningOutcome(id: string, expectedVersion: number): Promise<MeetingApiMutationResponse> {
       return meetingMutation(id, "signing-outcome/retry", "POST", { expectedVersion });
     },
     async previewPdf(id: string): Promise<Blob> {
       return requestBlob(`/api/meetings/${encodeURIComponent(id)}/pdf/preview`);
+    },
+  },
+  transcripts: {
+    async upload(input: ManualTranscriptUploadRequest): Promise<ManualTranscriptUploadResponse> {
+      return request(
+        "/api/transcripts/upload",
+        ManualTranscriptUploadResponseSchema,
+        { method: "POST", body: JSON.stringify(input) },
+      );
     },
   },
   archive: {

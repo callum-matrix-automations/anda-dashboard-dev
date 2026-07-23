@@ -77,7 +77,7 @@ describe("frontend API client", () => {
     );
   });
 
-  it("loads a Treasurer signing session and sends rejection and outcome recovery commands", async () => {
+  it("loads a Treasurer signing session and sends status, rejection, and outcome recovery commands", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse({
         meetingId,
@@ -87,17 +87,49 @@ describe("frontend API client", () => {
         signingUrl: "https://app.firma.dev/signing/recipient-1",
       }))
       .mockResolvedValueOnce(jsonResponse({ action: "signing_rejected", meetingId, version: 7, documentVersion: 4 }))
+      .mockResolvedValueOnce(jsonResponse({ action: "signing_status_checked", meetingId, version: 7, attempt: 2 }))
       .mockResolvedValueOnce(jsonResponse({ action: "signing_outcome_retry_started", meetingId, version: 8, documentVersion: 4 }));
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(apiClient.meetings.signingSession(meetingId)).resolves.toMatchObject({ providerStatus: "pending" });
     await apiClient.meetings.rejectSigning(meetingId, 6, "Correct the vote count.");
+    await apiClient.meetings.checkSigningStatus(meetingId, 7);
     await apiClient.meetings.retrySigningOutcome(meetingId, 7);
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe(`/api/meetings/${meetingId}/signing-session`);
     expect(fetchMock.mock.calls[1]?.[0]).toBe(`/api/meetings/${meetingId}/signing/reject`);
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ body: JSON.stringify({ expectedVersion: 6, comment: "Correct the vote count." }) });
-    expect(fetchMock.mock.calls[2]?.[0]).toBe(`/api/meetings/${meetingId}/signing-outcome/retry`);
+    expect(fetchMock.mock.calls[2]?.[0]).toBe(`/api/meetings/${meetingId}/signing-status/check`);
+    expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({ body: JSON.stringify({ expectedVersion: 7 }) });
+    expect(fetchMock.mock.calls[3]?.[0]).toBe(`/api/meetings/${meetingId}/signing-outcome/retry`);
+  });
+
+  it("submits a manual transcript and validates the completed analysis response", async () => {
+    const input = {
+      title: "Uploaded board meeting",
+      meetingDate: "2026-07-23",
+      durationMinutes: 60,
+      transcript: "Chair: The meeting is open.",
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      status: "pending_approval",
+      meetingId,
+      analysisAttempt: 1,
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(apiClient.transcripts.upload(input)).resolves.toEqual({
+      status: "pending_approval",
+      meetingId,
+      analysisAttempt: 1,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/transcripts/upload",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    );
   });
 
   it("uses the real archive filters, detail, and temporary document-access APIs", async () => {
@@ -277,6 +309,7 @@ function summary() {
       canOpenSigningSession: false,
       canRetrySigning: false,
       canRejectSigning: false,
+      canCheckSigningStatus: false,
       canRetrySigningOutcome: false,
       canDownloadArchive: false,
     },

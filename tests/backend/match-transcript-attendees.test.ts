@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  matchManualTranscriptAttendeesByName,
   matchTranscriptAttendees,
   normalizeDisplayName,
 } from "../../src/backend/services/transcripts/matchTranscriptAttendees";
@@ -111,5 +112,50 @@ describe("matchTranscriptAttendees", () => {
       profileId: profiles[0]!.profileId,
       sourceEmailSnapshot: "eleanor.current@example.test",
     })]);
+  });
+
+  it("links manual transcript speakers only by a unique exact normalized profile name", () => {
+    expect(matchManualTranscriptAttendeesByName([
+      { displayName: "  ELEANOR   HUGHES ", email: null },
+      { displayName: "Marcus Patel", email: null },
+      { displayName: "Unknown Guest", email: null },
+    ], profiles)).toEqual({
+      matched: [
+        {
+          profileId: "10000000-0000-4000-8000-000000000001",
+          displayNameSnapshot: "ELEANOR HUGHES",
+        },
+        {
+          profileId: "10000000-0000-4000-8000-000000000002",
+          displayNameSnapshot: "Marcus Patel",
+        },
+      ],
+      unmatched: [{
+        displayName: "Unknown Guest",
+        email: null,
+        reason: "not_found",
+      }],
+    });
+  });
+
+  it("does not guess a manual attendee when display names are ambiguous", () => {
+    expect(matchManualTranscriptAttendeesByName([{
+      displayName: "Eleanor Hughes",
+      email: null,
+    }], [
+      ...profiles,
+      {
+        profileId: "10000000-0000-4000-8000-000000000003",
+        displayName: " eleanor  hughes ",
+        email: "another.eleanor@example.test",
+      },
+    ])).toEqual({
+      matched: [],
+      unmatched: [{
+        displayName: "Eleanor Hughes",
+        email: null,
+        reason: "ambiguous",
+      }],
+    });
   });
 });

@@ -59,7 +59,7 @@ Read AI does not include a signed timestamp. Replay and duplicate protection the
 
 Duration is rounded up to a whole minute for the existing ANDA meeting model. Exact source timestamps remain in transcript metadata. Read AI does not provide a transcript language field, so the internal language is `und` (undetermined).
 
-ANDA does not use Read AI's generated summary or action items as approved minutes. Its existing GPT-4.1 analysis continues to operate on the complete speaker-attributed transcript.
+ANDA does not use Read AI's generated summary or action items as approved minutes. Its GPT-5.6 Terra analysis operates on the complete speaker-attributed transcript.
 
 ## Delivery and failure behaviour
 

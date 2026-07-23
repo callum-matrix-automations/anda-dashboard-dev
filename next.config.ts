@@ -28,6 +28,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // AIDEV-NOTE: Phosphor's Next.js guidance — tree-shake per-icon imports so the
+  // whole icon family never lands in a client bundle. Complements the `/ssr` subpath.
+  experimental: { optimizePackageImports: ["@phosphor-icons/react"] },
   // AIDEV-NOTE: Pin tracing to this repository; a parent lockfile otherwise makes
   // Netlify omit server-function dependencies and the production route returns 502.
   outputFileTracingRoot: process.cwd(),

@@ -10,7 +10,7 @@ const fakeApiKey = "test-openai-key-never-use";
 function completedResponse() {
   return Response.json({
     id: "resp_test_001",
-    model: "gpt-4.1-2025-04-14",
+    model: "gpt-5.6-terra",
     status: "completed",
     output: [{
       type: "message",
@@ -25,13 +25,13 @@ function completedResponse() {
 }
 
 describe("OpenAI Responses client", () => {
-  it("sends a non-stored GPT-4.1 Responses API request and extracts output text", async () => {
+  it("sends a non-stored GPT-5.6 Terra Responses API request and extracts output text", async () => {
     const fetchImplementation = vi.fn().mockResolvedValue(completedResponse());
     const client = createOpenAiResponsesClient({ apiKey: fakeApiKey, fetchImplementation });
 
     await expect(client.createTextResponse("Connection test")).resolves.toEqual({
       responseId: "resp_test_001",
-      model: "gpt-4.1-2025-04-14",
+      model: "gpt-5.6-terra",
       status: "completed",
       outputText: "ANDA OpenAI connection successful.",
       requestId: "req_test_001",
@@ -46,7 +46,7 @@ describe("OpenAI Responses client", () => {
       "content-type": "application/json",
     });
     expect(JSON.parse(String(request.body))).toEqual({
-      model: "gpt-4.1",
+      model: "gpt-5.6-terra",
       input: "Connection test",
       max_output_tokens: 32,
       store: false,
@@ -73,7 +73,7 @@ describe("OpenAI Responses client", () => {
 
     const [, request] = fetchImplementation.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(String(request.body))).toEqual({
-      model: "gpt-4.1",
+      model: "gpt-5.6-terra",
       instructions: "Return a structured answer.",
       input: "Question",
       text: {
@@ -125,7 +125,7 @@ describe("OpenAI Responses client", () => {
   it("rejects a successful response that contains no output text", async () => {
     const fetchImplementation = vi.fn().mockResolvedValue(Response.json({
       id: "resp_empty_001",
-      model: "gpt-4.1-2025-04-14",
+      model: "gpt-5.6-terra",
       status: "completed",
       output: [],
     }));

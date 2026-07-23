@@ -5,6 +5,16 @@ import type { MeetingSigningOutcomeRepository } from "../../repositories/signing
 import { supabaseMeetingSigningOutcomeRepository } from "../../repositories/supabase/supabaseMeetingSigningOutcomeRepository";
 import { MeetingSigningSessionSchema } from "../../../shared/contracts/meetingSigning";
 
+export function createMeetingSigningSessionRecordService({
+  repository = supabaseMeetingSigningOutcomeRepository,
+}: {
+  repository?: MeetingSigningOutcomeRepository;
+} = {}) {
+  return async function getMeetingSigningSessionRecord(meetingId: string) {
+    return repository.getSession(z.string().uuid().parse(meetingId));
+  };
+}
+
 export function createMeetingSigningSessionService({
   repository = supabaseMeetingSigningOutcomeRepository,
   provider = firmaSigningClient,
@@ -38,6 +48,7 @@ export function createMeetingSigningSessionService({
       requestId: record.requestId,
       externalRequestId: record.externalRequestId,
       documentVersion: record.documentVersion,
+      outcomeStatus: record.outcomeStatus,
       providerStatus: details.status,
       recipientId: recipient.id,
       recipientEmail: recipient.email,
@@ -50,4 +61,5 @@ function ensureTrailingSlash(value: string) {
   return value.endsWith("/") ? value : `${value}/`;
 }
 
+export const getMeetingSigningSessionRecord = createMeetingSigningSessionRecordService();
 export const getMeetingSigningSession = createMeetingSigningSessionService();

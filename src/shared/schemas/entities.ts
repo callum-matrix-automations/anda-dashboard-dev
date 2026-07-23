@@ -68,9 +68,9 @@ export const MinutesSectionSchema = z.object({
 });
 export type MinutesSection = z.infer<typeof MinutesSectionSchema>;
 
-// AIDEV-NOTE: Provenance is diagram-required metadata about how the transcript entered
-// the system (Teams import). There is deliberately NO intake/upload screen — this data
-// only surfaces on meeting detail as a read-only Meeting Source panel.
+// AIDEV-NOTE: Provenance records whether transcript evidence came from the configured
+// capture provider or the manual user-testing upload path. It remains read-only after
+// ingestion and surfaces on meeting detail through the Meeting Source panel.
 export const TRANSCRIPT_IMPORT_STATUSES = ["imported", "imported_with_gaps", "import_failed"] as const;
 export const TranscriptImportStatusSchema = z.enum(TRANSCRIPT_IMPORT_STATUSES);
 export type TranscriptImportStatus = z.infer<typeof TranscriptImportStatusSchema>;
