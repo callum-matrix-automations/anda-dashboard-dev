@@ -42,6 +42,7 @@ export const MeetingApiCapabilitiesSchema = z.object({
   canOpenSigningSession: z.boolean(),
   canRetrySigning: z.boolean(),
   canRejectSigning: z.boolean(),
+  canCheckSigningStatus: z.boolean(),
   canRetrySigningOutcome: z.boolean(),
   canDownloadArchive: z.boolean(),
 }).strict();
@@ -188,6 +189,7 @@ export const MeetingApiMutationResponseSchema = z.object({
     "pdf_retry_started",
     "signing_retry_started",
     "signing_rejected",
+    "signing_status_checked",
     "signing_outcome_retry_started",
   ]),
   meetingId: z.string().uuid(),

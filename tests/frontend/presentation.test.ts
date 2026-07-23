@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { artifactStateFor } from "../../src/frontend/presentation/artifact";
 import { newestFirst } from "../../src/frontend/presentation/history";
-import { meetingDetailRefreshInterval } from "../../src/frontend/presentation/meetingRefresh";
 import { matchedParticipants, unmatchedParticipants } from "../../src/frontend/presentation/provenance";
+import { statusTone } from "../../src/frontend/components/shared/meetingPresentation";
 
 describe("frontend presentation helpers", () => {
   it("maps lifecycle values without mutating them", () => {
@@ -19,14 +19,8 @@ describe("frontend presentation helpers", () => {
     expect(history.map((entry) => entry.id)).toEqual(["1", "2"]);
   });
 
-  it("polls meeting detail while background processing or signing completion is active", () => {
-    expect(meetingDetailRefreshInterval({ status: "AI_PROCESSING" })).toBe(2_000);
-    expect(meetingDetailRefreshInterval({ status: "PDF_PROCESSING" })).toBe(2_000);
-    expect(meetingDetailRefreshInterval({ status: "AWAITING_SIGNATURE" })).toBe(3_000);
-    expect(meetingDetailRefreshInterval({ status: "ARCHIVE_FAILED" })).toBe(3_000);
-    expect(meetingDetailRefreshInterval({ status: "PENDING_APPROVAL" })).toBe(false);
-    expect(meetingDetailRefreshInterval({ status: "AI_FAILED" })).toBe(false);
-    expect(meetingDetailRefreshInterval(undefined)).toBe(false);
+  it("uses the warning pill for a meeting awaiting a treasurer signature", () => {
+    expect(statusTone.AWAITING_SIGNATURE).toBe("warning");
   });
 
   it("separates matched and unmatched Read AI participants", () => {

@@ -208,7 +208,7 @@ function signingMeeting(overrides: Partial<MeetingApiDetail> = {}): MeetingApiDe
     capabilities: {
       canEdit: false, canDefer: false, canResume: false, canMarkReady: false, canRetryAnalysis: false,
       canApprove: false, canRetryPdf: false, canOpenSigningSession: true, canRetrySigning: false,
-      canRejectSigning: true, canRetrySigningOutcome: true, canDownloadArchive: false,
+      canRejectSigning: true, canCheckSigningStatus: true, canRetrySigningOutcome: false, canDownloadArchive: false,
     },
     tags: ["governance"],
     minutes: { summary: "Approved minutes.", sections: [{ heading: "Opening", content: "The meeting opened." }] },

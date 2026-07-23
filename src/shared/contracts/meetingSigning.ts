@@ -154,6 +154,7 @@ export const MeetingSigningSessionSchema = z.object({
   requestId: z.string().uuid(),
   externalRequestId: z.string().trim().min(1),
   documentVersion: z.number().int().positive(),
+  outcomeStatus: z.enum(SIGNING_OUTCOME_STATUSES),
   providerStatus: z.string().trim().min(1),
   recipientId: z.string().trim().min(1),
   recipientEmail: z.string().email(),

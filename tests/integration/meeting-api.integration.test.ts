@@ -210,9 +210,11 @@ function controllerServices(review: ReturnType<typeof createMeetingReviewService
     approveMeeting: vi.fn(),
     retryMeetingPdf: vi.fn(),
     getMeetingSigningSession: vi.fn(),
+    getMeetingSigningSessionRecord: vi.fn(),
     retryMeetingSigning: vi.fn(),
     rejectMeetingSigning: vi.fn(),
     retryMeetingSigningOutcome: vi.fn(),
+    checkMeetingSigningStatus: vi.fn(),
     searchArchive: vi.fn().mockResolvedValue({ items: [], total: 0, limit: 100, offset: 0 }),
   };
 }

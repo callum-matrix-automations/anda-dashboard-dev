@@ -166,7 +166,7 @@ and draft persistence. It verifies that the meeting reaches
 `PENDING_APPROVAL`, the transcript remains unchanged, and a durable duplicate
 does not start analysis again.
 
-`npm.cmd run test:workflow:live` follows the same path with the real GPT-4.1
+`npm.cmd run test:workflow:live` follows the same path with the real GPT-5.6 Terra
 analyser. It requires local Supabase and `OPENAI_API_KEY`, makes a chargeable
 external API request, and is intentionally separate from the deterministic
 integration suite.
@@ -184,7 +184,7 @@ retry to `AWAITING_SIGNATURE`.
 `npm.cmd run test:signing` adds local-Supabase signing completion, missed-callback
 recovery, idempotency, rejection/reapproval history, terminal failure, and
 Treasurer retry coverage. `npm.cmd run test:signing:live:callback` is the opt-in
-real GPT-4.1/Firma path: it starts Next.js, opens a temporary Cloudflare tunnel,
+real GPT-5.6 Terra/Firma path: it starts Next.js, opens a temporary Cloudflare tunnel,
 registers a temporary webhook against `FIRMA_WORKSPACE_ID`, verifies a signed test
 delivery with that workspace's secret, prints the signing URL, waits for the human
 signature, verifies `READY_FOR_ARCHIVE`, and removes the temporary webhook. Use

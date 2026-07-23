@@ -21,6 +21,11 @@ export interface TranscriptImportAttendee {
   sourceEmailSnapshot: string;
 }
 
+export interface ManualTranscriptAttendeeLink {
+  profileId: string;
+  displayNameSnapshot: string;
+}
+
 export interface StoredTranscriptImport {
   status: "stored" | "duplicate";
   meetingId: string;
@@ -31,6 +36,10 @@ export interface StoredTranscriptImport {
 export interface TranscriptRepository {
   listActiveMemberProfiles(): Promise<ActiveMemberProfile[]>;
   storeImport(record: TranscriptImportRecord): Promise<StoredTranscriptImport>;
+  linkManualAttendees(
+    meetingId: string,
+    attendees: ManualTranscriptAttendeeLink[],
+  ): Promise<number>;
   resolveUnmatchedParticipants(meetingId: string): Promise<number>;
 }
 

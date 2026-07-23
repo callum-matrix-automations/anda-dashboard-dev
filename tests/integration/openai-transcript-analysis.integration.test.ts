@@ -43,6 +43,6 @@ describe.skipIf(!openAiConfigured)("live OpenAI transcript analysis", () => {
     ]));
     expect(draft.motions.some((motion) => motion.seconder.status === "unresolved")).toBe(true);
 
-    process.stdout.write(`\nValidated GPT-4.1 meeting analysis:\n${JSON.stringify(draft, null, 2)}\n\n`);
+    process.stdout.write(`\nValidated GPT-5.6 Terra meeting analysis:\n${JSON.stringify(draft, null, 2)}\n\n`);
   }, 90_000);
 });

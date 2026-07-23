@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SigningRequestProvider } from "../../src/backend/integrations/signing/signingRequestProvider";
 import type { MeetingSigningOutcomeRepository } from "../../src/backend/repositories/signing/meetingSigningOutcomeRepository";
-import { createMeetingSigningSessionService } from "../../src/backend/services/signing/getMeetingSigningSession";
+import type { MeetingReviewDetail } from "../../src/shared/contracts/meetingReview";
+import { createCheckMeetingSigningStatusService } from "../../src/backend/services/signing/checkMeetingSigningStatus";
+import {
+  createMeetingSigningSessionRecordService,
+  createMeetingSigningSessionService,
+} from "../../src/backend/services/signing/getMeetingSigningSession";
 import { createRejectMeetingSigningService } from "../../src/backend/services/signing/rejectMeetingSigning";
 import { createRetryMeetingSigningOutcomeService } from "../../src/backend/services/signing/retryMeetingSigningOutcome";
 
@@ -11,6 +16,18 @@ const runId = "33333333-3333-4333-8333-333333333333";
 const actorProfileId = "44444444-4444-4444-8444-444444444444";
 
 describe("meeting signing session", () => {
+  it("reads workflow state without contacting Firma", async () => {
+    const repository = repositoryMock();
+    const getRecord = createMeetingSigningSessionRecordService({ repository });
+
+    await expect(getRecord(meetingId)).resolves.toMatchObject({
+      status: "available",
+      meetingId,
+      outcomeStatus: "AWAITING",
+    });
+    expect(repository.getSession).toHaveBeenCalledWith(meetingId);
+  });
+
   it("returns the Firma public signing URL for the configured Treasurer recipient", async () => {
     const repository = repositoryMock();
     const provider = providerMock();
@@ -25,6 +42,7 @@ describe("meeting signing session", () => {
       requestId,
       externalRequestId: "firma-request-1",
       documentVersion: 4,
+      outcomeStatus: "AWAITING",
       providerStatus: "in_progress",
       recipientId: "recipient/1",
       recipientEmail: "treasurer@example.test",
@@ -55,6 +73,83 @@ describe("meeting signing session", () => {
       signerEmail: "treasurer@example.test",
     });
     await expect(getSession(meetingId)).rejects.toThrow("not a recipient");
+  });
+});
+
+describe("signing status check", () => {
+  const command = {
+    meetingId,
+    expectedVersion: 8,
+    actorProfileId,
+  };
+
+  it("reconciles an active signing request without changing its workflow prematurely", async () => {
+    const reconcile = vi.fn().mockResolvedValue({
+      status: "no_change",
+      meetingId,
+      attempt: 2,
+      providerStatus: "in_progress",
+    });
+    const checkStatus = createCheckMeetingSigningStatusService({
+      getMeeting: vi.fn().mockResolvedValue({
+        id: meetingId,
+        status: "AWAITING_SIGNATURE",
+        version: 8,
+      } as MeetingReviewDetail),
+      reconcile,
+    });
+
+    await expect(checkStatus(command)).resolves.toEqual({
+      status: "checked",
+      meetingId,
+      version: 8,
+      attempt: 2,
+      reconciliation: {
+        status: "no_change",
+        meetingId,
+        attempt: 2,
+        providerStatus: "in_progress",
+      },
+    });
+    expect(reconcile).toHaveBeenCalledWith(meetingId);
+  });
+
+  it("does not reconcile a stale browser version", async () => {
+    const reconcile = vi.fn();
+    const checkStatus = createCheckMeetingSigningStatusService({
+      getMeeting: vi.fn().mockResolvedValue({
+        id: meetingId,
+        status: "AWAITING_SIGNATURE",
+        version: 9,
+      } as MeetingReviewDetail),
+      reconcile,
+    });
+
+    await expect(checkStatus(command)).resolves.toEqual({
+      status: "conflict",
+      meetingId,
+      version: 9,
+    });
+    expect(reconcile).not.toHaveBeenCalled();
+  });
+
+  it("keeps failed completion recovery on the dedicated retry path", async () => {
+    const reconcile = vi.fn();
+    const checkStatus = createCheckMeetingSigningStatusService({
+      getMeeting: vi.fn().mockResolvedValue({
+        id: meetingId,
+        status: "ESIGN_FAILED",
+        version: 8,
+      } as MeetingReviewDetail),
+      reconcile,
+    });
+
+    await expect(checkStatus(command)).resolves.toEqual({
+      status: "invalid_state",
+      meetingId,
+      version: 8,
+    });
+    expect(reconcile).not.toHaveBeenCalled();
   });
 });
 

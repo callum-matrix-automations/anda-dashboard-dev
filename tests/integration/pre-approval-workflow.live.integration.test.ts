@@ -8,11 +8,11 @@ import {
 const liveWorkflowConfigured = localSupabaseConfiguration().configured
   && Boolean(process.env.OPENAI_API_KEY?.trim());
 
-describe.skipIf(!liveWorkflowConfigured)("live GPT-4.1 pre-approval workflow", () => {
-  it("runs an authenticated transcript webhook through GPT-4.1 to PENDING_APPROVAL", async () => {
+describe.skipIf(!liveWorkflowConfigured)("live GPT-5.6 Terra pre-approval workflow", () => {
+  it("runs an authenticated transcript webhook through GPT-5.6 Terra to PENDING_APPROVAL", async () => {
     const result = await runPreApprovalWorkflow({
       analyze: analyzeMeetingTranscript,
-      idPrefix: "live-gpt41-workflow",
+      idPrefix: "live-gpt56-terra-workflow",
     });
 
     expect(result.responseStatus).toBe(202);

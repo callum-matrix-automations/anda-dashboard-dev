@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import { ApiClientError } from "@/frontend/api-client/client";
 import {
   useMeeting,
@@ -10,16 +11,31 @@ import {
   useRejectMeetingSigning,
 } from "@/frontend/hooks/useApi";
 import { ErrorState, LoadingState } from "@/frontend/components/shared/States";
-import { Toast } from "@/frontend/components/shared/Toast";
-import { useModalDialog } from "@/frontend/components/shared/useModalDialog";
+import { StatusBadge } from "@/frontend/components/shared/StatusBadge";
+import { Button, buttonVariants } from "@/frontend/components/design-system/primitives/button";
+import { Alert, AlertTitle, AlertDescription, AlertAction } from "@/frontend/components/design-system/primitives/alert";
+import { Textarea } from "@/frontend/components/design-system/primitives/textarea";
+import { Label } from "@/frontend/components/design-system/primitives/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/frontend/components/design-system/primitives/dialog";
 import { MeetingPdfPreview } from "@/frontend/components/meetings/MeetingPdfPreview";
 import { MeetingWorkflowState } from "@/frontend/components/meetings/MeetingWorkflowState";
-import { statusLabel, statusText } from "@/frontend/components/shared/meetingPresentation";
 import { meetingMutationErrorMessage } from "@/frontend/presentation/meetingMutationError";
 import type { MeetingApiDetail } from "@/shared/contracts/meetingApi";
 import { EmbeddedFirmaSigning } from "./EmbeddedFirmaSigning";
 
 type Feedback = { message: string; tone: "error" | "success" };
+
+function notify(message: string, tone: Feedback["tone"]) {
+  if (tone === "success") toast.success(message);
+  else toast.error(message);
+}
 
 export function MeetingSigningScreen({ meetingId }: { meetingId: string }) {
   const query = useMeeting(meetingId);
@@ -30,22 +46,22 @@ export function MeetingSigningScreen({ meetingId }: { meetingId: string }) {
     signingRequested,
   );
   const [rejecting, setRejecting] = useState(false);
-  const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [providerState, setProviderState] = useState<string | null>(null);
   const heading = (
     <div>
-      <div className="breadcrumbs text-xs"><ul><li><Link href="/app/signing">Signing</Link></li><li>Meeting</li></ul></div>
-      <h1 className="text-2xl font-semibold">Treasurer signing</h1>
-      <p className="text-sm opacity-60">Review the locked document, sign it in Firma, or return it to the Officer with a comment.</p>
+      <div className="text-xs font-semibold tracking-wide text-secondary">
+        <Link href="/app/signing" className="hover:underline">Signing</Link> · Meeting
+      </div>
+      <h1 className="mt-0.5 text-2xl font-semibold">Treasurer signing</h1>
+      <p className="mt-0.5 text-sm text-muted-foreground">Review the locked document, sign it in Firma, or return it to the Officer with a comment.</p>
     </div>
   );
 
   if (query.isLoading) return <LoadingState label="Loading Treasurer signing record" />;
-  if (query.isError) return <div className="grid gap-4">{heading}<ErrorState message={errorMessage(query.error)} retry={() => void query.refetch()} /></div>;
+  if (query.isError) return <div className="grid gap-4">{heading}<ErrorState message={errorMessage(query.error)} retry={() => void query.refetch()} retrying={query.isFetching} /></div>;
   const meeting = query.data;
-  if (!meeting) return <div className="grid gap-4">{heading}<ErrorState message="The signing record was not returned." retry={() => void query.refetch()} /></div>;
+  if (!meeting) return <div className="grid gap-4">{heading}<ErrorState message="The signing record was not returned." retry={() => void query.refetch()} retrying={query.isFetching} /></div>;
 
-  const showFeedback = (message: string, tone: Feedback["tone"]) => setFeedback({ message, tone });
   const submitted = () => {
     setProviderState("Firma has accepted the signature. Waiting for the verified callback and signed PDF.");
     void query.refetch();
@@ -55,10 +71,13 @@ export function MeetingSigningScreen({ meetingId }: { meetingId: string }) {
     return (
       <div className="grid gap-4">
         {heading}
-        <div role="status" className="alert alert-success">
-          <div><strong>Signing and archival are complete.</strong><p className="text-sm">The immutable signed record is now available in the archive.</p></div>
-          <Link className="btn btn-sm" href={`/app/archive/${meeting.id}`}>View signed record</Link>
-        </div>
+        <Alert>
+          <AlertTitle>Signing and archival are complete.</AlertTitle>
+          <AlertDescription>The immutable signed record is now available in the archive.</AlertDescription>
+          <AlertAction>
+            <Link className={buttonVariants({ size: "sm" })} href={`/app/archive/${meeting.id}`}>View signed record</Link>
+          </AlertAction>
+        </Alert>
       </div>
     );
   }
@@ -66,36 +85,45 @@ export function MeetingSigningScreen({ meetingId }: { meetingId: string }) {
   return (
     <div className="grid gap-4">
       {heading}
-      {feedback && <Toast message={feedback.message} tone={feedback.tone} clear={() => setFeedback(null)} />}
-      <article className="card overflow-hidden border border-base-300 bg-base-100">
-        <header className="grid gap-4 border-b border-base-300 p-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
+      <article className="overflow-hidden rounded-xl border border-border bg-card shadow-sm shadow-primary/5">
+        <header className="grid gap-4 border-b border-border p-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
           <div>
-            <span className={`text-sm font-medium ${statusText[meeting.status]}`}>{statusLabel[meeting.status]}</span>
+            <StatusBadge status={meeting.status} />
             <h2 className="mt-2 text-2xl font-semibold">{meeting.title}</h2>
-            <p className="text-sm opacity-60">{meeting.category} · {meeting.meetingDate} · document version {meeting.pdfArtifact?.documentVersion ?? "pending"}</p>
+            <p className="text-sm text-muted-foreground">{meeting.category} · {meeting.meetingDate} · document version {meeting.pdfArtifact?.documentVersion ?? "pending"}</p>
             {meeting.approval && <p className="mt-3 text-sm">Approved by {meeting.approval.approvedByDisplayName} on {formatAt(meeting.approval.approvedAt)}.</p>}
-            <p className="mt-2 text-xs opacity-60">The approved content is locked. Open the full meeting record if transcript evidence is needed.</p>
-            <Link className="link mt-2 inline-block text-sm" href={`/app/meetings/${meeting.id}`}>Open full meeting record</Link>
+            <p className="mt-2 text-xs text-muted-foreground">The approved content is locked. Open the full meeting record if transcript evidence is needed.</p>
+            <Link className="mt-2 inline-block text-sm font-medium text-primary underline-offset-2 hover:underline" href={`/app/meetings/${meeting.id}`}>Open full meeting record</Link>
           </div>
           <MeetingPdfPreview meeting={meeting} />
         </header>
-        <MeetingWorkflowState meeting={meeting} onFeedback={showFeedback} />
+        <MeetingWorkflowState meeting={meeting} onFeedback={notify} />
         <div className="flex flex-wrap justify-end gap-2 p-4">
           {meeting.capabilities.canRejectSigning && (
-            <button type="button" className="btn btn-outline btn-sm" onClick={() => setRejecting(true)}>Return for corrections</button>
+            <Button type="button" size="sm" variant="outline" onClick={() => setRejecting(true)}>Return for corrections</Button>
           )}
           {meeting.capabilities.canOpenSigningSession && (
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => setSigningRequested(true)}>
+            <Button
+              type="button"
+              size="sm"
+              loading={signingRequested && session.isLoading}
+              disabled={signingRequested && session.isLoading}
+              onClick={() => setSigningRequested(true)}
+            >
               {signingRequested ? "Signing session opened" : "Sign document"}
-            </button>
+            </Button>
           )}
         </div>
       </article>
 
-      {providerState && <div role="status" className="alert alert-info"><span>{providerState}</span></div>}
+      {providerState && (
+        <Alert>
+          <AlertDescription>{providerState}</AlertDescription>
+        </Alert>
+      )}
       {signingRequested && session.isLoading && <LoadingState label="Opening secure Firma signing session" />}
       {signingRequested && session.isError && (
-        <ErrorState message={errorMessage(session.error)} retry={() => void session.refetch()} />
+        <ErrorState message={errorMessage(session.error)} retry={() => void session.refetch()} retrying={session.isFetching} />
       )}
       {session.data && (
         <EmbeddedFirmaSigning
@@ -103,20 +131,19 @@ export function MeetingSigningScreen({ meetingId }: { meetingId: string }) {
           onStarted={() => setProviderState("Firma signing is in progress.")}
           onCompleted={submitted}
           onDeclined={() => setProviderState("Firma reports that the signing session was declined. ANDA will wait for the verified provider outcome.")}
-          onError={(message) => showFeedback(message, "error")}
+          onError={(message) => notify(message, "error")}
         />
       )}
-      {rejecting && <RejectSigningDialog meeting={meeting} dismiss={() => setRejecting(false)} onFeedback={showFeedback} />}
+      <RejectSigningDialog open={rejecting} meeting={meeting} dismiss={() => setRejecting(false)} />
     </div>
   );
 }
 
-function RejectSigningDialog({ meeting, dismiss, onFeedback }: {
+function RejectSigningDialog({ open, meeting, dismiss }: {
+  open: boolean;
   meeting: MeetingApiDetail;
   dismiss: () => void;
-  onFeedback: (message: string, tone: Feedback["tone"]) => void;
 }) {
-  const dialogRef = useModalDialog(dismiss);
   const reject = useRejectMeetingSigning();
   const router = useRouter();
   const [comment, setComment] = useState("");
@@ -133,7 +160,7 @@ function RejectSigningDialog({ meeting, dismiss, onFeedback }: {
       {
         onSuccess: () => {
           dismiss();
-          onFeedback("Meeting returned to the Officer for corrections.", "success");
+          notify("Meeting returned to the Officer for corrections.", "success");
           router.push(`/app/meetings/${meeting.id}`);
         },
         onError: (mutationError) => setError(meetingMutationErrorMessage(mutationError)),
@@ -142,21 +169,30 @@ function RejectSigningDialog({ meeting, dismiss, onFeedback }: {
   };
 
   return (
-    <dialog ref={dialogRef} className="modal" aria-labelledby="reject-signing-title">
-      <div className="modal-box">
-        <h2 id="reject-signing-title" className="text-lg font-semibold">Return this meeting for corrections?</h2>
-        <p className="mt-2 text-sm opacity-70">The current Firma request will be cancelled, the meeting will return to Needs Review, and the Officer will need to approve a new document version.</p>
-        <label className="form-control mt-4">
-          <span className="label-text mb-1 text-xs">Required correction comment</span>
-          <textarea className="textarea textarea-bordered min-h-28 w-full" maxLength={2_000} value={comment} onChange={(event) => { setComment(event.target.value); setError(""); }} placeholder="Describe exactly what needs to change" />
-        </label>
-        {error && <p role="alert" className="mt-2 text-sm text-error">{error}</p>}
-        <div className="modal-action">
-          <button type="button" className="btn btn-ghost" disabled={reject.isPending} onClick={dismiss}>Cancel</button>
-          <button type="button" className="btn btn-warning" disabled={reject.isPending} onClick={submit}>{reject.isPending ? "Returning..." : "Return for corrections"}</button>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) dismiss(); }}>
+      <DialogContent aria-labelledby="reject-signing-title">
+        <DialogHeader>
+          <DialogTitle id="reject-signing-title">Return this meeting for corrections?</DialogTitle>
+          <DialogDescription>The current Firma request will be cancelled, the meeting will return to Needs Review, and the Officer will need to approve a new document version.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-1.5">
+          <Label htmlFor="reject-signing-comment" className="text-xs">Required correction comment</Label>
+          <Textarea
+            id="reject-signing-comment"
+            className="min-h-28"
+            maxLength={2_000}
+            value={comment}
+            onChange={(event) => { setComment(event.target.value); setError(""); }}
+            placeholder="Describe exactly what needs to change"
+          />
         </div>
-      </div>
-    </dialog>
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        <DialogFooter>
+          <Button type="button" variant="ghost" disabled={reject.isPending} onClick={dismiss}>Cancel</Button>
+          <Button type="button" variant="destructive" loading={reject.isPending} disabled={reject.isPending} onClick={submit}>{reject.isPending ? "Returning..." : "Return for corrections"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

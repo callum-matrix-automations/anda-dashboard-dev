@@ -2,21 +2,18 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiClientError, apiClient } from "@/frontend/api-client/client";
-import {
-  MEETING_QUEUE_REFRESH_MS,
-  meetingDetailRefreshInterval,
-} from "@/frontend/presentation/meetingRefresh";
-import type { ModuleName } from "@/shared/contracts/api";
 import type { MeetingApiQueue } from "@/shared/contracts/meetingApi";
 import type { MeetingArchiveQuery } from "@/shared/contracts/meetingArchive";
 import type { MeetingReviewDraft } from "@/shared/contracts/meetingReview";
+import type { ManualTranscriptUploadRequest } from "@/shared/contracts/manualTranscriptUpload";
 
 export function useMeetings(queue: MeetingApiQueue = "all") {
   return useQuery({
     queryKey: ["meetings", queue],
     queryFn: () => apiClient.meetings.list({ queue, limit: 100, offset: 0 }),
     retry: false,
-    refetchInterval: MEETING_QUEUE_REFRESH_MS,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -25,7 +22,8 @@ export function useMeeting(id: string) {
     queryKey: ["meeting", id],
     queryFn: () => apiClient.meetings.get(id),
     retry: false,
-    refetchInterval: (query) => meetingDetailRefreshInterval(query.state.data),
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -128,6 +126,24 @@ export function useRetryMeetingSigningOutcome() {
   );
 }
 
+export function useUploadTranscript() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ManualTranscriptUploadRequest) => apiClient.transcripts.upload(input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["meetings"] });
+    },
+  });
+}
+
+export function useCheckMeetingSigningStatus() {
+  return useMeetingMutation(
+    ({ meetingId, expectedVersion }: { meetingId: string; expectedVersion: number }) => (
+      apiClient.meetings.checkSigningStatus(meetingId, expectedVersion)
+    ),
+  );
+}
+
 export function useArchive(query: Partial<MeetingArchiveQuery>, enabled = true) {
   return useQuery({
     queryKey: ["archive", query],
@@ -147,14 +163,6 @@ export function useArchiveMeeting(meetingId: string) {
 
 export function useArchiveDocumentAccess() {
   return useMutation({ mutationFn: (meetingId: string) => apiClient.archive.documentAccess(meetingId) });
-}
-
-export function useAccounts() {
-  return useQuery({ queryKey: ["accounts"], queryFn: () => apiClient.accounts.list(), retry: false });
-}
-
-export function useModuleRecords(name: ModuleName) {
-  return useQuery({ queryKey: ["module", name], queryFn: () => apiClient.modules.list(name), retry: false });
 }
 
 function useMeetingMutation<TVariables extends { meetingId: string }>(

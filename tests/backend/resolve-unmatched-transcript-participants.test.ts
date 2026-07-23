@@ -8,6 +8,7 @@ describe("resolveUnmatchedTranscriptParticipants", () => {
     const repository: TranscriptRepository = {
       listActiveMemberProfiles: vi.fn(),
       storeImport: vi.fn(),
+      linkManualAttendees: vi.fn(),
       resolveUnmatchedParticipants,
     };
     const meetingId = "11111111-1111-4111-8111-111111111111";

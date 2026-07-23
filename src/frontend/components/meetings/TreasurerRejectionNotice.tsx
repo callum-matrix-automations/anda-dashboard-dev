@@ -1,4 +1,5 @@
 import type { MeetingApiDetail } from "@/shared/contracts/meetingApi";
+import { StatusBanner } from "./StatusBanner";
 
 export function TreasurerRejectionNotice({ meeting }: { meeting: MeetingApiDetail }) {
   const rejected = [...meeting.history]
@@ -11,13 +12,13 @@ export function TreasurerRejectionNotice({ meeting }: { meeting: MeetingApiDetai
   if (reapproved) return null;
 
   return (
-    <div role="status" className="alert alert-warning rounded-none border-x-0 border-t-0">
+    <StatusBanner tone="warning">
       <div>
         <strong>Returned by the Treasurer for corrections.</strong>
         <p className="mt-1 text-sm">{rejected.note ?? "No correction comment was recorded."}</p>
-        <p className="mt-1 text-xs opacity-70">Returned by {rejected.actorDisplayName} on {formatAt(rejected.createdAt)}. Correct the draft and approve it again to create a new document version.</p>
+        <p className="mt-1 text-xs text-muted-foreground">Returned by {rejected.actorDisplayName} on {formatAt(rejected.createdAt)}. Correct the draft and approve it again to create a new document version.</p>
       </div>
-    </div>
+    </StatusBanner>
   );
 }
 

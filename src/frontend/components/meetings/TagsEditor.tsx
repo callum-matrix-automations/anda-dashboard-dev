@@ -1,5 +1,9 @@
 "use client";
 import { useState } from "react";
+import { Input } from "@/frontend/components/design-system/primitives/input";
+import { Button } from "@/frontend/components/design-system/primitives/button";
+import { Badge } from "@/frontend/components/design-system/primitives/badge";
+import { XIcon } from "@phosphor-icons/react";
 
 interface TagsEditorProps {
   tags: string[];
@@ -25,42 +29,42 @@ export function TagsEditor({ tags, editable, busy, onAdd, onRemove }: TagsEditor
     <div>
       <div className="flex flex-wrap items-center gap-1.5" aria-label="Meeting tags">
         {tags.map((tag) => (
-          <span key={tag} className="badge badge-outline gap-1">
+          <Badge key={tag} variant="outline" className="gap-1 pr-1">
             {tag}
             {editable && (
               <button
                 type="button"
-                className="btn btn-ghost btn-xs ml-0.5 min-h-11 min-w-11 px-2 opacity-60 hover:opacity-100"
+                className="grid size-4 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
                 aria-label={`Remove tag ${tag}`}
                 disabled={busy}
                 onClick={() => onRemove(tag)}
               >
-                ✕
+                <XIcon className="size-2.5" aria-hidden />
               </button>
             )}
-          </span>
+          </Badge>
         ))}
-        {tags.length === 0 && <span className="text-sm opacity-55">No tags added.</span>}
+        {tags.length === 0 && <span className="text-sm text-muted-foreground">No tags added.</span>}
       </div>
       {editable ? (
         <>
           <div className="mt-2 flex gap-2">
-            <input
-            className="input input-bordered input-sm w-44"
-            aria-label="Add tag"
-            placeholder="e.g. Reserve Study"
-            maxLength={40}
-            disabled={busy || atLimit}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); submit(); } }}
-          />
-          <button type="button" className="btn btn-outline btn-sm" disabled={busy || atLimit} onClick={submit}>Add tag</button>
+            <Input
+              className="h-8 w-44"
+              aria-label="Add tag"
+              placeholder="e.g. Reserve Study"
+              maxLength={40}
+              disabled={busy || atLimit}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); submit(); } }}
+            />
+            <Button type="button" variant="outline" size="sm" disabled={busy || atLimit} onClick={submit}>Add tag</Button>
           </div>
-          {atLimit && <p className="mt-1 text-xs opacity-60">Maximum of 20 tags reached. Remove one before adding another.</p>}
+          {atLimit && <p className="mt-1 text-xs text-muted-foreground">Maximum of 20 tags reached. Remove one before adding another.</p>}
         </>
       ) : (
-        <p className="mt-1 text-xs opacity-55">Tags are read-only after approval and immutable once the record completes.</p>
+        <p className="mt-1 text-xs text-muted-foreground">Tags are read-only after approval and immutable once the record completes.</p>
       )}
     </div>
   );

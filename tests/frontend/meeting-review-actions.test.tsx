@@ -27,9 +27,11 @@ describe("meeting review workflow actions", () => {
     vi.stubGlobal("fetch", fetchMock);
     const feedback = vi.fn();
     renderWithQuery(createElement(MeetingReviewActions, {
-      meeting: reviewMeeting(), editing: false, onEdit: vi.fn(), onFeedback: feedback,
+      meeting: reviewMeeting(), editing: false, onFeedback: feedback,
     }));
 
+    expect(screen.queryByRole("button", { name: "Edit draft" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Approve minutes" }).className).toContain("!font-bold");
     await user.click(screen.getByRole("button", { name: "Approve minutes" }));
     const dialog = screen.getByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: "Approve minutes" }));
@@ -49,6 +51,7 @@ describe("meeting review workflow actions", () => {
   it("identifies the exact incomplete motion and blocks the API request", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn();
+    const goToMotions = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const incomplete = reviewMeeting({
       motions: [{
@@ -59,7 +62,7 @@ describe("meeting review workflow actions", () => {
       }],
     });
     renderWithQuery(createElement(MeetingReviewActions, {
-      meeting: incomplete, editing: false, onEdit: vi.fn(), onFeedback: vi.fn(),
+      meeting: incomplete, editing: false, onGoToMotions: goToMotions, onFeedback: vi.fn(),
     }));
 
     await user.click(screen.getByRole("button", { name: "Approve minutes" }));
@@ -69,6 +72,8 @@ describe("meeting review workflow actions", () => {
     expect(within(dialog).getByRole("alert").textContent).toContain("needs a seconder");
     expect(within(dialog).getByRole("alert").textContent).toContain("needs a final outcome");
     expect((within(dialog).getByRole("button", { name: "Approve minutes" }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(within(dialog).getByRole("button", { name: "Go to motions" }));
+    expect(goToMotions).toHaveBeenCalledWith([0]);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -86,7 +91,7 @@ describe("meeting review workflow actions", () => {
       }],
     });
     renderWithQuery(createElement(MeetingReviewActions, {
-      meeting, editing: false, onEdit: vi.fn(), onFeedback: vi.fn(),
+      meeting, editing: false, onFeedback: vi.fn(),
     }));
 
     await user.click(screen.getByRole("button", { name: "Approve minutes" }));
@@ -118,7 +123,36 @@ describe("meeting review workflow actions", () => {
     await waitFor(() => expect(feedback).toHaveBeenCalledWith("PDF generation restarted.", "success"));
   });
 
-  it("offers signing delivery and missed-callback recovery for e-signature failures", async () => {
+  it("checks the live Firma state while a signing request is active", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      action: "signing_status_checked", meetingId, version: 4, attempt: 2,
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const feedback = vi.fn();
+    const meeting = reviewMeeting({
+      status: "AWAITING_SIGNATURE",
+      capabilities: {
+        ...reviewMeeting().capabilities,
+        canEdit: false,
+        canDefer: false,
+        canApprove: false,
+        canOpenSigningSession: true,
+        canRejectSigning: true,
+        canCheckSigningStatus: true,
+      },
+    });
+    renderWithQuery(createElement(MeetingWorkflowState, { meeting, onFeedback: feedback }));
+
+    await user.click(screen.getByRole("button", { name: "Check signing status" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      `/api/meetings/${meetingId}/signing-status/check`,
+      expect.objectContaining({ body: JSON.stringify({ expectedVersion: 4 }) }),
+    ));
+    await waitFor(() => expect(feedback).toHaveBeenCalledWith("Firma signing status checked.", "success"));
+  });
+
+  it("offers delivery retry and failed-completion recovery for e-signature failures", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
       action: "signing_outcome_retry_started", meetingId, version: 5, documentVersion: 4,
@@ -140,7 +174,7 @@ describe("meeting review workflow actions", () => {
     renderWithQuery(createElement(MeetingWorkflowState, { meeting, onFeedback: feedback }));
 
     expect(screen.getByRole("button", { name: "Retry signing delivery" })).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Check Firma status" }));
+    await user.click(screen.getByRole("button", { name: "Retry completion check" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
       `/api/meetings/${meetingId}/signing-outcome/retry`,
       expect.objectContaining({ body: JSON.stringify({ expectedVersion: 4 }) }),
@@ -192,7 +226,7 @@ function reviewMeeting(overrides: Partial<MeetingApiDetail> = {}): MeetingApiDet
     capabilities: {
       canEdit: true, canDefer: true, canResume: false, canMarkReady: false, canRetryAnalysis: false,
       canApprove: true, canRetryPdf: false, canOpenSigningSession: false, canRetrySigning: false,
-      canRejectSigning: false, canRetrySigningOutcome: false, canDownloadArchive: false,
+      canRejectSigning: false, canCheckSigningStatus: false, canRetrySigningOutcome: false, canDownloadArchive: false,
     },
     tags: [],
     minutes: { summary: "Summary.", sections: [{ heading: "Opening", content: "Opened." }] },

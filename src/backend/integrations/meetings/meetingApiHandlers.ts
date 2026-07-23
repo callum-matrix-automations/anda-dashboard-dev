@@ -5,7 +5,14 @@ import { meetingApprovalService } from "../../services/approvals/approveMeeting"
 import { meetingArchiveService } from "../../services/archive/meetingArchiveService";
 import { retryMeetingAnalysis } from "../../services/ai/retryMeetingAnalysis";
 import { meetingReviewService } from "../../services/reviews/meetingReviewService";
-import { getMeetingSigningSession } from "../../services/signing/getMeetingSigningSession";
+import {
+  getMeetingSigningSession,
+  getMeetingSigningSessionRecord,
+} from "../../services/signing/getMeetingSigningSession";
+import {
+  checkMeetingSigningStatus,
+  type CheckMeetingSigningStatusResult,
+} from "../../services/signing/checkMeetingSigningStatus";
 import { rejectMeetingSigning } from "../../services/signing/rejectMeetingSigning";
 import { retryMeetingSigning } from "../../services/signing/retryMeetingSigning";
 import { retryMeetingSigningOutcome } from "../../services/signing/retryMeetingSigningOutcome";
@@ -97,6 +104,7 @@ interface MeetingControllerServices {
     | MeetingSigningSession
     | Extract<MeetingSigningSessionRecord, { status: "not_found" | "invalid_state" }>
   >;
+  getMeetingSigningSessionRecord(meetingId: string): Promise<MeetingSigningSessionRecord>;
   retryMeetingSigning(command: {
     meetingId: string;
     expectedVersion: number;
@@ -113,6 +121,11 @@ interface MeetingControllerServices {
     expectedVersion: number;
     actorProfileId: string;
   }): Promise<RetryMeetingSigningOutcomeResult & { reconciliation?: unknown }>;
+  checkMeetingSigningStatus(command: {
+    meetingId: string;
+    expectedVersion: number;
+    actorProfileId: string;
+  }): Promise<CheckMeetingSigningStatusResult>;
   searchArchive(query: {
     query?: string;
     limit: number;
@@ -130,8 +143,10 @@ const defaultServices: MeetingControllerServices = {
   ...meetingApprovalService,
   retryMeetingAnalysis,
   getMeetingSigningSession,
+  getMeetingSigningSessionRecord,
   retryMeetingSigning,
   rejectMeetingSigning,
+  checkMeetingSigningStatus,
   retryMeetingSigningOutcome,
   searchArchive: (query) => meetingArchiveService.search(query),
 };
@@ -212,8 +227,14 @@ export function createMeetingDetailHandler(options: ControllerOptions = {}) {
     try {
       const meeting = await services.getMeetingReview(meetingId);
       if (!meeting) return apiError(404, "meeting_not_found", "Meeting was not found.");
-      const attendeeOptions = await services.listMeetingAttendeeOptions();
-      return Response.json(toApiDetail(meeting, auth.actor, attendeeOptions));
+      const [attendeeOptions, signingSession] = await Promise.all([
+        services.listMeetingAttendeeOptions(),
+        actorHasPermission(auth.actor, "sign")
+          && (meeting.status === "AWAITING_SIGNATURE" || meeting.status === "ESIGN_FAILED")
+          ? services.getMeetingSigningSessionRecord(meetingId)
+          : Promise.resolve(null),
+      ]);
+      return Response.json(toApiDetail(meeting, auth.actor, attendeeOptions, signingSession));
     } catch {
       return serviceUnavailable();
     }
@@ -410,6 +431,20 @@ export function createRetryMeetingSigningOutcomeHandler(options: ControllerOptio
   };
 }
 
+export function createCheckMeetingSigningStatusHandler(options: ControllerOptions = {}) {
+  const { services, actorResolver } = resolveOptions(options);
+  return async function checkSigningStatus(request: Request, context: RouteContext) {
+    const prepared = await prepareMutation(request, context, "sign", MeetingApiVersionedRequestSchema, actorResolver);
+    if ("response" in prepared) return prepared.response;
+    try {
+      const result = await services.checkMeetingSigningStatus(commandFrom(prepared));
+      return mutationResult(result, "signing_status_checked");
+    } catch {
+      return serviceUnavailable();
+    }
+  };
+}
+
 function resolveOptions(options: ControllerOptions) {
   return {
     services: options.services ?? defaultServices,
@@ -507,6 +542,7 @@ function toApiDetail(
   meeting: MeetingReviewDetail,
   actor: ServerActor,
   attendeeOptions: MeetingReviewAttendeeOption[],
+  signingSession: MeetingSigningSessionRecord | null,
 ) {
   const safeAttendeeOptions = new Map(attendeeOptions.map((option) => [option.profileId, option]));
   meeting.attendees.forEach((attendee) => safeAttendeeOptions.set(attendee.profileId, {
@@ -515,6 +551,7 @@ function toApiDetail(
   }));
   return MeetingApiDetailSchema.parse({
     ...toApiSummary(meeting, actor),
+    capabilities: capabilitiesFor(meeting, actor, signingSession),
     tags: meeting.tags,
     minutes: meeting.minutes,
     transcript: {
@@ -535,7 +572,11 @@ function toApiDetail(
   });
 }
 
-function capabilitiesFor(meeting: MeetingReviewSummary, actor: ServerActor): MeetingApiCapabilities {
+function capabilitiesFor(
+  meeting: MeetingReviewSummary,
+  actor: ServerActor,
+  signingSession: MeetingSigningSessionRecord | null = null,
+): MeetingApiCapabilities {
   const reviewer = actorHasPermission(actor, "review");
   const signer = actorHasPermission(actor, "sign");
   const editableState = meeting.status === "AI_FAILED" || meeting.status === "PENDING_APPROVAL";
@@ -555,7 +596,14 @@ function capabilitiesFor(meeting: MeetingReviewSummary, actor: ServerActor): Mee
     canOpenSigningSession: signer && meeting.status === "AWAITING_SIGNATURE",
     canRetrySigning: signer && meeting.status === "ESIGN_FAILED",
     canRejectSigning: signer && (meeting.status === "AWAITING_SIGNATURE" || meeting.status === "ESIGN_FAILED"),
-    canRetrySigningOutcome: signer && (meeting.status === "AWAITING_SIGNATURE" || meeting.status === "ESIGN_FAILED"),
+    canCheckSigningStatus: signer
+      && meeting.status === "AWAITING_SIGNATURE"
+      && signingSession?.status === "available"
+      && signingSession.outcomeStatus === "AWAITING",
+    canRetrySigningOutcome: signer
+      && meeting.status === "ESIGN_FAILED"
+      && signingSession?.status === "available"
+      && signingSession.outcomeStatus === "COMPLETION_FAILED",
     canDownloadArchive: meeting.status === "COMPLETED",
   };
 }
@@ -648,6 +696,7 @@ function isSuccessfulActionResult(
     pdf_retry_started: "retry_started",
     signing_retry_started: "retry_started",
     signing_rejected: "rejected",
+    signing_status_checked: "checked",
     signing_outcome_retry_started: "retry_started",
   };
   return status === expectedStatus[action];

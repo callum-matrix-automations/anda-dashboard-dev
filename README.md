@@ -104,7 +104,7 @@ remain locked in `PDF_FAILED`, while signing-delivery failures remain locked in
 `ESIGN_FAILED`. Both stages have backend retry functions that preserve the
 approved snapshot and PDF version.
 
-To run the opt-in live path from the signed dummy webhook through GPT-4.1,
+To run the opt-in live path from the signed dummy webhook through GPT-5.6 Terra,
 simulated human review, approval, PDF generation, and Firma delivery:
 
 ```powershell
@@ -114,7 +114,7 @@ npm.cmd run test:workflow:live:full
 The test preserves the AI-produced minutes and complete formal motions. It
 simulates human review by omitting motions whose mover or final outcome is still
 unresolved, while retaining proposals explicitly recorded as not seconded, then writes the final PDF to
-`output/pdf/anda-live-gpt41-meeting-minutes.pdf` for local visual QA.
+`output/pdf/anda-live-gpt56-terra-meeting-minutes.pdf` for local visual QA.
 
 ## Signing completion and rejection
 
@@ -137,7 +137,7 @@ a comment, cancels the Firma request, keeps the old PDF/request as history, and
 returns the meeting to editable `PENDING_APPROVAL`. These action functions do not
 have HTTP routes yet; ANDA-018 owns those APIs.
 
-To run the opt-in live GPT-4.1/Firma callback test, including a temporary HTTPS
+To run the opt-in live GPT-5.6 Terra/Firma callback test, including a temporary HTTPS
 Cloudflare tunnel and temporary Firma webhook:
 
 ```powershell

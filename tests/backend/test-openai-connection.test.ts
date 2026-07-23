@@ -8,7 +8,7 @@ describe("testOpenAiConnection", () => {
   it("sends only the fixed connectivity prompt through the OpenAI adapter", async () => {
     const createTextResponse = vi.fn().mockResolvedValue({
       responseId: "resp_test_001",
-      model: "gpt-4.1-2025-04-14",
+      model: "gpt-5.6-terra",
       status: "completed",
       outputText: "ANDA OpenAI connection successful.",
     });
@@ -17,7 +17,7 @@ describe("testOpenAiConnection", () => {
     await expect(createOpenAiConnectionTester(client)()).resolves.toEqual({
       status: "connected",
       provider: "openai",
-      model: "gpt-4.1-2025-04-14",
+      model: "gpt-5.6-terra",
       responseId: "resp_test_001",
       message: "ANDA OpenAI connection successful.",
     });

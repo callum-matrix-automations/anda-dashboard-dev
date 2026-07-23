@@ -104,6 +104,42 @@ describe("Supabase transcript repository", () => {
     await expect(repository.storeImport(record)).resolves.toMatchObject({ status: "duplicate" });
   });
 
+  it("links manual transcript speakers without manufacturing source emails", async () => {
+    const fetchImplementation = vi.fn().mockResolvedValue(Response.json(2));
+    const repository = createSupabaseTranscriptRepository({
+      apiUrl: "https://supabase.example.test",
+      secretKey: "test-secret-key",
+      fetchImplementation,
+    });
+
+    await expect(repository.linkManualAttendees(rpcRow.meeting_id, [
+      {
+        profileId: "10000000-0000-4000-8000-000000000001",
+        displayNameSnapshot: "Eleanor Hughes",
+      },
+      {
+        profileId: "10000000-0000-4000-8000-000000000002",
+        displayNameSnapshot: "Marcus Patel",
+      },
+    ])).resolves.toBe(2);
+
+    const [url, init] = fetchImplementation.mock.calls[0] as [URL, RequestInit];
+    expect(url.pathname).toBe("/rest/v1/rpc/link_manual_transcript_attendees");
+    expect(JSON.parse(String(init.body))).toEqual({
+      p_meeting_id: rpcRow.meeting_id,
+      p_attendees: [
+        {
+          profile_id: "10000000-0000-4000-8000-000000000001",
+          display_name_snapshot: "Eleanor Hughes",
+        },
+        {
+          profile_id: "10000000-0000-4000-8000-000000000002",
+          display_name_snapshot: "Marcus Patel",
+        },
+      ],
+    });
+  });
+
   it("resolves participants from immutable transcript metadata", async () => {
     const fetchImplementation = vi.fn().mockResolvedValue(Response.json(2));
     const repository = createSupabaseTranscriptRepository({

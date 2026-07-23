@@ -129,7 +129,7 @@ function validDraft(): MeetingDraft {
 function openAiResponse(draft: unknown) {
   return {
     responseId: "resp_analysis_001",
-    model: "gpt-4.1-2025-04-14",
+    model: "gpt-5.6-terra",
     status: "completed",
     outputText: JSON.stringify(draft),
   };

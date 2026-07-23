@@ -26,12 +26,25 @@ const apiQueue: Record<QueueScreenName, MeetingApiQueue> = {
 export function QueueScreen({ queue }: { queue: QueueScreenName }) {
   const query = useMeetings(apiQueue[queue]);
   const [title, description] = copy[queue];
-  const heading = <div><div className="breadcrumbs text-xs"><ul><li>Meeting records</li><li>{title}</li></ul></div><h1 className="text-2xl font-semibold">{title}</h1><p className="text-sm opacity-60">{description}</p></div>;
+  const heading = (
+    <div>
+      <div className="text-[.7rem] font-semibold tracking-wide text-secondary">Meeting records · {title}</div>
+      <h1 className="mt-0.5 text-[1.7rem] font-semibold">{title}</h1>
+      <p className="mt-0.5 text-[.86rem] text-muted-foreground">{description}</p>
+    </div>
+  );
 
   if (query.isLoading) return <LoadingState label={`Loading ${title.toLowerCase()}`} />;
-  if (query.isError) return <div className="grid gap-4">{heading}<ErrorState message={errorMessage(query.error)} retry={() => void query.refetch()} /></div>;
+  if (query.isError) return <div className="grid gap-4">{heading}<ErrorState message={errorMessage(query.error)} retry={() => void query.refetch()} retrying={query.isFetching} /></div>;
 
-  return <div className="grid gap-4">{heading}<div className="card border border-base-300 bg-base-200"><div className="card-body p-3 sm:p-4"><MeetingTable meetings={query.data?.items ?? []} browseAll={queue === "meetings"} reviewAccess signerAccess emptyMessage="No records were returned." /></div></div></div>;
+  return (
+    <div className="grid gap-4">
+      {heading}
+      <div className="rounded-xl border border-border bg-card p-3 shadow-sm shadow-primary/5 sm:p-4">
+        <MeetingTable meetings={query.data?.items ?? []} browseAll={queue === "meetings"} reviewAccess signerAccess emptyMessage="No records were returned." />
+      </div>
+    </div>
+  );
 }
 
 function errorMessage(error: unknown): string {

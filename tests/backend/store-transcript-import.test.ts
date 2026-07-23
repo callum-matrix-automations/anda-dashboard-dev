@@ -44,6 +44,7 @@ describe("storeTranscriptImport", () => {
     const repository: TranscriptRepository = {
       listActiveMemberProfiles,
       storeImport,
+      linkManualAttendees: vi.fn(),
       resolveUnmatchedParticipants: vi.fn(),
     };
 
@@ -64,5 +65,59 @@ describe("storeTranscriptImport", () => {
       }],
     });
     expect(listActiveMemberProfiles).toHaveBeenCalledOnce();
+  });
+
+  it("links uniquely named manual-upload speakers before analysis", async () => {
+    const storeImport = vi.fn().mockResolvedValue({
+      status: "stored",
+      meetingId: "11111111-1111-4111-8111-111111111111",
+      transcriptId: "22222222-2222-4222-8222-222222222222",
+      importedAt: "2026-07-19T03:46:01.000Z",
+    });
+    const linkManualAttendees = vi.fn().mockResolvedValue(2);
+    const repository: TranscriptRepository = {
+      listActiveMemberProfiles: vi.fn().mockResolvedValue([
+        {
+          profileId: "10000000-0000-4000-8000-000000000001",
+          displayName: "Eleanor Hughes",
+          email: "eleanor.hughes@example.test",
+        },
+        {
+          profileId: "10000000-0000-4000-8000-000000000002",
+          displayName: "Marcus Patel",
+          email: "marcus.patel@example.test",
+        },
+      ]),
+      storeImport,
+      linkManualAttendees,
+      resolveUnmatchedParticipants: vi.fn(),
+    };
+
+    await createTranscriptImportStore(repository)({
+      ...packet,
+      attendees: [
+        { displayName: "Eleanor Hughes", email: null },
+        { displayName: "Marcus Patel", email: null },
+      ],
+      transcript: {
+        ...packet.transcript,
+        metadata: { provider: "manual_upload" },
+      },
+    });
+
+    expect(storeImport).toHaveBeenCalledWith(expect.objectContaining({ attendees: [] }));
+    expect(linkManualAttendees).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111111111",
+      [
+        {
+          profileId: "10000000-0000-4000-8000-000000000001",
+          displayNameSnapshot: "Eleanor Hughes",
+        },
+        {
+          profileId: "10000000-0000-4000-8000-000000000002",
+          displayNameSnapshot: "Marcus Patel",
+        },
+      ],
+    );
   });
 });

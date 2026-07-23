@@ -2,6 +2,8 @@
 
 import { ApiClientError } from "@/frontend/api-client/client";
 import { useRetryMeetingAnalysis } from "@/frontend/hooks/useApi";
+import { StatusBanner } from "./StatusBanner";
+import { Button } from "@/frontend/components/design-system/primitives/button";
 import type { MeetingApiDetail } from "@/shared/contracts/meetingApi";
 
 export function MeetingAnalysisState({ meeting }: { meeting: MeetingApiDetail }) {
@@ -9,37 +11,39 @@ export function MeetingAnalysisState({ meeting }: { meeting: MeetingApiDetail })
 
   if (meeting.status === "AI_PROCESSING") {
     return (
-      <div role="status" className="alert alert-info rounded-none border-x-0 border-t-0">
+      <StatusBanner tone="info">
         <span><strong>AI analysis is in progress.</strong> The transcript has been stored and this record will update automatically when the draft is ready.</span>
-      </div>
+      </StatusBanner>
     );
   }
 
   if (meeting.status !== "AI_FAILED") return null;
 
   return (
-    <div role="alert" className="alert alert-error rounded-none border-x-0 border-t-0">
+    <StatusBanner tone="error" role="alert">
       <div className="min-w-0">
         <strong>AI analysis failed.</strong>
         <p className="mt-1 text-sm">{meeting.failure?.message ?? "The draft could not be generated."}</p>
-        {meeting.failure?.at && <p className="mt-1 text-xs opacity-75">Failed {formatAt(meeting.failure.at)}</p>}
+        {meeting.failure?.at && <p className="mt-1 text-xs text-muted-foreground">Failed {formatAt(meeting.failure.at)}</p>}
         {retry.isSuccess && <p role="status" className="mt-2 text-sm">Retry completed. Refreshing the meeting record…</p>}
         {retry.isError && <p className="mt-2 text-sm">{retryErrorMessage(retry.error)}</p>}
         {!meeting.capabilities.canRetryAnalysis && (
-          <p className="mt-2 text-xs opacity-75">Automatic retry is unavailable for this record.</p>
+          <p className="mt-2 text-xs text-muted-foreground">Automatic retry is unavailable for this record.</p>
         )}
       </div>
       {meeting.capabilities.canRetryAnalysis && (
-        <button
+        <Button
           type="button"
-          className="btn btn-sm min-h-11"
+          size="sm"
+          className="!font-bold"
+          loading={retry.isPending}
           disabled={retry.isPending}
           onClick={() => retry.mutate({ meetingId: meeting.id, expectedVersion: meeting.version })}
         >
           {retry.isPending ? "Retrying analysis…" : "Retry AI analysis"}
-        </button>
+        </Button>
       )}
-    </div>
+    </StatusBanner>
   );
 }
 
