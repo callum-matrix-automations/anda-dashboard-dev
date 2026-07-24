@@ -5,3 +5,7 @@ next-env.d.ts
 .git
 coverage
 artifacts
+.env*
+!.env.example
+output
+notes.txt

@@ -16,9 +16,9 @@ export interface ActiveMemberProfile {
 }
 
 export interface TranscriptImportAttendee {
-  profileId: string;
+  profileId: string | null;
   displayNameSnapshot: string;
-  sourceEmailSnapshot: string;
+  sourceEmailSnapshot: string | null;
 }
 
 export interface ManualTranscriptAttendeeLink {

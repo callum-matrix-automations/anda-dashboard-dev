@@ -104,6 +104,90 @@ describe.skipIf(!localIntegrationConfigured)("manual transcript upload workflow"
       "NOT_SECONDED",
     ]));
   });
+
+  it("analyzes and persists speakers who do not have seeded profiles", async () => {
+    const transcriptRepository = createSupabaseTranscriptRepository({ apiUrl, secretKey });
+    const analysisRepository = createSupabaseMeetingAnalysisRepository({ apiUrl, secretKey });
+    let analysisInput: MeetingAnalysisInput | null = null;
+    const processAnalysis = createMeetingAnalysisProcessor({
+      repository: analysisRepository,
+      analyze: async (input) => {
+        analysisInput = input;
+        const chair = input.participants.find((participant) => participant.displayName === "Client Chair");
+        const guest = input.participants.find((participant) => participant.displayName === "Guest Member");
+        if (!chair || !guest) throw new Error("Unseeded speakers were not supplied to analysis.");
+        return {
+          schemaVersion: "1.0",
+          minutes: {
+            summary: "The client discussed and approved a test motion.",
+            sections: [{
+              heading: "Test decision",
+              content: "The uploaded transcript was processed without seeded attendee profiles.",
+            }],
+          },
+          attendees: input.participants,
+          motions: [{
+            text: "Approve the client test motion.",
+            mover: { status: "resolved", participantRef: chair.participantRef },
+            seconder: { status: "resolved", participantRef: guest.participantRef },
+            outcome: "carried",
+            votes: [
+              { participantRef: chair.participantRef, value: "for" },
+              { participantRef: guest.participantRef, value: "for" },
+            ],
+          }],
+        };
+      },
+      retryDelaysMs: [],
+    });
+    const processUpload = createManualTranscriptUploadProcessor({
+      store: createTranscriptImportStore(transcriptRepository),
+      analyze: processAnalysis,
+      createId: randomUUID,
+      now: () => new Date("2026-07-24T10:00:00.000Z"),
+    });
+
+    const result = await processUpload({
+      title: "Unseeded participant deployment test",
+      meetingDate: "2026-07-25",
+      durationMinutes: 30,
+      transcript: [
+        "Client Chair: I move that we approve the client test motion.",
+        "Guest Member: I second the motion.",
+        "Client Chair: Both attendees vote in favour. The motion is carried.",
+      ].join("\n"),
+    }, actor);
+
+    expect(result).toMatchObject({ status: "pending_approval", analysisAttempt: 1 });
+    expect(analysisInput).not.toBeNull();
+    expect(analysisInput!.participants).toEqual(expect.arrayContaining([
+      expect.objectContaining({ displayName: "Client Chair" }),
+      expect.objectContaining({ displayName: "Guest Member" }),
+    ]));
+
+    const [meeting] = await selectRows("meetings", "id", result.meetingId, "status");
+    const attendees = await selectRows(
+      "meeting_attendees",
+      "meeting_id",
+      result.meetingId,
+      "id,profile_id,display_name_snapshot",
+    );
+    const motions = await selectRows(
+      "motions",
+      "meeting_id",
+      result.meetingId,
+      "motion_text,outcome,moved_by_attendee_id,seconded_by_attendee_id",
+    );
+    expect(meeting).toEqual({ status: "PENDING_APPROVAL" });
+    expect(attendees).toHaveLength(2);
+    expect(attendees.every((attendee) => attendee.profile_id === null)).toBe(true);
+    expect(motions).toEqual([expect.objectContaining({
+      motion_text: "Approve the client test motion.",
+      outcome: "CARRIED",
+      moved_by_attendee_id: expect.any(String),
+      seconded_by_attendee_id: expect.any(String),
+    })]);
+  });
 });
 
 function deterministicDraft(input: MeetingAnalysisInput): MeetingDraft {

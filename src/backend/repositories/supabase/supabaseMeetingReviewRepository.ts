@@ -6,6 +6,7 @@ import {
   MeetingReviewMutationResultSchema,
   MeetingReviewSummarySchema,
 } from "../../../shared/contracts/meetingReview";
+import { supabaseServerHeaders } from "./supabaseServerHeaders";
 
 interface SupabaseMeetingReviewRepositoryOptions {
   apiUrl?: string;
@@ -47,12 +48,10 @@ export function createSupabaseMeetingReviewRepository({
     try {
       response = await configuration.fetchImplementation(rpcUrl, {
         method: "POST",
-        headers: {
+        headers: supabaseServerHeaders(configuration.secretKey, {
           "content-type": "application/json",
           accept: "application/json",
-          apikey: configuration.secretKey,
-          authorization: `Bearer ${configuration.secretKey}`,
-        },
+        }),
         body: JSON.stringify(body),
       });
     } catch (error) {
@@ -123,11 +122,9 @@ export function createSupabaseMeetingReviewRepository({
       let response: Response;
       try {
         response = await configuration.fetchImplementation(profilesUrl, {
-          headers: {
+          headers: supabaseServerHeaders(configuration.secretKey, {
             accept: "application/json",
-            apikey: configuration.secretKey,
-            authorization: `Bearer ${configuration.secretKey}`,
-          },
+          }),
         });
       } catch (error) {
         throw new MeetingReviewRepositoryError("Supabase attendee options request failed.", {

@@ -6,6 +6,7 @@ import type {
   TranscriptImportFailureRepository,
   TranscriptRepository,
 } from "../transcripts/transcriptRepository";
+import { supabaseServerHeaders } from "./supabaseServerHeaders";
 
 const TranscriptImportRpcRowSchema = z.object({
   ingestion_status: z.enum(["received", "duplicate"]),
@@ -80,12 +81,10 @@ export function createSupabaseTranscriptRepository({
       try {
         response = await configuration.fetchImplementation(rpcUrl, {
           method: "POST",
-          headers: {
+          headers: supabaseServerHeaders(configuration.secretKey, {
             "content-type": "application/json",
             accept: "application/json",
-            apikey: configuration.secretKey,
-            authorization: `Bearer ${configuration.secretKey}`,
-          },
+          }),
           body: JSON.stringify({
             p_source_meeting_id: record.sourceMeetingId,
             p_title: record.title,
@@ -176,12 +175,10 @@ export function createSupabaseTranscriptRepository({
       try {
         response = await configuration.fetchImplementation(rpcUrl, {
           method: "POST",
-          headers: {
+          headers: supabaseServerHeaders(configuration.secretKey, {
             "content-type": "application/json",
             accept: "application/json",
-            apikey: configuration.secretKey,
-            authorization: `Bearer ${configuration.secretKey}`,
-          },
+          }),
           body: JSON.stringify({ p_meeting_id: meetingId }),
         });
       } catch (error) {
@@ -271,12 +268,10 @@ async function requestSupabaseMutation({
   try {
     response = await fetchImplementation(url, {
       method: "POST",
-      headers: {
+      headers: supabaseServerHeaders(secretKey, {
         "content-type": "application/json",
         accept: "application/json",
-        apikey: secretKey,
-        authorization: `Bearer ${secretKey}`,
-      },
+      }),
       body: JSON.stringify(body),
     });
   } catch (error) {
@@ -332,11 +327,9 @@ async function requestSupabase({
   let response: Response;
   try {
     response = await fetchImplementation(url, {
-      headers: {
+      headers: supabaseServerHeaders(secretKey, {
         accept: "application/json",
-        apikey: secretKey,
-        authorization: `Bearer ${secretKey}`,
-      },
+      }),
     });
   } catch (error) {
     throw new TranscriptRepositoryError("Supabase profile request failed.", {

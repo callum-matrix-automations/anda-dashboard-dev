@@ -7,6 +7,7 @@ import {
   MeetingPdfPersistenceStatusSchema,
   MeetingPdfRetryResultSchema,
 } from "../../../shared/contracts/meetingApproval";
+import { supabaseServerHeaders } from "./supabaseServerHeaders";
 
 interface SupabaseMeetingApprovalRepositoryOptions {
   apiUrl?: string;
@@ -43,12 +44,10 @@ export function createSupabaseMeetingApprovalRepository({
     try {
       response = await configuration.fetchImplementation(rpcUrl, {
         method: "POST",
-        headers: {
+        headers: supabaseServerHeaders(configuration.secretKey, {
           "content-type": "application/json",
           accept: "application/json",
-          apikey: configuration.secretKey,
-          authorization: `Bearer ${configuration.secretKey}`,
-        },
+        }),
         body: JSON.stringify(body),
       });
     } catch (error) {
