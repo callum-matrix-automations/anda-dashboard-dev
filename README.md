@@ -65,9 +65,11 @@ and adapts the provider payload, then calls a separate backend workflow that sto
 including nullable participant emails and the original speaker blocks, is retained on
 the transcript record.
 
-Valid participant emails are matched exactly against normalized current profile emails.
-Only successful matches create `meeting_attendees`; display names never establish identity.
-Unmatched participants remain in transcript metadata for later server-side resolution.
+Valid Read AI participant emails are matched exactly against normalized current
+profile emails. Manual uploads may also link an exact, unique display-name match.
+Every source participant creates a `meeting_attendees` row, even when no profile
+exists. Unlinked attendees keep a null `profile_id`, remain available to AI and
+human review, and can be linked later without preventing the workflow.
 
 Source meeting and transcript identifiers provide durable database idempotency
 across restarts and multiple server instances. Meeting and transcript creation
@@ -258,6 +260,10 @@ never be prefixed with `NEXT_PUBLIC_` or committed to Git.
 
 The local Supabase Docker stack is for development only. Do not expose it to
 the public internet or use it as the staging or production service.
+
+For the client-test deployment on Railway and hosted Supabase, follow
+`docs/deployment/railway-staging.md`. Docker Desktop is not required on the
+deployed service; Railway builds the repository's root `Dockerfile`.
 
 Local Logflare analytics is disabled because on Windows it requires exposing
 the Docker daemon over an unauthenticated TCP socket. This does not disable the

@@ -50,6 +50,38 @@ describe("meeting API source mapper", () => {
       matchStatus: "matched",
     }]);
   });
+
+  it("does not report a source-only attendee as profile linked", () => {
+    const sourceOnly = detail();
+    sourceOnly.attendees = [{
+      attendeeId: "44444444-4444-4444-8444-444444444444",
+      profileId: "44444444-4444-4444-8444-444444444444",
+      linkedProfileId: null,
+      displayName: "Guest Person",
+      sourceEmailSnapshot: "guest@example.test",
+    }];
+
+    expect(mapMeetingApiSource(sourceOnly).sourceParticipants).toEqual([
+      {
+        displayName: "Eleanor Hughes",
+        email: "eleanor@example.test",
+        profileId: null,
+        matchStatus: "unmatched",
+      },
+      {
+        displayName: "Guest Person",
+        email: "guest@example.test",
+        profileId: null,
+        matchStatus: "unmatched",
+      },
+      {
+        displayName: "Invalid Email",
+        email: null,
+        profileId: null,
+        matchStatus: "unmatched",
+      },
+    ]);
+  });
 });
 
 function detail(): MeetingReviewDetail {

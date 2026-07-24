@@ -20,7 +20,12 @@ export function mapMeetingApiSource(meeting: MeetingReviewDetail): MeetingApiSou
   const matchedByEmail = new Map(
     meeting.attendees.flatMap((attendee) => {
       const email = normalizeProfileEmail(attendee.sourceEmailSnapshot);
-      return email ? [[email, attendee] as const] : [];
+      const linkedProfileId = attendee.linkedProfileId === undefined
+        ? attendee.profileId
+        : attendee.linkedProfileId;
+      return email && linkedProfileId
+        ? [[email, { ...attendee, profileId: linkedProfileId }] as const]
+        : [];
     }),
   );
   const sourceParticipants = mapSourceParticipants(metadata?.participants ?? [], matchedByEmail);
@@ -38,8 +43,16 @@ export function mapMeetingApiSource(meeting: MeetingReviewDetail): MeetingApiSou
       : meeting.attendees.map((attendee) => ({
         displayName: attendee.displayName,
         email: normalizeProfileEmail(attendee.sourceEmailSnapshot),
-        profileId: attendee.profileId,
-        matchStatus: "matched" as const,
+        profileId: attendee.linkedProfileId === undefined
+          ? attendee.profileId
+          : attendee.linkedProfileId,
+        matchStatus: (
+          attendee.linkedProfileId === undefined
+            ? attendee.profileId
+            : attendee.linkedProfileId
+        )
+          ? "matched" as const
+          : "unmatched" as const,
       })),
   };
 }

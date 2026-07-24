@@ -59,6 +59,48 @@ describe("server actor resolver", () => {
     expect(fetchImplementation).not.toHaveBeenCalled();
   });
 
+  it("uses the configured staging identity in a production Railway process", async () => {
+    const fetchImplementation = vi.fn().mockResolvedValue(Response.json([{
+      id: profileId,
+      account_type: "MEMBER",
+      member_role: "TREASURER",
+      is_admin: false,
+      display_name: "John Smith",
+      account_status: "ACTIVE",
+    }]));
+    const resolver = createSupabaseServerActorResolver({
+      apiUrl: "https://project.supabase.co",
+      secretKey: "sb_secret_hosted",
+      stagingProfileId: profileId,
+      applicationEnvironment: "staging",
+      nodeEnvironment: "production",
+      fetchImplementation,
+    });
+
+    await expect(resolver(new Request("https://staging.anda.test"))).resolves.toEqual({
+      profileId,
+      displayName: "John Smith",
+      role: "TREASURER",
+      isAdmin: false,
+    });
+    const [, init] = fetchImplementation.mock.calls[0] as [URL, RequestInit];
+    expect(init.headers).toMatchObject({ apikey: "sb_secret_hosted" });
+    expect(init.headers).not.toHaveProperty("authorization");
+  });
+
+  it("does not enable the staging identity outside the explicit staging environment", async () => {
+    const fetchImplementation = vi.fn();
+    const resolver = createSupabaseServerActorResolver({
+      stagingProfileId: profileId,
+      applicationEnvironment: "production",
+      nodeEnvironment: "production",
+      fetchImplementation,
+    });
+
+    await expect(resolver(new Request("https://anda.test"))).resolves.toBeNull();
+    expect(fetchImplementation).not.toHaveBeenCalled();
+  });
+
   it("does not authenticate missing or inactive profiles", async () => {
     const resolver = createSupabaseServerActorResolver({
       apiUrl: "http://127.0.0.1:54321",
