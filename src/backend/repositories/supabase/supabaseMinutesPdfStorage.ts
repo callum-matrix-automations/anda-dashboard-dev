@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { ApprovedPdfSource } from "../storage/approvedPdfSource";
 import type { MeetingArchiveStorage } from "../storage/meetingArchiveStorage";
 import type { MinutesPdfStorage } from "../storage/minutesPdfStorage";
+import { supabaseServerHeaders } from "./supabaseServerHeaders";
 
 const DEFAULT_BUCKET = "meeting-minutes";
 const SupabaseErrorSchema = z.object({
@@ -53,13 +54,11 @@ export function createSupabaseMinutesPdfStorage({
     try {
       response = await configuration.fetchImplementation(uploadUrl, {
         method: "POST",
-        headers: {
+        headers: supabaseServerHeaders(configuration.secretKey, {
           "content-type": "application/pdf",
-          apikey: configuration.secretKey,
-          authorization: `Bearer ${configuration.secretKey}`,
           "x-upsert": "true",
           "cache-control": "no-store",
-        },
+        }),
         body: Buffer.from(bytes),
       });
     } catch (error) {
@@ -115,11 +114,9 @@ export function createSupabaseMinutesPdfStorage({
           configuration.apiUrl,
         ), {
           method: "DELETE",
-          headers: {
+          headers: supabaseServerHeaders(configuration.secretKey, {
             "content-type": "application/json",
-            apikey: configuration.secretKey,
-            authorization: `Bearer ${configuration.secretKey}`,
-          },
+          }),
           body: JSON.stringify({ prefixes: [cleanedPath] }),
         });
       } catch (error) {
@@ -151,11 +148,9 @@ export function createSupabaseMinutesPdfStorage({
           configuration.apiUrl,
         ), {
           method: "POST",
-          headers: {
+          headers: supabaseServerHeaders(configuration.secretKey, {
             "content-type": "application/json",
-            apikey: configuration.secretKey,
-            authorization: `Bearer ${configuration.secretKey}`,
-          },
+          }),
           body: JSON.stringify({ expiresIn: expiresInSeconds }),
         });
       } catch (error) {
@@ -190,12 +185,10 @@ export function createSupabaseMinutesPdfStorage({
       try {
         response = await configuration.fetchImplementation(downloadUrl, {
           method: "GET",
-          headers: {
+          headers: supabaseServerHeaders(configuration.secretKey, {
             accept: "application/pdf",
-            apikey: configuration.secretKey,
-            authorization: `Bearer ${configuration.secretKey}`,
             "cache-control": "no-store",
-          },
+          }),
         });
       } catch (error) {
         throw new MinutesPdfStorageError("Supabase PDF download request failed.", {

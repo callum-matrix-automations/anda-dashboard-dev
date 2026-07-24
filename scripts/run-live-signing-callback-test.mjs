@@ -12,7 +12,7 @@ const preflightOnly = process.argv.includes("--preflight-only");
 const manualFrontend = process.argv.includes("--manual-frontend");
 const liveTreasurerProfileId = optionalUuid(
   "FIRMA_LIVE_TREASURER_PROFILE_ID",
-  "10000000-0000-4000-8000-000000000003",
+  "10000000-0000-4000-8000-000000000006",
 );
 
 let nextProcess;

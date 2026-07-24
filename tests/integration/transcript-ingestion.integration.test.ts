@@ -105,8 +105,23 @@ describe.skipIf(!localIntegrationConfigured)("local Supabase transcript ingestio
         display_name_snapshot: "Marcus from Read",
         source_email_snapshot: "marcus.patel@example.test",
       },
+      {
+        profile_id: null,
+        display_name_snapshot: "Eleanor Hughes",
+        source_email_snapshot: null,
+      },
+      {
+        profile_id: null,
+        display_name_snapshot: "Unmatched Visitor",
+        source_email_snapshot: "unknown@example.test",
+      },
+      {
+        profile_id: null,
+        display_name_snapshot: "Malformed Visitor",
+        source_email_snapshot: null,
+      },
     ]));
-    expect(attendees).toHaveLength(2);
+    expect(attendees).toHaveLength(5);
 
     const conflictingMeetingId = `meeting_conflict_${suffix}`;
     await expect(storeTranscript({
@@ -136,7 +151,7 @@ describe.skipIf(!localIntegrationConfigured)("local Supabase transcript ingestio
     expect(await attendeeProfileIds(first.meetingId)).toEqual([profile.id]);
 
     const previousEmailMeeting = await storeTranscript(createPacket(`old-email-${suffix}`, previousEmail));
-    expect(await attendeeProfileIds(previousEmailMeeting.meetingId)).toEqual([]);
+    expect(await attendeeProfileIds(previousEmailMeeting.meetingId)).toEqual([null]);
 
     const currentEmailMeeting = await storeTranscript(createPacket(`new-email-${suffix}`, currentEmail));
     expect(await attendeeProfileIds(currentEmailMeeting.meetingId)).toEqual([profile.id]);
@@ -149,7 +164,7 @@ describe.skipIf(!localIntegrationConfigured)("local Supabase transcript ingestio
     const storeTranscript = createTranscriptImportStore(repository);
     const stored = await storeTranscript(createPacket(`later-resolution-${suffix}`, email));
 
-    expect(await attendeeProfileIds(stored.meetingId)).toEqual([]);
+    expect(await attendeeProfileIds(stored.meetingId)).toEqual([null]);
     const profile = await createLocalProfile(email, `Later Profile ${suffix}`);
 
     await expect(repository.resolveUnmatchedParticipants(stored.meetingId)).resolves.toBe(1);
@@ -304,9 +319,9 @@ async function updateProfileEmail(profileId: string, email: string): Promise<voi
   if (!response.ok) throw new Error(`Local Supabase profile email update failed with HTTP ${response.status}.`);
 }
 
-async function attendeeProfileIds(meetingId: string): Promise<string[]> {
+async function attendeeProfileIds(meetingId: string): Promise<Array<string | null>> {
   const rows = await selectRows("meeting_attendees", "meeting_id", meetingId, "profile_id") as Array<{
-    profile_id: string;
+    profile_id: string | null;
   }>;
   return rows.map((row) => row.profile_id);
 }

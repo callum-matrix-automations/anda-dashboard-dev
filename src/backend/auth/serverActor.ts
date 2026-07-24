@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { supabaseServerHeaders } from "../repositories/supabase/supabaseServerHeaders";
 
 export const ServerActorSchema = z.object({
   profileId: z.string().uuid(),
@@ -43,26 +44,36 @@ export function createSupabaseServerActorResolver({
   apiUrl,
   secretKey,
   developmentProfileId,
+  stagingProfileId,
+  applicationEnvironment,
   nodeEnvironment,
   fetchImplementation = globalThis.fetch,
 }: {
   apiUrl?: string;
   secretKey?: string;
   developmentProfileId?: string;
+  stagingProfileId?: string;
+  applicationEnvironment?: string;
   nodeEnvironment?: string;
   fetchImplementation?: typeof fetch;
 } = {}): ServerActorResolver {
   return async function resolveServerActor() {
     const environment = nodeEnvironment ?? process.env.NODE_ENV;
-    const configuredProfileId = developmentProfileId ?? process.env.ANDA_DEV_ACTOR_PROFILE_ID;
+    const deploymentEnvironment = applicationEnvironment ?? process.env.ANDA_ENVIRONMENT;
+    const configuredProfileId = environment === "production"
+      ? deploymentEnvironment === "staging"
+        ? stagingProfileId ?? process.env.ANDA_STAGING_ACTOR_PROFILE_ID
+        : null
+      : developmentProfileId ?? process.env.ANDA_DEV_ACTOR_PROFILE_ID;
 
-    // A real authenticated-session resolver will replace this development-only
-    // identity when Microsoft OAuth is implemented. Production always fails closed.
-    if (environment === "production" || !configuredProfileId?.trim()) return null;
+    // A real authenticated-session resolver will replace these temporary fixed
+    // identities when Microsoft OAuth is implemented. Production fails closed
+    // except for the explicit staging identity used by client testing.
+    if (!configuredProfileId?.trim()) return null;
 
     const parsedProfileId = z.string().uuid().safeParse(configuredProfileId.trim());
     if (!parsedProfileId.success) {
-      throw new ServerActorResolutionError("The development actor profile ID is invalid.", {
+      throw new ServerActorResolutionError("The configured server actor profile ID is invalid.", {
         code: "actor_not_configured",
         cause: parsedProfileId.error,
       });
@@ -89,11 +100,9 @@ export function createSupabaseServerActorResolver({
     let response: Response;
     try {
       response = await fetchImplementation(profilesUrl, {
-        headers: {
+        headers: supabaseServerHeaders(resolvedSecretKey, {
           accept: "application/json",
-          apikey: resolvedSecretKey,
-          authorization: `Bearer ${resolvedSecretKey}`,
-        },
+        }),
       });
     } catch (error) {
       throw new ServerActorResolutionError("The server actor profile could not be loaded.", {

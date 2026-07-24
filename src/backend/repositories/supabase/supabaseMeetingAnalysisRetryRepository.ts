@@ -3,6 +3,7 @@ import type { MeetingAnalysisRetryRepository } from "../analysis/meetingAnalysis
 import {
   PrepareMeetingAnalysisRetryResultSchema,
 } from "../../../shared/contracts/meetingAnalysisRetry";
+import { supabaseServerHeaders } from "./supabaseServerHeaders";
 
 interface SupabaseMeetingAnalysisRetryRepositoryOptions {
   apiUrl?: string;
@@ -44,12 +45,10 @@ export function createSupabaseMeetingAnalysisRetryRepository({
       try {
         response = await configuration.fetchImplementation(rpcUrl, {
           method: "POST",
-          headers: {
+          headers: supabaseServerHeaders(configuration.secretKey, {
             "content-type": "application/json",
             accept: "application/json",
-            apikey: configuration.secretKey,
-            authorization: `Bearer ${configuration.secretKey}`,
-          },
+          }),
           body: JSON.stringify({
             p_meeting_id: command.meetingId,
             p_expected_version: command.expectedVersion,

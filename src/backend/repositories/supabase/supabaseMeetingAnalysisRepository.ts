@@ -11,6 +11,7 @@ import {
   MeetingAnalysisInputSchema,
   type MeetingDraft,
 } from "../../../shared/contracts/meetingAnalysis";
+import { supabaseServerHeaders } from "./supabaseServerHeaders";
 
 const AnalysisClaimRowSchema = z.object({
   claim_status: z.enum(ANALYSIS_CLAIM_STATUSES),
@@ -57,12 +58,10 @@ export function createSupabaseMeetingAnalysisRepository({
     try {
       response = await configuration.fetchImplementation(rpcUrl, {
         method: "POST",
-        headers: {
+        headers: supabaseServerHeaders(configuration.secretKey, {
           "content-type": "application/json",
           accept: "application/json",
-          apikey: configuration.secretKey,
-          authorization: `Bearer ${configuration.secretKey}`,
-        },
+        }),
         body: JSON.stringify(body),
       });
     } catch (error) {

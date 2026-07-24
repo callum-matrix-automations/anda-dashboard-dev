@@ -58,11 +58,23 @@ describe("storeTranscriptImport", () => {
       sourceTranscriptId: "transcript_store_test_001",
       content: "Chair: Preserve this source transcript exactly.\nSecretary: Confirmed.",
       metadata: {},
-      attendees: [{
-        profileId: "10000000-0000-4000-8000-000000000001",
-        displayNameSnapshot: "Source Eleanor",
-        sourceEmailSnapshot: "eleanor.hughes@example.test",
-      }],
+      attendees: [
+        {
+          profileId: "10000000-0000-4000-8000-000000000001",
+          displayNameSnapshot: "Source Eleanor",
+          sourceEmailSnapshot: "eleanor.hughes@example.test",
+        },
+        {
+          profileId: null,
+          displayNameSnapshot: "Eleanor Hughes",
+          sourceEmailSnapshot: null,
+        },
+        {
+          profileId: null,
+          displayNameSnapshot: "Unknown Guest",
+          sourceEmailSnapshot: "unknown@example.test",
+        },
+      ],
     });
     expect(listActiveMemberProfiles).toHaveBeenCalledOnce();
   });
@@ -105,19 +117,62 @@ describe("storeTranscriptImport", () => {
       },
     });
 
-    expect(storeImport).toHaveBeenCalledWith(expect.objectContaining({ attendees: [] }));
-    expect(linkManualAttendees).toHaveBeenCalledWith(
-      "11111111-1111-4111-8111-111111111111",
-      [
+    expect(storeImport).toHaveBeenCalledWith(expect.objectContaining({
+      attendees: [
         {
           profileId: "10000000-0000-4000-8000-000000000001",
           displayNameSnapshot: "Eleanor Hughes",
+          sourceEmailSnapshot: null,
         },
         {
           profileId: "10000000-0000-4000-8000-000000000002",
           displayNameSnapshot: "Marcus Patel",
+          sourceEmailSnapshot: null,
         },
       ],
-    );
+    }));
+    expect(linkManualAttendees).not.toHaveBeenCalled();
+  });
+
+  it("preserves manual-upload speakers when none have an application profile", async () => {
+    const storeImport = vi.fn().mockResolvedValue({
+      status: "stored",
+      meetingId: "11111111-1111-4111-8111-111111111111",
+      transcriptId: "22222222-2222-4222-8222-222222222222",
+      importedAt: "2026-07-19T03:46:01.000Z",
+    });
+    const repository: TranscriptRepository = {
+      listActiveMemberProfiles: vi.fn().mockResolvedValue([]),
+      storeImport,
+      linkManualAttendees: vi.fn(),
+      resolveUnmatchedParticipants: vi.fn(),
+    };
+
+    await createTranscriptImportStore(repository)({
+      ...packet,
+      attendees: [
+        { displayName: "Client Chair", email: null },
+        { displayName: "Client Treasurer", email: null },
+      ],
+      transcript: {
+        ...packet.transcript,
+        metadata: { provider: "manual_upload" },
+      },
+    });
+
+    expect(storeImport).toHaveBeenCalledWith(expect.objectContaining({
+      attendees: [
+        {
+          profileId: null,
+          displayNameSnapshot: "Client Chair",
+          sourceEmailSnapshot: null,
+        },
+        {
+          profileId: null,
+          displayNameSnapshot: "Client Treasurer",
+          sourceEmailSnapshot: null,
+        },
+      ],
+    }));
   });
 });

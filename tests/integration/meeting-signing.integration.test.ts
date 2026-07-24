@@ -33,6 +33,7 @@ const localIntegrationConfigured = configuration.configured;
 const eleanorId = "10000000-0000-4000-8000-000000000001";
 const marcusId = "10000000-0000-4000-8000-000000000002";
 const priyaId = "10000000-0000-4000-8000-000000000003";
+const johnId = "10000000-0000-4000-8000-000000000006";
 
 describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing workflow", () => {
   it("routes the exact approved PDF once and advances only after successful delivery", async () => {
@@ -163,7 +164,7 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
     await expect(retry.retryMeetingSigning({
       meetingId: scenario.meetingId,
       expectedVersion: detail.version,
-      actorProfileId: priyaId,
+      actorProfileId: johnId,
     })).resolves.toMatchObject({
       status: "retry_started",
       pdfId: failedPdfId,
@@ -310,7 +311,7 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
 
     expect(await loadMeeting(scenario.meetingId)).toMatchObject({
       status: "AWAITING_SIGNATURE",
-      signed_by: priyaId,
+      signed_by: johnId,
       signed_at: "2026-07-20T12:00:00+00:00",
       signed_pdf_path: null,
     });
@@ -485,7 +486,7 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
     });
     expect(await loadMeeting(scenario.meetingId)).toMatchObject({
       status: "ARCHIVE_FAILED",
-      signed_by: priyaId,
+      signed_by: johnId,
       signed_at: "2026-07-20T13:30:00+00:00",
       signed_pdf_id: null,
       signed_pdf_path: null,
@@ -584,7 +585,7 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
     await expect(reject({
       meetingId: scenario.meetingId,
       expectedVersion: detail.version,
-      actorProfileId: priyaId,
+      actorProfileId: johnId,
       comment: "Correct the vote record.",
     })).resolves.toMatchObject({ status: "rejected" });
 
@@ -606,7 +607,7 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
       pdf_id: oldPdfId,
       outcome_status: "REJECTED",
       rejection_comment: "Correct the vote record.",
-      rejected_by: priyaId,
+      rejected_by: johnId,
     });
     detail = await requiredReview(scenario.meetingId);
     expect(detail.history).toEqual(expect.arrayContaining([
@@ -685,7 +686,7 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
     await expect(reject({
       meetingId: scenario.meetingId,
       expectedVersion: detail.version,
-      actorProfileId: priyaId,
+      actorProfileId: johnId,
       comment: "Correct the attendee list.",
     })).resolves.toMatchObject({ status: "failed" });
     expect(await loadMeeting(scenario.meetingId)).toMatchObject({
@@ -697,7 +698,7 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
     expect(await loadSigningRequest(scenario.meetingId)).toMatchObject({
       outcome_status: "REJECTION_FAILED",
       rejection_comment: "Correct the attendee list.",
-      rejected_by: priyaId,
+      rejected_by: johnId,
       last_error_code: "esign_rejection_failed",
     });
 
@@ -705,7 +706,7 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
     await expect(reject({
       meetingId: scenario.meetingId,
       expectedVersion: detail.version,
-      actorProfileId: priyaId,
+      actorProfileId: johnId,
       comment: "Correct the attendee list.",
     })).resolves.toMatchObject({ status: "rejected" });
     expect((await requiredReview(scenario.meetingId)).status).toBe("PENDING_APPROVAL");
@@ -742,7 +743,7 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
     await expect(retry({
       meetingId: scenario.meetingId,
       expectedVersion: detail.version,
-      actorProfileId: priyaId,
+      actorProfileId: johnId,
     })).resolves.toMatchObject({
       status: "retry_started",
       reconciliation: { status: "no_change", providerStatus: "in_progress" },

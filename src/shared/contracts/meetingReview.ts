@@ -164,6 +164,7 @@ export const MeetingReviewDetailSchema = MeetingReviewSummarySchema.extend({
   attendees: z.array(z.object({
     attendeeId: z.string().uuid(),
     profileId: z.string().uuid(),
+    linkedProfileId: z.string().uuid().nullable().optional(),
     displayName: z.string().trim().min(1),
     sourceEmailSnapshot: z.string().email().nullable(),
   }).strict()),
