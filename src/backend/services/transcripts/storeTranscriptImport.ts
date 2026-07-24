@@ -2,17 +2,15 @@ import type { TranscriptRepository } from "../../repositories/transcripts/transc
 import { supabaseTranscriptRepository } from "../../repositories/supabase/supabaseTranscriptRepository";
 import type { TranscriptWebhookPacket } from "../../../shared/contracts/transcriptWebhook";
 import {
-  matchManualTranscriptAttendeesByName,
-  matchTranscriptAttendees,
+  resolveTranscriptAttendees,
 } from "./matchTranscriptAttendees";
 
 export function createTranscriptImportStore(repository: TranscriptRepository) {
   return async function storeTranscriptImport(packet: TranscriptWebhookPacket) {
     const profiles = await repository.listActiveMemberProfiles();
-    const attendeeMatches = matchTranscriptAttendees(packet.attendees, profiles);
-    const manualAttendeeMatches = packet.transcript.metadata?.provider === "manual_upload"
-      ? matchManualTranscriptAttendeesByName(packet.attendees, profiles)
-      : null;
+    const attendees = resolveTranscriptAttendees(packet.attendees, profiles, {
+      matchByName: packet.transcript.metadata?.provider === "manual_upload",
+    });
 
     const stored = await repository.storeImport({
       sourceMeetingId: packet.meeting.sourceMeetingId,
@@ -22,11 +20,8 @@ export function createTranscriptImportStore(repository: TranscriptRepository) {
       sourceTranscriptId: packet.transcript.sourceTranscriptId,
       content: packet.transcript.content,
       metadata: packet.transcript.metadata ?? {},
-      attendees: attendeeMatches.matched,
+      attendees,
     });
-    if (stored.status === "stored" && manualAttendeeMatches?.matched.length) {
-      await repository.linkManualAttendees(stored.meetingId, manualAttendeeMatches.matched);
-    }
     return stored;
   };
 }

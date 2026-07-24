@@ -7,6 +7,7 @@ import {
   OperationalAlertRecordResultSchema,
   OperationalIssueReportResultSchema,
 } from "../../../shared/contracts/operationalAlerts";
+import { supabaseServerHeaders } from "./supabaseServerHeaders";
 import { MeetingSigningOutcomeClaimSchema } from "../../../shared/contracts/meetingSigning";
 
 interface Options {
@@ -51,12 +52,10 @@ export function createSupabaseOperationalAlertRepository({
     try {
       response = await fetchImplementation(new URL(`/rest/v1/rpc/${name}`, resolvedApiUrl), {
         method: "POST",
-        headers: {
+        headers: supabaseServerHeaders(resolvedSecretKey, {
           "content-type": "application/json",
           accept: "application/json",
-          apikey: resolvedSecretKey,
-          authorization: `Bearer ${resolvedSecretKey}`,
-        },
+        }),
         body: JSON.stringify(body),
       });
     } catch (error) {

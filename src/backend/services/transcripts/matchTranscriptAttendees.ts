@@ -26,6 +26,55 @@ export interface ManualTranscriptAttendeeMatches {
   unmatched: UnmatchedTranscriptAttendee[];
 }
 
+export function resolveTranscriptAttendees(
+  attendees: readonly SourceAttendee[],
+  profiles: readonly ActiveMemberProfile[],
+  { matchByName = false }: { matchByName?: boolean } = {},
+): TranscriptImportAttendee[] {
+  const emailMatches = new Map(
+    matchTranscriptAttendees(attendees, profiles).matched.map((attendee) => [
+      attendee.sourceEmailSnapshot,
+      attendee,
+    ]),
+  );
+  const nameMatches = new Map(
+    matchManualTranscriptAttendeesByName(attendees, profiles).matched.map((attendee) => [
+      normalizedDisplayNameKey(attendee.displayNameSnapshot),
+      attendee,
+    ]),
+  );
+  const seenSourceParticipants = new Set<string>();
+  const seenProfiles = new Set<string>();
+  const resolved: TranscriptImportAttendee[] = [];
+
+  for (const attendee of attendees) {
+    const displayName = normalizeDisplayName(attendee.displayName);
+    const normalizedEmail = normalizeProfileEmail(attendee.email);
+    const sourceKey = matchByName || !normalizedEmail
+      ? `name:${normalizedDisplayNameKey(displayName)}`
+      : `email:${normalizedEmail}`;
+    if (seenSourceParticipants.has(sourceKey)) continue;
+    seenSourceParticipants.add(sourceKey);
+
+    const match = matchByName
+      ? nameMatches.get(normalizedDisplayNameKey(displayName))
+      : normalizedEmail
+        ? emailMatches.get(normalizedEmail)
+        : undefined;
+    const profileId = match?.profileId ?? null;
+    if (profileId && seenProfiles.has(profileId)) continue;
+    if (profileId) seenProfiles.add(profileId);
+
+    resolved.push({
+      profileId,
+      displayNameSnapshot: displayName,
+      sourceEmailSnapshot: normalizedEmail,
+    });
+  }
+
+  return resolved;
+}
+
 export function normalizeDisplayName(displayName: string): string {
   return displayName.trim().replace(/\s+/gu, " ");
 }
