@@ -67,3 +67,24 @@ export async function requireServerActor(
   }
   return { actor };
 }
+
+export async function requireCurrentServerActor(
+  request: Request,
+  resolver: ServerActorResolver = resolveServerActor,
+): Promise<{ actor: ServerActor } | { response: Response }> {
+  try {
+    const actor = await resolver(request);
+    if (!actor) {
+      return { response: apiError(401, "authentication_required", "Authentication is required.") };
+    }
+    return { actor };
+  } catch {
+    return {
+      response: apiError(
+        503,
+        "authentication_unavailable",
+        "Application authentication is unavailable.",
+      ),
+    };
+  }
+}
