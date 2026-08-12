@@ -26,6 +26,17 @@ import {
 } from "../../shared/contracts/meetingArchive";
 import type { MeetingReviewDraft } from "../../shared/contracts/meetingReview";
 import {
+  PropertyDetailSchema,
+  PropertyImageMutationResponseSchema,
+  PropertyListResponseSchema,
+  type PropertyDetail,
+  type PropertyDraft,
+  type PropertyImageMutationResponse,
+  type PropertyListQuery,
+  type PropertyListResponse,
+  type PropertyUpdateRequest,
+} from "../../shared/contracts/property";
+import {
   ManualTranscriptUploadResponseSchema,
   type ManualTranscriptUploadRequest,
   type ManualTranscriptUploadResponse,
@@ -168,6 +179,50 @@ export const apiClient = {
       );
     },
   },
+  properties: {
+    async list(query: Partial<PropertyListQuery> = {}): Promise<PropertyListResponse> {
+      const search = propertySearch(query);
+      return request(`/api/properties${search}`, PropertyListResponseSchema);
+    },
+    async get(propertyId: string): Promise<PropertyDetail> {
+      return request(`/api/properties/${encodeURIComponent(propertyId)}`, PropertyDetailSchema);
+    },
+    async create(property: PropertyDraft): Promise<PropertyDetail> {
+      return request("/api/properties", PropertyDetailSchema, {
+        method: "POST",
+        body: JSON.stringify(property),
+      });
+    },
+    async update(propertyId: string, input: PropertyUpdateRequest): Promise<PropertyDetail> {
+      return request(`/api/properties/${encodeURIComponent(propertyId)}`, PropertyDetailSchema, {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      });
+    },
+    async archive(propertyId: string, expectedVersion: number): Promise<PropertyDetail> {
+      return propertyStateMutation(propertyId, "archive", expectedVersion);
+    },
+    async restore(propertyId: string, expectedVersion: number): Promise<PropertyDetail> {
+      return propertyStateMutation(propertyId, "restore", expectedVersion);
+    },
+    async uploadImage(propertyId: string, expectedVersion: number, file: File): Promise<PropertyImageMutationResponse> {
+      const form = new FormData();
+      form.set("expectedVersion", String(expectedVersion));
+      form.set("file", file);
+      const response = await fetch(`/api/properties/${encodeURIComponent(propertyId)}/images`, {
+        method: "POST",
+        body: form,
+      });
+      return parseResponse(response, PropertyImageMutationResponseSchema, "The property image could not be uploaded.");
+    },
+    async removeImage(propertyId: string, imageId: string, expectedVersion: number): Promise<PropertyImageMutationResponse> {
+      return request(
+        `/api/properties/${encodeURIComponent(propertyId)}/images/${encodeURIComponent(imageId)}`,
+        PropertyImageMutationResponseSchema,
+        { method: "DELETE", body: JSON.stringify({ expectedVersion }) },
+      );
+    },
+  },
   accounts: {
     async list(): Promise<AccountListResponse["accounts"]> {
       const response = await fetch("/api/accounts", { headers: { "Content-Type": "application/json" } });
@@ -218,6 +273,40 @@ function archiveSearch(query: Partial<MeetingArchiveQuery>): string {
   if (query.offset !== undefined) search.set("offset", String(query.offset));
   const serialized = search.toString();
   return serialized ? `?${serialized}` : "";
+}
+
+function propertyStateMutation(propertyId: string, action: "archive" | "restore", expectedVersion: number) {
+  return request(
+    `/api/properties/${encodeURIComponent(propertyId)}/${action}`,
+    PropertyDetailSchema,
+    { method: "POST", body: JSON.stringify({ expectedVersion }) },
+  );
+}
+
+function propertySearch(query: Partial<PropertyListQuery>): string {
+  const search = new URLSearchParams();
+  if (query.q) search.set("q", query.q);
+  if (query.type) search.set("type", query.type);
+  if (query.status) search.set("status", query.status);
+  if (query.limit !== undefined) search.set("limit", String(query.limit));
+  if (query.offset !== undefined) search.set("offset", String(query.offset));
+  const serialized = search.toString();
+  return serialized ? `?${serialized}` : "";
+}
+
+async function parseResponse<T>(response: Response, schema: z.ZodType<T>, fallback: string): Promise<T> {
+  if (!response.ok) {
+    const body: unknown = await response.json().catch(() => null);
+    const apiError = MeetingApiErrorResponseSchema.safeParse(body);
+    throw new ApiClientError(
+      apiError.success ? apiError.data.error.message : fallback,
+      response.status,
+      apiError.success ? apiError.data.error.code : undefined,
+      apiError.success ? apiError.data.error.currentVersion : undefined,
+      apiError.success ? apiError.data.error.issues : undefined,
+    );
+  }
+  return schema.parse(await response.json());
 }
 
 function isLegacyErrorBody(body: unknown): body is { error: string } {

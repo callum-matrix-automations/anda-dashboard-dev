@@ -1,7 +1,6 @@
 import type {
   FinancialLine,
   Member,
-  Property,
   Vendor,
   WebContact,
 } from "@/shared/types";
@@ -17,7 +16,6 @@ export interface AccountListResponse {
 
 export interface ModuleRecords {
   financials: FinancialLine[];
-  properties: Property[];
   vendors: Vendor[];
   contacts: WebContact[];
 }

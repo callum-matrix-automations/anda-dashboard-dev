@@ -6,6 +6,11 @@ import type { MeetingApiQueue } from "@/shared/contracts/meetingApi";
 import type { MeetingArchiveQuery } from "@/shared/contracts/meetingArchive";
 import type { MeetingReviewDraft } from "@/shared/contracts/meetingReview";
 import type { ManualTranscriptUploadRequest } from "@/shared/contracts/manualTranscriptUpload";
+import type {
+  PropertyDraft,
+  PropertyListQuery,
+  PropertyUpdateRequest,
+} from "@/shared/contracts/property";
 
 export function useMeetings(queue: MeetingApiQueue = "all") {
   return useQuery({
@@ -165,6 +170,82 @@ export function useArchiveDocumentAccess() {
   return useMutation({ mutationFn: (meetingId: string) => apiClient.archive.documentAccess(meetingId) });
 }
 
+export function useProperties(query: Partial<PropertyListQuery>) {
+  return useQuery({
+    queryKey: ["properties", query],
+    queryFn: () => apiClient.properties.list(query),
+    retry: false,
+  });
+}
+
+export function useProperty(propertyId: string, enabled = true) {
+  return useQuery({
+    queryKey: ["property", propertyId],
+    queryFn: () => apiClient.properties.get(propertyId),
+    enabled,
+    retry: false,
+  });
+}
+
+export function useCreateProperty() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (property: PropertyDraft) => apiClient.properties.create(property),
+    onSuccess: async (property) => {
+      queryClient.setQueryData(["property", property.id], property);
+      await queryClient.invalidateQueries({ queryKey: ["properties"] });
+    },
+  });
+}
+
+export function useUpdateProperty() {
+  return usePropertyMutation(({ propertyId, input }: { propertyId: string; input: PropertyUpdateRequest }) => (
+    apiClient.properties.update(propertyId, input)
+  ));
+}
+
+export function useArchiveProperty() {
+  return usePropertyMutation(({ propertyId, expectedVersion }: { propertyId: string; expectedVersion: number }) => (
+    apiClient.properties.archive(propertyId, expectedVersion)
+  ));
+}
+
+export function useRestoreProperty() {
+  return usePropertyMutation(({ propertyId, expectedVersion }: { propertyId: string; expectedVersion: number }) => (
+    apiClient.properties.restore(propertyId, expectedVersion)
+  ));
+}
+
+export function useUploadPropertyImage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ propertyId, expectedVersion, file }: { propertyId: string; expectedVersion: number; file: File }) => (
+      apiClient.properties.uploadImage(propertyId, expectedVersion, file)
+    ),
+    onSuccess: async (_result, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["property", variables.propertyId] }),
+        queryClient.invalidateQueries({ queryKey: ["properties"] }),
+      ]);
+    },
+  });
+}
+
+export function useRemovePropertyImage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ propertyId, imageId, expectedVersion }: { propertyId: string; imageId: string; expectedVersion: number }) => (
+      apiClient.properties.removeImage(propertyId, imageId, expectedVersion)
+    ),
+    onSuccess: async (_result, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["property", variables.propertyId] }),
+        queryClient.invalidateQueries({ queryKey: ["properties"] }),
+      ]);
+    },
+  });
+}
+
 function useMeetingMutation<TVariables extends { meetingId: string }>(
   mutationFn: (variables: TVariables) => ReturnType<typeof apiClient.meetings.retryAnalysis>,
 ) {
@@ -181,6 +262,24 @@ function useMeetingMutation<TVariables extends { meetingId: string }>(
     onError: async (error, variables) => {
       if (error instanceof ApiClientError && error.code === "version_conflict") {
         await queryClient.invalidateQueries({ queryKey: ["meeting", variables.meetingId] });
+      }
+    },
+  });
+}
+
+function usePropertyMutation<TVariables extends { propertyId: string }>(
+  mutationFn: (variables: TVariables) => ReturnType<typeof apiClient.properties.update>,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSuccess: async (property, variables) => {
+      queryClient.setQueryData(["property", variables.propertyId], property);
+      await queryClient.invalidateQueries({ queryKey: ["properties"] });
+    },
+    onError: async (error, variables) => {
+      if (error instanceof ApiClientError && error.code === "version_conflict") {
+        await queryClient.invalidateQueries({ queryKey: ["property", variables.propertyId] });
       }
     },
   });
