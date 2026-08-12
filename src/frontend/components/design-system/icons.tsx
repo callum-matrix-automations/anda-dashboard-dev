@@ -28,6 +28,14 @@ export {
   WarningIcon as ExceptionIcon,
   ArrowClockwiseIcon as RetryIcon,
   FileTextIcon as DocumentIcon,
+  PlusIcon as AddIcon,
+  PencilSimpleIcon as EditIcon,
+  ImageSquareIcon as ImageIcon,
+  ArchiveTrayIcon as ArchivePropertyIcon,
+  ArrowCounterClockwiseIcon as RestoreIcon,
+  TrashIcon as RemoveIcon,
+  BuildingsIcon as MultifamilyIcon,
+  MapPinAreaIcon as LandIcon,
 } from "@phosphor-icons/react/dist/ssr"
 
 export type { Icon as PhosphorIcon } from "@phosphor-icons/react"

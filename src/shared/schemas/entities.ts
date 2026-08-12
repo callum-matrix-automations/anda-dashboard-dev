@@ -215,16 +215,6 @@ export const FinancialLineSchema = z.object({
 });
 export type FinancialLine = z.infer<typeof FinancialLineSchema>;
 
-export const PropertySchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  address: z.string(),
-  units: z.number().int(),
-  occupancyPct: z.number(),
-  openWorkOrders: z.number().int(),
-});
-export type Property = z.infer<typeof PropertySchema>;
-
 export const VendorSchema = z.object({
   id: z.string(),
   name: z.string(),
