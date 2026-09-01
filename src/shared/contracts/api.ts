@@ -1,9 +1,4 @@
-import type {
-  FinancialLine,
-  Member,
-  Vendor,
-  WebContact,
-} from "@/shared/types";
+import type { Member, Vendor, WebContact } from "@/shared/types";
 
 export interface ApiErrorBody {
   error: string;
@@ -15,7 +10,6 @@ export interface AccountListResponse {
 }
 
 export interface ModuleRecords {
-  financials: FinancialLine[];
   vendors: Vendor[];
   contacts: WebContact[];
 }

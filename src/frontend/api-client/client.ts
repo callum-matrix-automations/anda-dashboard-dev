@@ -26,6 +26,21 @@ import {
 } from "../../shared/contracts/meetingArchive";
 import type { MeetingReviewDraft } from "../../shared/contracts/meetingReview";
 import {
+  FinancialFolderListResponseSchema,
+  FinancialFolderSchema,
+  FinancialRecordListResponseSchema,
+  FinancialRecordSchema,
+  type FinancialFolder,
+  type FinancialFolderCreateRequest,
+  type FinancialFolderListResponse,
+  type FinancialFolderUpdateRequest,
+  type FinancialRecord,
+  type FinancialRecordListQuery,
+  type FinancialRecordListResponse,
+  type FinancialRecordMetadataInput,
+  type FinancialRecordUpdateRequest,
+} from "../../shared/contracts/financial";
+import {
   PropertyDetailSchema,
   PropertyImageMutationResponseSchema,
   PropertyListResponseSchema,
@@ -179,6 +194,52 @@ export const apiClient = {
       );
     },
   },
+  financials: {
+    async listFolders(): Promise<FinancialFolderListResponse> {
+      return request("/api/financials/folders", FinancialFolderListResponseSchema);
+    },
+    async createFolder(input: FinancialFolderCreateRequest): Promise<FinancialFolder> {
+      return request("/api/financials/folders", FinancialFolderSchema, {
+        method: "POST",
+        body: JSON.stringify(input),
+      });
+    },
+    async updateFolder(folderId: string, input: FinancialFolderUpdateRequest): Promise<FinancialFolder> {
+      return request(`/api/financials/folders/${encodeURIComponent(folderId)}`, FinancialFolderSchema, {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      });
+    },
+    async listRecords(query: Partial<FinancialRecordListQuery> = {}): Promise<FinancialRecordListResponse> {
+      return request(`/api/financials/records${financialRecordSearch(query)}`, FinancialRecordListResponseSchema);
+    },
+    async getRecord(recordId: string): Promise<FinancialRecord> {
+      return request(`/api/financials/records/${encodeURIComponent(recordId)}`, FinancialRecordSchema);
+    },
+    async uploadRecord(record: FinancialRecordMetadataInput, file: File): Promise<FinancialRecord> {
+      const form = new FormData();
+      form.set("folderId", record.folderId);
+      form.set("displayName", record.displayName);
+      form.set("recordYear", String(record.recordYear));
+      form.set("recordMonth", String(record.recordMonth));
+      form.set("description", record.description ?? "");
+      form.set("file", file);
+      const response = await fetch("/api/financials/records", { method: "POST", body: form });
+      return parseResponse(response, FinancialRecordSchema, "The financial record could not be uploaded.");
+    },
+    async updateRecord(recordId: string, input: FinancialRecordUpdateRequest): Promise<FinancialRecord> {
+      return request(`/api/financials/records/${encodeURIComponent(recordId)}`, FinancialRecordSchema, {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      });
+    },
+    async archiveRecord(recordId: string, expectedVersion: number): Promise<FinancialRecord> {
+      return financialRecordStateMutation(recordId, "archive", expectedVersion);
+    },
+    async restoreRecord(recordId: string, expectedVersion: number): Promise<FinancialRecord> {
+      return financialRecordStateMutation(recordId, "restore", expectedVersion);
+    },
+  },
   properties: {
     async list(query: Partial<PropertyListQuery> = {}): Promise<PropertyListResponse> {
       const search = propertySearch(query);
@@ -281,6 +342,27 @@ function propertyStateMutation(propertyId: string, action: "archive" | "restore"
     PropertyDetailSchema,
     { method: "POST", body: JSON.stringify({ expectedVersion }) },
   );
+}
+
+function financialRecordStateMutation(recordId: string, action: "archive" | "restore", expectedVersion: number) {
+  return request(
+    `/api/financials/records/${encodeURIComponent(recordId)}/${action}`,
+    FinancialRecordSchema,
+    { method: "POST", body: JSON.stringify({ expectedVersion }) },
+  );
+}
+
+function financialRecordSearch(query: Partial<FinancialRecordListQuery>) {
+  const search = new URLSearchParams();
+  if (query.q) search.set("q", query.q);
+  if (query.folderId) search.set("folderId", query.folderId);
+  if (query.year !== undefined && query.year !== null) search.set("year", String(query.year));
+  if (query.month !== undefined && query.month !== null) search.set("month", String(query.month));
+  if (query.status) search.set("status", query.status);
+  if (query.limit !== undefined) search.set("limit", String(query.limit));
+  if (query.offset !== undefined) search.set("offset", String(query.offset));
+  const serialized = search.toString();
+  return serialized ? `?${serialized}` : "";
 }
 
 function propertySearch(query: Partial<PropertyListQuery>): string {
