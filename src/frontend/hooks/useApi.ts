@@ -1,10 +1,17 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiClientError, apiClient } from "@/frontend/api-client/client";
 import type { MeetingApiQueue } from "@/shared/contracts/meetingApi";
 import type { MeetingArchiveQuery } from "@/shared/contracts/meetingArchive";
 import type { MeetingReviewDraft } from "@/shared/contracts/meetingReview";
+import type {
+  FinancialFolderCreateRequest,
+  FinancialFolderUpdateRequest,
+  FinancialRecordListQuery,
+  FinancialRecordMetadataInput,
+  FinancialRecordUpdateRequest,
+} from "@/shared/contracts/financial";
 import type { ManualTranscriptUploadRequest } from "@/shared/contracts/manualTranscriptUpload";
 import type {
   PropertyDraft,
@@ -170,6 +177,71 @@ export function useArchiveDocumentAccess() {
   return useMutation({ mutationFn: (meetingId: string) => apiClient.archive.documentAccess(meetingId) });
 }
 
+export function useFinancialFolders() {
+  return useQuery({
+    queryKey: ["financial-folders"],
+    queryFn: () => apiClient.financials.listFolders(),
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useCreateFinancialFolder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: FinancialFolderCreateRequest) => apiClient.financials.createFolder(input),
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["financial-folders"] }),
+  });
+}
+
+export function useUpdateFinancialFolder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ folderId, input }: { folderId: string; input: FinancialFolderUpdateRequest }) => (
+      apiClient.financials.updateFolder(folderId, input)
+    ),
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["financial-folders"] }),
+  });
+}
+
+export function useFinancialRecords(query: Partial<FinancialRecordListQuery>) {
+  return useQuery({
+    queryKey: ["financial-records", query],
+    queryFn: () => apiClient.financials.listRecords(query),
+    retry: false,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useUploadFinancialRecord() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ record, file }: { record: FinancialRecordMetadataInput; file: File }) => (
+      apiClient.financials.uploadRecord(record, file)
+    ),
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["financial-records"] }),
+  });
+}
+
+export function useUpdateFinancialRecord() {
+  return useFinancialRecordMutation(({ recordId, input }: { recordId: string; input: FinancialRecordUpdateRequest }) => (
+    apiClient.financials.updateRecord(recordId, input)
+  ));
+}
+
+export function useArchiveFinancialRecord() {
+  return useFinancialRecordMutation(({ recordId, expectedVersion }: { recordId: string; expectedVersion: number }) => (
+    apiClient.financials.archiveRecord(recordId, expectedVersion)
+  ));
+}
+
+export function useRestoreFinancialRecord() {
+  return useFinancialRecordMutation(({ recordId, expectedVersion }: { recordId: string; expectedVersion: number }) => (
+    apiClient.financials.restoreRecord(recordId, expectedVersion)
+  ));
+}
+
 export function useProperties(query: Partial<PropertyListQuery>) {
   return useQuery({
     queryKey: ["properties", query],
@@ -280,6 +352,21 @@ function usePropertyMutation<TVariables extends { propertyId: string }>(
     onError: async (error, variables) => {
       if (error instanceof ApiClientError && error.code === "version_conflict") {
         await queryClient.invalidateQueries({ queryKey: ["property", variables.propertyId] });
+      }
+    },
+  });
+}
+
+function useFinancialRecordMutation<TVariables extends { recordId: string }>(
+  mutationFn: (variables: TVariables) => ReturnType<typeof apiClient.financials.updateRecord>,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["financial-records"] }),
+    onError: async (error) => {
+      if (error instanceof ApiClientError && error.code === "version_conflict") {
+        await queryClient.invalidateQueries({ queryKey: ["financial-records"] });
       }
     },
   });

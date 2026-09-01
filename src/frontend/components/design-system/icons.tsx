@@ -36,6 +36,9 @@ export {
   TrashIcon as RemoveIcon,
   BuildingsIcon as MultifamilyIcon,
   MapPinAreaIcon as LandIcon,
+  FolderIcon as FolderIcon,
+  DownloadSimpleIcon as DownloadIcon,
+  CircleNotchIcon as LoadingIcon,
 } from "@phosphor-icons/react/dist/ssr"
 
 export type { Icon as PhosphorIcon } from "@phosphor-icons/react"

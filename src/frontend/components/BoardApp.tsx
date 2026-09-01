@@ -16,13 +16,13 @@ import { ArchiveDetailScreen } from "@/frontend/components/archive/ArchiveDetail
 import { PropertyCentreScreen } from "@/frontend/components/properties/PropertyCentreScreen";
 import { PropertyDetailScreen } from "@/frontend/components/properties/PropertyDetailScreen";
 import { PropertyFormScreen } from "@/frontend/components/properties/PropertyFormScreen";
+import { FinancialRecordsScreen } from "@/frontend/components/financials/FinancialRecordsScreen";
 import { Toaster } from "@/frontend/components/design-system/primitives/sonner";
 
 const MEETING_QUEUES = ["meetings", "needs-review", "deferred", "signing", "archive"] as const;
 type MeetingQueue = (typeof MEETING_QUEUES)[number];
 
 const COMING_SOON_AREAS: Record<string, { area: "Association" | "Administration"; title: string }> = {
-  financials: { area: "Association", title: "Financials" },
   vendors: { area: "Association", title: "Vendors" },
   contacts: { area: "Association", title: "Contacts" },
   members: { area: "Administration", title: "Account administration" },
@@ -49,6 +49,7 @@ export function BoardApp() {
   else if (section === "meetings" && depth === 3 && id) content = <MeetingReview meetingId={id} mode="review" />;
   else if (section === "signing" && depth === 3 && id) content = <MeetingSigningScreen meetingId={id} />;
   else if (section === "archive" && depth === 3 && id) content = <ArchiveDetailScreen meetingId={id} />;
+  else if (section === "financials" && depth === 2) content = <FinancialRecordsScreen />;
   else if (section === "properties" && depth === 2) content = <PropertyCentreScreen />;
   else if (section === "properties" && depth === 3 && id === "new") content = <PropertyFormScreen />;
   else if (section === "properties" && depth === 3 && id) content = <PropertyDetailScreen propertyId={id} />;

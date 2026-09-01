@@ -205,16 +205,6 @@ export const MemberSchema = z.object({
 });
 export type Member = z.infer<typeof MemberSchema>;
 
-export const FinancialLineSchema = z.object({
-  id: z.string(),
-  label: z.string(),
-  category: z.enum(["income", "expense", "reserve"]),
-  budgeted: z.number(),
-  actual: z.number(),
-  period: z.string(),
-});
-export type FinancialLine = z.infer<typeof FinancialLineSchema>;
-
 export const VendorSchema = z.object({
   id: z.string(),
   name: z.string(),
