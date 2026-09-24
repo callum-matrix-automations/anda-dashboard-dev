@@ -31,7 +31,6 @@
     "test:transcript:manual": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/manual-transcript-upload.integration.test.ts",
     "test:transcript:manual:live": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/manual-transcript-upload.live.integration.test.ts",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build",
-    "auth:generate": "node scripts/generate-master-credentials.mjs",
     "mock:transcript": "node --env-file-if-exists=.env.local scripts/mock-transcript/send-dummy-transcript.mjs",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",

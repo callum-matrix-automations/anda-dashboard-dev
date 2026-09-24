@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
-import { hashMasterPassword } from "../../src/backend/auth/masterPassword";
 import {
   MASTER_SESSION_COOKIE,
   createMasterSessionToken,
@@ -10,23 +9,17 @@ import { middleware } from "../../src/middleware";
 
 const originalEnvironment = {
   username: process.env.MASTER_AUTH_USERNAME,
-  passwordHash: process.env.MASTER_AUTH_PASSWORD_HASH,
-  sessionSecret: process.env.MASTER_AUTH_SESSION_SECRET,
+  password: process.env.MASTER_AUTH_PASSWORD,
 };
 
-beforeAll(async () => {
+beforeAll(() => {
   process.env.MASTER_AUTH_USERNAME = "anda-admin";
-  process.env.MASTER_AUTH_PASSWORD_HASH = await hashMasterPassword("correct-horse-battery-staple", {
-    cost: 16_384,
-    salt: Buffer.alloc(24, 11),
-  });
-  process.env.MASTER_AUTH_SESSION_SECRET = "test-session-secret-with-more-than-32-bytes";
+  process.env.MASTER_AUTH_PASSWORD = "correct-horse-battery-staple";
 });
 
 afterAll(() => {
   restoreEnvironment("MASTER_AUTH_USERNAME", originalEnvironment.username);
-  restoreEnvironment("MASTER_AUTH_PASSWORD_HASH", originalEnvironment.passwordHash);
-  restoreEnvironment("MASTER_AUTH_SESSION_SECRET", originalEnvironment.sessionSecret);
+  restoreEnvironment("MASTER_AUTH_PASSWORD", originalEnvironment.password);
 });
 
 describe("master authentication middleware", () => {
