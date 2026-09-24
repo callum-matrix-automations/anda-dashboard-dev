@@ -1,3 +1,3 @@
 import { redirect } from "next/navigation";
 
-export default function VerifyPage() { redirect("/app/dashboard"); }
+export default function VerifyPage() { redirect("/auth/sign-in"); }

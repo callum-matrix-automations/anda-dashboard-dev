@@ -2,6 +2,22 @@
 
 Server-only application code lives in this directory.
 
+## Master dashboard login
+
+Dashboard access is protected by one environment-configured master account.
+The repository never stores the password: `MASTER_AUTH_PASSWORD_HASH` is a
+scrypt hash, and successful login creates a short-lived signed HttpOnly,
+SameSite=Strict session cookie. Changing the username, password hash, or session
+secret invalidates existing sessions. Browser pages and browser-facing APIs are
+gated centrally; signed webhooks and internal bearer-token routes retain their
+own independent authentication.
+
+Generate credentials with `npm.cmd run auth:generate -- anda-admin`. In-memory
+rate limiting blocks repeated attempts per forwarded client address. This is a
+single-instance first release; a later multi-instance deployment should move
+attempt counters to a shared store and replace the master account with named
+accounts and MFA.
+
 Planned areas:
 
 - `domain/` - meeting lifecycle and business rules
