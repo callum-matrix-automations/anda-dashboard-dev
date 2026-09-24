@@ -227,6 +227,56 @@ describe.skipIf(!localIntegrationConfigured)("local approval-to-PDF workflow", (
     }));
   }, 30_000);
 
+  it("approves a final motion outcome when the transcript did not identify mover or seconder", async () => {
+    const predefinedDraft = await loadPredefinedMeetingDraft();
+    const workflow = await runPreApprovalWorkflow({
+      analyze: vi.fn().mockResolvedValue(predefinedDraft),
+      idPrefix: "approval-unidentified-motion-participants",
+    });
+    const meetingId = requiredMeetingId(workflow.meetings[0]?.id);
+    const review = reviewService();
+    const approvalRepository = createSupabaseMeetingApprovalRepository(configuration);
+    const approvalService = createMeetingApprovalService({
+      repository: approvalRepository,
+      processPdf: createMeetingPdfProcessor({
+        repository: approvalRepository,
+        storage: createSupabaseMinutesPdfStorage(configuration),
+      }),
+      processSigning: signingProcessor(new FakeSigningProvider()),
+    });
+    const detail = await requiredReview(review, meetingId);
+    const draft = completeDraft(false);
+    const saved = await review.saveMeetingDraft({
+      meetingId,
+      expectedVersion: detail.version,
+      actorProfileId: eleanorId,
+      draft: {
+        ...draft,
+        motions: [{
+          ...draft.motions[0]!,
+          moverProfileId: null,
+          seconderProfileId: null,
+        }],
+      },
+    });
+
+    await expect(approvalService.approveMeeting({
+      meetingId,
+      expectedVersion: requiredVersion(saved.version),
+      actorProfileId: eleanorId,
+      acknowledgeUnresolvedVotes: false,
+    })).resolves.toMatchObject({ status: "approved" });
+
+    const snapshot = await loadApprovedSnapshot(meetingId);
+    expect(snapshot.motions).toContainEqual(expect.objectContaining({
+      outcome: "carried",
+      moverProfileId: null,
+      moverDisplayName: null,
+      seconderProfileId: null,
+      seconderDisplayName: null,
+    }));
+  }, 30_000);
+
   it("keeps PDF_FAILED locked and retries from the exact approved snapshot", async () => {
     const predefinedDraft = await loadPredefinedMeetingDraft();
     const workflow = await runPreApprovalWorkflow({

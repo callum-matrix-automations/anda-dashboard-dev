@@ -56,8 +56,10 @@ export function buildMinutesDocument(snapshotInput: ApprovedMeetingSnapshot): Mi
     },
     motions: snapshot.motions.map((motion) => ({
       text: motion.text,
-      mover: motion.moverDisplayName,
-      seconder: motion.seconderDisplayName ?? "No seconder recorded",
+      mover: motion.moverDisplayName ?? "Unidentified speaker",
+      seconder: motion.outcome === "not_seconded"
+        ? "No seconder - not put to vote"
+        : motion.seconderDisplayName ?? "Unidentified speaker",
       outcome: motion.outcome === "not_seconded" ? "Not seconded - not put to vote" : titleCase(motion.outcome),
       votes: motion.votes.map((vote) => ({
         voter: vote.displayName,

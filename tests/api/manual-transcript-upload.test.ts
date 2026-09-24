@@ -39,6 +39,7 @@ describe("manual transcript upload API", () => {
       status: "pending_approval",
       meetingId,
       analysisAttempt: 1,
+      normalization: normalizationSummary(),
     });
     const handler = createManualTranscriptUploadHandler({
       actorResolver: vi.fn().mockResolvedValue(officer),
@@ -52,6 +53,7 @@ describe("manual transcript upload API", () => {
       status: "pending_approval",
       meetingId,
       analysisAttempt: 1,
+      normalization: normalizationSummary(),
     });
     expect(processUpload).toHaveBeenCalledWith(validBody, officer);
 
@@ -84,4 +86,16 @@ function request(body: unknown) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
+}
+
+function normalizationSummary() {
+  return {
+    method: "deterministic" as const,
+    detectedFormat: "speaker_colon" as const,
+    participants: [{ displayName: "Chair", kind: "named" as const }],
+    possibleAliases: [],
+    warnings: [],
+    turnCount: 1,
+    attributionCoverage: 1,
+  };
 }

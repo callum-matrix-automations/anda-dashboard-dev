@@ -44,8 +44,13 @@ export function createManualTranscriptUploadHandler({
       return Response.json(ManualTranscriptUploadResponseSchema.parse(result));
     } catch (error) {
       if (error instanceof ManualTranscriptUploadError) {
+        const status = error.code === "duplicate_upload"
+          ? 409
+          : error.code === "normalization_failed"
+            ? 422
+            : 503;
         return apiError(
-          error.code === "duplicate_upload" ? 409 : 503,
+          status,
           error.code,
           error.message,
         );

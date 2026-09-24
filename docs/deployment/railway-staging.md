@@ -25,6 +25,7 @@ ANDA_STAGING_ACTOR_PROFILE_ID=10000000-0000-4000-8000-000000000006
 
 OPENAI_API_KEY=REPLACE_ME
 OPENAI_MODEL=gpt-5.6-terra
+OPENAI_TRANSCRIPT_NORMALIZATION_MODEL=gpt-6-luna
 
 FIRMA_API_KEY=REPLACE_ME
 FIRMA_WEBHOOK_SECRET=REPLACE_ME
@@ -76,7 +77,10 @@ Redeploy if the Railway domain or any build-time variable changes.
 
 1. Open the Railway application.
 2. Select **Upload transcript**.
-3. Enter a title, date, duration, and speaker-labelled transcript.
+3. Enter a title, date, duration, and readable plain-text transcript. Common
+   speaker-labelled, timestamp-block, timestamped-line, SRT, and WebVTT formats
+   are handled directly. Other readable text formats use GPT-6 Luna only to
+   identify speaker turns before the existing minutes analysis begins.
 4. Select **Begin processing** and wait for the meeting to reach
    `PENDING_APPROVAL`.
 5. Review and edit minutes, attendance, and motions.
@@ -88,6 +92,19 @@ Transcript participants do not need pre-seeded profiles. Each detected speaker
 is stored as an unlinked meeting attendee and remains available to AI, motions,
 votes, and human review. A future matching profile can link to that attendee,
 but a missing profile does not block processing.
+
+The upload dialog shows a transcript check before processing. Generic speakers,
+possible aliases, and low attribution coverage remain visible for human review.
+The original transcript is immutable. A separate versioned normalization audit
+record stores the canonical speaker-labelled input, hashes, warnings, method,
+and model identifiers. Luna output is rejected if its dialogue cannot be traced
+verbatim to the source transcript.
+
+While a manual meeting is still untouched and awaiting review (or has failed
+analysis), authorised reviewers can use **Re-check transcript** from the source
+panel. This creates a new immutable normalization version and reruns analysis;
+it is disabled after a human edit, deferral, or approval so reviewed minutes
+cannot be silently replaced.
 
 ## Not required for this client test
 
