@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUploadTranscript } from "@/frontend/hooks/useApi";
 import { UploadIcon } from "@/frontend/components/design-system/icons";
@@ -16,6 +16,7 @@ import {
 } from "@/frontend/components/design-system/primitives/dialog";
 import { Input } from "@/frontend/components/design-system/primitives/input";
 import { Textarea } from "@/frontend/components/design-system/primitives/textarea";
+import { normalizeKnownTranscript } from "@/shared/transcripts/normalizeKnownTranscript";
 
 export function ManualTranscriptUploadDialog() {
   const router = useRouter();
@@ -27,6 +28,10 @@ export function ManualTranscriptUploadDialog() {
   const [transcript, setTranscript] = useState("");
   const [validationError, setValidationError] = useState("");
   const [failedMeetingId, setFailedMeetingId] = useState<string | null>(null);
+  const transcriptCheck = useMemo(
+    () => transcript.trim() ? normalizeKnownTranscript(transcript) : null,
+    [transcript],
+  );
 
   const changeOpen = (next: boolean) => {
     if (upload.isPending) return;
@@ -93,8 +98,8 @@ export function ManualTranscriptUploadDialog() {
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold">Upload transcript</DialogTitle>
           <DialogDescription>
-            Paste a plain-text transcript. Put each speaker turn on a new line as
-            {" “Name: dialogue”"} so exact member names can be linked to their profiles.
+            Paste a readable plain-text transcript in any common speaker or timestamp format.
+            The original text is preserved, and uncertain speaker labels are shown for review.
           </DialogDescription>
         </DialogHeader>
 
@@ -156,6 +161,28 @@ export function ManualTranscriptUploadDialog() {
             </span>
           </div>
 
+          {transcriptCheck && (
+            <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm" aria-live="polite">
+              <p className="font-semibold">Transcript check</p>
+              {transcriptCheck.summary ? (
+                <>
+                  <p className="mt-1 text-muted-foreground">
+                    Recognised {formatLabel(transcriptCheck.detectedFormat)} with {transcriptCheck.summary.turnCount} speaker turns and {transcriptCheck.summary.participants.length} speaker labels.
+                  </p>
+                  {transcriptCheck.summary.warnings.length > 0 && (
+                    <ul className="mt-2 space-y-1 text-amber-700 dark:text-amber-300">
+                      {transcriptCheck.summary.warnings.map((warning) => <li key={warning.code}>• {warning.message}</li>)}
+                    </ul>
+                  )}
+                </>
+              ) : (
+                <p className="mt-1 text-amber-700 dark:text-amber-300">
+                  This format is not recognised directly. GPT-6 Luna will identify speaker turns before analysis. Processing stops if the dialogue cannot be preserved safely.
+                </p>
+              )}
+            </div>
+          )}
+
           {processingError && (
             <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {processingError}
@@ -164,7 +191,7 @@ export function ManualTranscriptUploadDialog() {
 
           {upload.isPending && (
             <p className="text-sm text-muted-foreground">
-              The transcript is being stored and analysed with GPT-5.6 Terra. Keep this window open until processing finishes.
+              The transcript is being checked, stored, and analysed. GPT-6 Luna is used only when the format needs normalization. Keep this window open until processing finishes.
             </p>
           )}
 
@@ -188,6 +215,16 @@ export function ManualTranscriptUploadDialog() {
       </DialogContent>
     </Dialog>
   );
+}
+
+function formatLabel(format: string) {
+  return ({
+    speaker_colon: "speaker-labelled text",
+    timestamp_speaker_blocks: "timestamped speaker blocks",
+    timestamped_speaker_lines: "timestamped speaker lines",
+    webvtt: "WebVTT captions",
+    srt: "SRT captions",
+  } as Record<string, string>)[format] ?? "transcript text";
 }
 
 function todayForInput() {

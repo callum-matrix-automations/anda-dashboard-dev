@@ -67,10 +67,26 @@ describe("manual transcript upload dialog", () => {
       status: "pending_approval",
       meetingId,
       analysisAttempt: 1,
+      normalization: normalizationSummary(),
     }));
     await waitFor(() => expect(routerPush).toHaveBeenCalledWith(`/app/meetings/${meetingId}`));
   });
 });
+
+function normalizationSummary() {
+  return {
+    method: "deterministic",
+    detectedFormat: "speaker_colon",
+    participants: [
+      { displayName: "Eleanor Hughes", kind: "named" },
+      { displayName: "Marcus Patel", kind: "named" },
+    ],
+    possibleAliases: [],
+    warnings: [],
+    turnCount: 2,
+    attributionCoverage: 1,
+  };
+}
 
 function renderWithQuery(node: ReactNode) {
   const queryClient = new QueryClient({

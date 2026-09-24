@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TranscriptNormalizationSummarySchema } from "./transcriptNormalization";
 
 export const ManualTranscriptUploadRequestSchema = z.object({
   title: z.string().trim().min(1, "Meeting title is required.").max(500),
@@ -11,11 +12,16 @@ export const ManualTranscriptUploadRequestSchema = z.object({
     }),
 }).strict();
 
+export const ManualTranscriptRenormalizeRequestSchema = z.object({
+  expectedVersion: z.number().int().positive(),
+}).strict();
+
 export const ManualTranscriptUploadResponseSchema = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("pending_approval"),
     meetingId: z.string().uuid(),
     analysisAttempt: z.number().int().positive(),
+    normalization: TranscriptNormalizationSummarySchema,
   }).strict(),
   z.object({
     status: z.literal("ai_failed"),
@@ -25,8 +31,10 @@ export const ManualTranscriptUploadResponseSchema = z.discriminatedUnion("status
       code: z.string().trim().min(1),
       message: z.string().trim().min(1),
     }).strict(),
+    normalization: TranscriptNormalizationSummarySchema,
   }).strict(),
 ]);
 
 export type ManualTranscriptUploadRequest = z.infer<typeof ManualTranscriptUploadRequestSchema>;
 export type ManualTranscriptUploadResponse = z.infer<typeof ManualTranscriptUploadResponseSchema>;
+export type ManualTranscriptRenormalizeRequest = z.infer<typeof ManualTranscriptRenormalizeRequestSchema>;

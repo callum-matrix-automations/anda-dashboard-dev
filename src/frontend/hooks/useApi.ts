@@ -56,6 +56,24 @@ export function useRetryMeetingAnalysis() {
   );
 }
 
+export function useMeetingMotionsSummary(id: string) {
+  return useQuery({
+    queryKey: ["meeting-motions-summary", id],
+    queryFn: () => apiClient.meetings.motionsSummary(id),
+    retry: false,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useRenormalizeMeetingTranscript() {
+  return useMeetingMutation(
+    ({ meetingId, expectedVersion }: { meetingId: string; expectedVersion: number }) => (
+      apiClient.meetings.renormalizeTranscript(meetingId, expectedVersion)
+    ),
+  );
+}
+
 export function useSaveMeetingDraft() {
   return useMeetingMutation(
     ({ meetingId, expectedVersion, draft }: { meetingId: string; expectedVersion: number; draft: MeetingReviewDraft }) => (
@@ -327,6 +345,7 @@ function useMeetingMutation<TVariables extends { meetingId: string }>(
     onSuccess: async (_result, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["meeting", variables.meetingId] }),
+        queryClient.invalidateQueries({ queryKey: ["meeting-motions-summary", variables.meetingId] }),
         queryClient.invalidateQueries({ queryKey: ["meetings"] }),
         queryClient.invalidateQueries({ queryKey: ["meeting-search"] }),
       ]);

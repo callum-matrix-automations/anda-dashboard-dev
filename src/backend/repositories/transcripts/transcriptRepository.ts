@@ -33,6 +33,11 @@ export interface StoredTranscriptImport {
   importedAt: string;
 }
 
+export type TranscriptRenormalizationPersistenceResult = {
+  status: "saved" | "not_found" | "forbidden" | "conflict" | "protected";
+  version: number | null;
+};
+
 export interface TranscriptRepository {
   listActiveMemberProfiles(): Promise<ActiveMemberProfile[]>;
   storeImport(record: TranscriptImportRecord): Promise<StoredTranscriptImport>;
@@ -41,6 +46,13 @@ export interface TranscriptRepository {
     attendees: ManualTranscriptAttendeeLink[],
   ): Promise<number>;
   resolveUnmatchedParticipants(meetingId: string): Promise<number>;
+  replaceManualNormalization?(command: {
+    meetingId: string;
+    expectedVersion: number;
+    actorProfileId: string;
+    normalization: Record<string, unknown>;
+    attendees: TranscriptImportAttendee[];
+  }): Promise<TranscriptRenormalizationPersistenceResult>;
 }
 
 export interface TranscriptImportFailureRecord {

@@ -49,4 +49,26 @@ describe("approved minutes PDF", () => {
     expect(loaded.getTitle()).toBe("ANDA Board Meeting - Meeting Minutes");
     expect(loaded.getAuthor()).toBe("ANDA");
   });
+
+  it("labels unavailable motion attribution without inventing a participant", () => {
+    const snapshot = approvedSnapshot();
+    const motion = snapshot.motions[0];
+    if (!motion) throw new Error("Expected the approved snapshot fixture to include a motion.");
+    const model = buildMinutesDocument({
+      ...snapshot,
+      motions: [{
+        ...motion,
+        moverProfileId: null,
+        moverDisplayName: null,
+        seconderProfileId: null,
+        seconderDisplayName: null,
+      }],
+    });
+
+    expect(model.motions[0]).toMatchObject({
+      mover: "Unidentified speaker",
+      seconder: "Unidentified speaker",
+      outcome: "Carried",
+    });
+  });
 });

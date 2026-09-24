@@ -33,6 +33,20 @@ describe("meeting approval contracts", () => {
     }).success).toBe(true);
   });
 
+  it("accepts a resolved motion whose mover and seconder were not identified", () => {
+    const snapshot = approvedSnapshot();
+    expect(ApprovedMeetingSnapshotSchema.safeParse({
+      ...snapshot,
+      motions: [{
+        ...snapshot.motions[0],
+        moverProfileId: null,
+        moverDisplayName: null,
+        seconderProfileId: null,
+        seconderDisplayName: null,
+      }],
+    }).success).toBe(true);
+  });
+
   it("requires an explicit acknowledgement boolean and positive expected version", () => {
     expect(ApproveMeetingCommandSchema.safeParse({ expectedVersion: 4 }).success).toBe(false);
     expect(ApproveMeetingCommandSchema.safeParse({

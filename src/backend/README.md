@@ -23,12 +23,32 @@ database function to create the meeting and immutable transcript atomically.
 The receive operation makes one initial attempt plus three retries before
 returning a failed result. Fallback queuing after exhausted retries is deferred.
 
+Manual uploads pass through a transcript-normalization gateway before storage
+and analysis. Known speaker-labelled, timestamp-block, timestamped-line, SRT,
+and WebVTT formats are handled deterministically. Unknown readable text formats
+use the server-only `OPENAI_TRANSCRIPT_NORMALIZATION_MODEL` (GPT-6 Luna by
+default) with strict structured output. The fallback may only copy dialogue
+that is traceable to the original source. The immutable source stays in
+`transcripts.content`; versioned canonical analysis input and safe audit
+metadata are stored in `transcript_normalizations`.
+
+An authorised reviewer can re-check an untouched manual transcript while its
+meeting is `PENDING_APPROVAL` or `AI_FAILED`. The guarded workflow appends a new
+normalization version, refreshes source-only attendees, and starts a fresh
+analysis run. It refuses to run after a human edit, deferral, or approval.
+
 After a new transcript is stored, the receive service schedules the separate
 meeting-analysis workflow to run after the webhook response. That workflow claims up to three durable attempts,
 calls the structured OpenAI analyser, and atomically saves minutes, motions,
 and votes before moving the meeting to `PENDING_APPROVAL`. The source transcript
 is never updated. A third failed attempt records a sanitised reason and moves
 the meeting to `AI_FAILED`.
+
+The analysis prompt retains material sensitive subject matter, including
+explicit language and allegations of criminal conduct, instead of sanitising
+the official record. Allegations remain explicitly attributed as allegations;
+the model must not convert them into established facts or add operational
+details. The production default is `OPENAI_MODEL=gpt-5.6-terra`.
 
 `POST /api/internal/meetings/{meetingId}/analysis` runs the same workflow for
 testing and manual recovery. It requires `Authorization: Bearer <token>` using
@@ -58,6 +78,13 @@ acknowledgement. It rejects stale or deferred records, validates the minutes and
 motion information, and requires explicit acknowledgement when unresolved
 individual votes remain. API exposure, authentication, and role authorisation
 are intentionally deferred to a separate work item.
+
+`GET /api/meetings/{meetingId}/motions-summary` is a separate read-only API used
+for the **Items voted on** list above the minutes summary. It deterministically
+projects the stored motions and does not invoke AI or duplicate motion data.
+Final motion outcomes can be approved when the transcript did not identify the
+mover or seconder; those roles remain null and render as `Unidentified speaker`
+in review and the generated PDF.
 
 Accepted approval atomically stores an immutable structured snapshot, records
 the approver, locks the meeting, and moves it to `PDF_PROCESSING`. The backend

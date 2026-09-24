@@ -69,12 +69,33 @@ describe("meeting review workflow actions", () => {
     const dialog = screen.getByRole("dialog");
 
     expect(within(dialog).getByRole("alert").textContent).toContain("Allocate up to £2,000 for governance training");
-    expect(within(dialog).getByRole("alert").textContent).toContain("needs a seconder");
     expect(within(dialog).getByRole("alert").textContent).toContain("needs a final outcome");
     expect((within(dialog).getByRole("button", { name: "Approve minutes" }) as HTMLButtonElement).disabled).toBe(true);
     await user.click(within(dialog).getByRole("button", { name: "Go to motions" }));
     expect(goToMotions).toHaveBeenCalledWith([0]);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("allows a resolved motion when the transcript did not identify mover or seconder", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ action: "approved", meetingId, version: 5 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const meeting = reviewMeeting({
+      motions: [{
+        ...reviewMeeting().motions[0]!,
+        moverProfileId: null,
+        seconderProfileId: null,
+        outcome: "carried",
+      }],
+    });
+    renderWithQuery(createElement(MeetingReviewActions, {
+      meeting, editing: false, onFeedback: vi.fn(),
+    }));
+
+    await user.click(screen.getByRole("button", { name: "Approve minutes" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).queryByRole("alert")).toBeNull();
+    expect((within(dialog).getByRole("button", { name: "Approve minutes" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("allows a motion explicitly marked not seconded to proceed without a seconder", async () => {

@@ -15,11 +15,16 @@ import {
   type MeetingAnalysisProcessResult,
 } from "../ai/processMeetingAnalysis";
 import { storeTranscriptImport } from "./storeTranscriptImport";
+import {
+  normalizeTranscript,
+} from "./normalizeTranscript";
+import type { TranscriptNormalizationResult } from "../../../shared/contracts/transcriptNormalization";
+import { normalizeKnownTranscript } from "../../../shared/transcripts/normalizeKnownTranscript";
 
 export class ManualTranscriptUploadError extends Error {
   constructor(
     message: string,
-    readonly code: "duplicate_upload" | "analysis_unavailable",
+    readonly code: "duplicate_upload" | "analysis_unavailable" | "normalization_failed",
     readonly meetingId?: string,
   ) {
     super(message);
@@ -30,11 +35,13 @@ export class ManualTranscriptUploadError extends Error {
 export function createManualTranscriptUploadProcessor({
   store = storeTranscriptImport,
   analyze = processMeetingAnalysis,
+  normalize = normalizeTranscript,
   now = () => new Date(),
   createId = randomUUID,
 }: {
   store?: (packet: TranscriptWebhookPacket) => Promise<StoredTranscriptImport>;
   analyze?: (meetingId: string) => Promise<MeetingAnalysisProcessResult>;
+  normalize?: (content: string) => Promise<TranscriptNormalizationResult>;
   now?: () => Date;
   createId?: () => string;
 } = {}) {
@@ -43,7 +50,16 @@ export function createManualTranscriptUploadProcessor({
     actor: ServerActor,
   ): Promise<ManualTranscriptUploadResponse> {
     const upload = ManualTranscriptUploadRequestSchema.parse(input);
-    const packet = manualUploadPacket(upload, actor, now(), createId());
+    let normalization: TranscriptNormalizationResult;
+    try {
+      normalization = await normalize(upload.transcript);
+    } catch (error) {
+      throw new ManualTranscriptUploadError(
+        error instanceof Error ? error.message : "The transcript format could not be normalized safely.",
+        "normalization_failed",
+      );
+    }
+    const packet = manualUploadPacket(upload, actor, normalization, now(), createId());
     const stored = await store(packet);
     if (stored.status === "duplicate") {
       throw new ManualTranscriptUploadError(
@@ -59,6 +75,7 @@ export function createManualTranscriptUploadProcessor({
         status: "pending_approval",
         meetingId: result.meetingId,
         analysisAttempt: result.attempt,
+        normalization: normalizationSummary(normalization),
       };
     }
     if (result.status === "failed") {
@@ -67,6 +84,7 @@ export function createManualTranscriptUploadProcessor({
         meetingId: result.meetingId,
         analysisAttempts: result.attempts,
         error: result.error,
+        normalization: normalizationSummary(normalization),
       };
     }
     throw new ManualTranscriptUploadError(
@@ -78,28 +96,21 @@ export function createManualTranscriptUploadProcessor({
 }
 
 export function extractTranscriptSpeakers(content: string) {
-  const speakers = new Map<string, string>();
-  const speakerPattern = /^([\p{L}][\p{L}\p{M}\d .,'’()\-]{0,199}):[ \t]+\S/gmu;
-  for (const match of content.matchAll(speakerPattern)) {
-    const displayName = match[1]?.trim().replace(/\s+/gu, " ");
-    if (!displayName) continue;
-    const key = displayName.toLocaleLowerCase("en-GB");
-    if (!speakers.has(key)) speakers.set(key, displayName);
-  }
-  return [...speakers.values()];
+  return normalizeKnownTranscript(content).summary?.participants.map((participant) => participant.displayName) ?? [];
 }
 
 function manualUploadPacket(
   upload: ManualTranscriptUploadRequest,
   actor: ServerActor,
+  normalization: TranscriptNormalizationResult,
   receivedAt: Date,
   identifier: string,
 ) {
   const startedAt = new Date(`${upload.meetingDate}T09:00:00.000Z`);
   const endedAt = new Date(startedAt.getTime() + upload.durationMinutes * 60_000);
   const sourceId = `manual:${identifier}`;
-  const participants = extractTranscriptSpeakers(upload.transcript)
-    .map((name) => ({ name, email: null }));
+  const participants = normalization.participants
+    .map((participant) => ({ name: participant.displayName, email: null, kind: participant.kind }));
 
   return TranscriptWebhookPacketSchema.parse({
     eventId: sourceId,
@@ -128,6 +139,15 @@ function manualUploadPacket(
         startTime: startedAt.toISOString(),
         endTime: endedAt.toISOString(),
         participants,
+        normalization: {
+          ...normalizationSummary(normalization),
+          normalizedContent: normalization.canonicalTranscript,
+          originalContentHash: normalization.originalContentHash,
+          normalizedContentHash: normalization.normalizedContentHash,
+          model: normalization.model,
+          responseId: normalization.responseId,
+          requestId: normalization.requestId,
+        },
         uploadedBy: {
           profileId: actor.profileId,
           displayName: actor.displayName,
@@ -135,6 +155,18 @@ function manualUploadPacket(
       },
     },
   });
+}
+
+function normalizationSummary(normalization: TranscriptNormalizationResult) {
+  return {
+    method: normalization.method,
+    detectedFormat: normalization.detectedFormat,
+    participants: normalization.participants,
+    possibleAliases: normalization.possibleAliases,
+    warnings: normalization.warnings,
+    turnCount: normalization.turnCount,
+    attributionCoverage: normalization.attributionCoverage,
+  };
 }
 
 export const processManualTranscriptUpload = createManualTranscriptUploadProcessor();

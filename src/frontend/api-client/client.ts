@@ -26,6 +26,10 @@ import {
 } from "../../shared/contracts/meetingArchive";
 import type { MeetingReviewDraft } from "../../shared/contracts/meetingReview";
 import {
+  MeetingMotionsSummarySchema,
+  type MeetingMotionsSummary,
+} from "../../shared/contracts/meetingMotionsSummary";
+import {
   FinancialFolderListResponseSchema,
   FinancialFolderSchema,
   FinancialRecordListResponseSchema,
@@ -120,6 +124,12 @@ export const apiClient = {
     async get(id: string): Promise<MeetingApiDetail> {
       return request(`/api/meetings/${encodeURIComponent(id)}`, MeetingApiDetailSchema);
     },
+    async motionsSummary(id: string): Promise<MeetingMotionsSummary> {
+      return request(
+        `/api/meetings/${encodeURIComponent(id)}/motions-summary`,
+        MeetingMotionsSummarySchema,
+      );
+    },
     async search(query: string, limit = 25, offset = 0): Promise<MeetingApiListResponse> {
       const search = new URLSearchParams({ q: query, limit: String(limit), offset: String(offset) });
       return request(`/api/meetings/search?${search}`, MeetingApiListResponseSchema);
@@ -127,6 +137,13 @@ export const apiClient = {
     async retryAnalysis(id: string, expectedVersion: number): Promise<MeetingApiMutationResponse> {
       return request(
         `/api/meetings/${encodeURIComponent(id)}/analysis/retry`,
+        MeetingApiMutationResponseSchema,
+        { method: "POST", body: JSON.stringify({ expectedVersion }) },
+      );
+    },
+    async renormalizeTranscript(id: string, expectedVersion: number): Promise<MeetingApiMutationResponse> {
+      return request(
+        `/api/meetings/${encodeURIComponent(id)}/transcript/renormalize`,
         MeetingApiMutationResponseSchema,
         { method: "POST", body: JSON.stringify({ expectedVersion }) },
       );

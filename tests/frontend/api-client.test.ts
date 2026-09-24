@@ -115,6 +115,7 @@ describe("frontend API client", () => {
       status: "pending_approval",
       meetingId,
       analysisAttempt: 1,
+      normalization: transcriptNormalizationSummary(),
     }));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -122,6 +123,7 @@ describe("frontend API client", () => {
       status: "pending_approval",
       meetingId,
       analysisAttempt: 1,
+      normalization: transcriptNormalizationSummary(),
     });
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/transcripts/upload",
@@ -129,6 +131,48 @@ describe("frontend API client", () => {
         method: "POST",
         body: JSON.stringify(input),
       }),
+    );
+  });
+
+  it("loads the separate stored-motions summary", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      meetingId,
+      meetingVersion: 4,
+      items: [{
+        motionId: "99999999-9999-4999-8999-999999999999",
+        text: "Accept the annual financial statements.",
+        outcome: "carried",
+        putToVote: true,
+      }],
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(apiClient.meetings.motionsSummary(meetingId)).resolves.toMatchObject({
+      meetingVersion: 4,
+      items: [{ text: "Accept the annual financial statements.", outcome: "carried" }],
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/meetings/${meetingId}/motions-summary`,
+      expect.any(Object),
+    );
+  });
+
+  it("requests protected transcript renormalization with optimistic locking", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      action: "transcript_renormalized",
+      meetingId,
+      version: null,
+      attempt: 1,
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(apiClient.meetings.renormalizeTranscript(meetingId, 4)).resolves.toMatchObject({
+      action: "transcript_renormalized",
+      attempt: 1,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/meetings/${meetingId}/transcript/renormalize`,
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ expectedVersion: 4 }) }),
     );
   });
 
@@ -354,6 +398,18 @@ function detailResponse() {
     }],
     motions: [],
     history: [],
+  };
+}
+
+function transcriptNormalizationSummary() {
+  return {
+    method: "deterministic",
+    detectedFormat: "speaker_colon",
+    participants: [{ displayName: "Chair", kind: "named" }],
+    possibleAliases: [],
+    warnings: [],
+    turnCount: 1,
+    attributionCoverage: 1,
   };
 }
 

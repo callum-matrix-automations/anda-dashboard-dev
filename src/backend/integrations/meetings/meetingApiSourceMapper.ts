@@ -2,14 +2,17 @@ import { z } from "zod";
 import type { MeetingReviewDetail } from "../../../shared/contracts/meetingReview";
 import type { MeetingApiDetail } from "../../../shared/contracts/meetingApi";
 import { normalizeProfileEmail } from "../../../shared/schemas/profileEmail";
+import { TranscriptNormalizationSummarySchema } from "../../../shared/contracts/transcriptNormalization";
 
 const SourceMetadataSchema = z.object({
+  provider: z.enum(["manual_upload", "read_ai"]).optional(),
   startTime: z.string().datetime({ offset: true }).optional(),
   endTime: z.string().datetime({ offset: true }).optional(),
   participants: z.array(z.object({
     name: z.string(),
     email: z.string().nullable().optional(),
   }).passthrough()).max(1_000).optional(),
+  normalization: TranscriptNormalizationSummarySchema.passthrough().optional(),
 }).passthrough();
 
 type MeetingApiSourceFields = Pick<MeetingApiDetail, "source" | "sourceParticipants">;
@@ -33,10 +36,14 @@ export function mapMeetingApiSource(meeting: MeetingReviewDetail): MeetingApiSou
   return {
     source: {
       sourceMeetingId: meeting.sourceMeetingId,
+      provider: metadata?.provider ?? providerFromReference(meeting.sourceMeetingId),
       startedAt: metadata?.startTime ?? null,
       endedAt: metadata?.endTime ?? null,
       durationMinutes: meeting.durationMinutes,
       importedAt: meeting.transcript.importedAt,
+      normalization: metadata?.normalization
+        ? publicNormalizationSummary(metadata.normalization)
+        : null,
     },
     sourceParticipants: sourceParticipants.length > 0
       ? sourceParticipants
@@ -55,6 +62,25 @@ export function mapMeetingApiSource(meeting: MeetingReviewDetail): MeetingApiSou
           : "unmatched" as const,
       })),
   };
+}
+
+function publicNormalizationSummary(value: z.infer<typeof SourceMetadataSchema>["normalization"]) {
+  if (!value) return null;
+  return TranscriptNormalizationSummarySchema.parse({
+    method: value.method,
+    detectedFormat: value.detectedFormat,
+    participants: value.participants,
+    possibleAliases: value.possibleAliases,
+    warnings: value.warnings,
+    turnCount: value.turnCount,
+    attributionCoverage: value.attributionCoverage,
+  });
+}
+
+function providerFromReference(sourceMeetingId: string) {
+  if (sourceMeetingId.startsWith("manual:")) return "manual_upload" as const;
+  if (sourceMeetingId.trim()) return "read_ai" as const;
+  return "unknown" as const;
 }
 
 function mapSourceParticipants(

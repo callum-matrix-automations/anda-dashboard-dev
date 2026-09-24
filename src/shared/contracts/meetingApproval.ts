@@ -27,19 +27,26 @@ const ApprovedVoteSchema = z.object({
 
 const ApprovedMotionSchema = z.object({
   text: z.string().trim().min(1),
-  moverProfileId: z.string().uuid(),
-  moverDisplayName: z.string().trim().min(1),
+  moverProfileId: z.string().uuid().nullable(),
+  moverDisplayName: z.string().trim().min(1).nullable(),
   seconderProfileId: z.string().uuid().nullable(),
   seconderDisplayName: z.string().trim().min(1).nullable(),
   outcome: MeetingReviewOutcomeSchema.exclude(["unresolved"]),
   votes: z.array(ApprovedVoteSchema),
 }).strict().superRefine((motion, context) => {
+  const hasMoverId = Boolean(motion.moverProfileId);
+  const hasMoverName = Boolean(motion.moverDisplayName);
+  if (hasMoverId !== hasMoverName) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["moverProfileId"], message: "Mover identity fields must either both be present or both be null." });
+  }
+  const hasSeconderId = Boolean(motion.seconderProfileId);
+  const hasSeconderName = Boolean(motion.seconderDisplayName);
+  if (hasSeconderId !== hasSeconderName) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["seconderProfileId"], message: "Seconder identity fields must either both be present or both be null." });
+  }
   const hasSeconder = Boolean(motion.seconderProfileId && motion.seconderDisplayName);
   if (motion.outcome === "not_seconded" && hasSeconder) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["seconderProfileId"], message: "A motion marked not seconded cannot name a seconder." });
-  }
-  if (motion.outcome !== "not_seconded" && !hasSeconder) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["seconderProfileId"], message: "A completed motion requires a seconder." });
   }
 });
 

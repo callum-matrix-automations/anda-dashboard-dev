@@ -10,10 +10,12 @@ describe("meeting API source mapper", () => {
 
     expect(result.source).toEqual({
       sourceMeetingId: "read_ai:session-1",
+      provider: "read_ai",
       startedAt: "2026-07-20T08:00:00.000Z",
       endedAt: "2026-07-20T09:00:00.000Z",
       durationMinutes: 60,
       importedAt: "2026-07-20T09:01:00.000Z",
+      normalization: null,
     });
     expect(result.sourceParticipants).toEqual([
       {
@@ -35,7 +37,6 @@ describe("meeting API source mapper", () => {
         matchStatus: "unmatched",
       },
     ]);
-    expect(JSON.stringify(result)).not.toContain("provider");
     expect(JSON.stringify(result)).not.toContain("private provider summary");
   });
 
@@ -81,6 +82,37 @@ describe("meeting API source mapper", () => {
         matchStatus: "unmatched",
       },
     ]);
+  });
+
+  it("exposes safe manual normalization provenance without the canonical transcript", () => {
+    const manual = detail();
+    manual.sourceMeetingId = "manual:session-2";
+    manual.transcript.metadata = {
+      provider: "manual_upload",
+      normalization: {
+        method: "deterministic",
+        detectedFormat: "timestamp_speaker_blocks",
+        participants: [{ displayName: "Richard", kind: "named" }],
+        possibleAliases: [],
+        warnings: [],
+        turnCount: 2,
+        attributionCoverage: 1,
+        normalizedContent: "Richard: Private canonical evidence.",
+        originalContentHash: "a".repeat(64),
+        normalizedContentHash: "b".repeat(64),
+      },
+    };
+
+    const result = mapMeetingApiSource(manual);
+    expect(result.source).toMatchObject({
+      provider: "manual_upload",
+      normalization: {
+        detectedFormat: "timestamp_speaker_blocks",
+        turnCount: 2,
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain("Private canonical evidence");
+    expect(JSON.stringify(result)).not.toContain("originalContentHash");
   });
 });
 

@@ -41,6 +41,8 @@ describe("analyzeMeetingTranscript", () => {
       schema: MEETING_DRAFT_JSON_SCHEMA,
       maxOutputTokens: 8_000,
     });
+    expect(request.instructions).toContain("Do not censor, sanitize, euphemize, or omit");
+    expect(request.instructions).toContain("Never turn an unverified accusation into an established fact");
     expect(JSON.parse(request.input)).toEqual({
       meeting: input.meeting,
       allowedParticipants: input.participants,
