@@ -24,9 +24,7 @@ ANDA_ENVIRONMENT=staging
 ANDA_STAGING_ACTOR_PROFILE_ID=10000000-0000-4000-8000-000000000006
 
 MASTER_AUTH_USERNAME=REPLACE_ME
-MASTER_AUTH_PASSWORD_HASH=REPLACE_WITH_GENERATED_SCRYPT_HASH
-MASTER_AUTH_SESSION_SECRET=REPLACE_WITH_GENERATED_SECRET
-MASTER_AUTH_SESSION_HOURS=12
+MASTER_AUTH_PASSWORD=REPLACE_ME
 
 OPENAI_API_KEY=REPLACE_ME
 OPENAI_MODEL=gpt-5.6-terra
@@ -39,23 +37,14 @@ SIGNING_TEST_SIGNER_LAST_NAME=REPLACE_ME
 SIGNING_TEST_SIGNER_EMAIL=REPLACE_ME
 ```
 
-`SUPABASE_SECRET_KEY`, `MASTER_AUTH_PASSWORD_HASH`,
-`MASTER_AUTH_SESSION_SECRET`, `OPENAI_API_KEY`, `FIRMA_API_KEY`, and
+`SUPABASE_SECRET_KEY`, `MASTER_AUTH_PASSWORD`, `OPENAI_API_KEY`, `FIRMA_API_KEY`, and
 `FIRMA_WEBHOOK_SECRET` are server-only secrets. Do not prefix them with
 `NEXT_PUBLIC_` or commit their real values.
 
-Generate the master-login values before the first deployment:
-
-```powershell
-npm.cmd run auth:generate -- anda-admin
-```
-
-The command generates a strong password, prints it once, and outputs a scrypt
-password hash plus an independent session-signing secret. Store the generated
-password in the organisation's password manager. Railway receives only the
-hash and signing secret. To use a chosen password without putting it in command
-history, provide it through the temporary `MASTER_AUTH_NEW_PASSWORD`
-environment variable when running the generator.
+Set the same username and password that testers will type into the sign-in
+screen. Store the password in the organisation's password manager. The app
+creates a 12-hour signed session cookie and changing either value immediately
+invalidates existing sessions.
 
 The dashboard, its browser-facing APIs, and bookmarked `/app` URLs require the
 master session. Read AI and Firma webhooks keep their existing signature checks,
