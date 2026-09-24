@@ -35,8 +35,6 @@ export function meetingApprovalMotionIssues(meeting: MeetingApiDetail): MotionAp
     const label = motionLabel(motion.text, index);
     const messages: string[] = [];
     if (!motion.text.trim()) messages.push(`${label} needs motion text.`);
-    if (!motion.moverProfileId) messages.push(`${label} needs a mover.`);
-    if (!motion.seconderProfileId && motion.outcome !== "not_seconded") messages.push(`${label} needs a seconder.`);
     if (motion.outcome === "unresolved") messages.push(`${label} needs a final outcome: carried, failed, or tabled.`);
     return messages.length > 0 ? [{ motionIndex: index, messages }] : [];
   });

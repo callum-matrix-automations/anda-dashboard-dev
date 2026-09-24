@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useMeeting, useSaveMeetingDraft } from "@/frontend/hooks/useApi";
+import { useMeeting, useMeetingMotionsSummary, useSaveMeetingDraft } from "@/frontend/hooks/useApi";
 import { ApiClientError } from "@/frontend/api-client/client";
 import { ErrorState, LoadingState } from "@/frontend/components/shared/States";
 import { StatusBadge } from "@/frontend/components/shared/StatusBadge";
@@ -41,6 +41,7 @@ function notify(message: string, tone: "error" | "success") {
 
 export function MeetingReview({ meetingId, mode }: { meetingId: string; mode: "review" | "signing" | "archive" }) {
   const query = useMeeting(meetingId);
+  const motionsSummaryQuery = useMeetingMotionsSummary(meetingId);
   const saveDraft = useSaveMeetingDraft();
   const [tab, setTab] = useState<MeetingReviewTab>("Minutes");
   const [editingTab, setEditingTab] = useState<EditableMeetingTab | null>(null);
@@ -179,6 +180,10 @@ export function MeetingReview({ meetingId, mode }: { meetingId: string; mode: "r
                         setMotionEditTarget(motionIndex);
                         setEditingTab("Motions");
                       }}
+                      motionsSummary={motionsSummaryQuery.data}
+                      motionsSummaryLoading={motionsSummaryQuery.isLoading}
+                      motionsSummaryError={motionsSummaryQuery.isError}
+                      onOpenMotions={() => setTab("Motions")}
                     />}
                 </>
               )}

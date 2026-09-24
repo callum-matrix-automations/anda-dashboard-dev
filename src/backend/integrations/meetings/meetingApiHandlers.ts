@@ -41,6 +41,7 @@ import type {
 } from "../../../shared/contracts/meetingSigning";
 import type { MeetingArchiveSearchResult } from "../../../shared/contracts/meetingArchive";
 import type { MeetingAnalysisRetryResult } from "../../../shared/contracts/meetingAnalysisRetry";
+import { MeetingMotionsSummarySchema } from "../../../shared/contracts/meetingMotionsSummary";
 import {
   MeetingApiApproveRequestSchema,
   MeetingApiDeferRequestSchema,
@@ -329,6 +330,33 @@ export function createRetryMeetingAnalysisHandler(options: ControllerOptions = {
     try {
       const result = await services.retryMeetingAnalysis(commandFrom(prepared));
       return mutationResult(result, "analysis_retry_completed");
+    } catch {
+      return serviceUnavailable();
+    }
+  };
+}
+
+export function createMeetingMotionsSummaryHandler(options: ControllerOptions = {}) {
+  const { services, actorResolver } = resolveOptions(options);
+  return async function getMeetingMotionsSummary(request: Request, context: RouteContext) {
+    const auth = await requireServerActor(request, "read", actorResolver);
+    if ("response" in auth) return auth.response;
+    const meetingId = await parseMeetingId(context);
+    if (!meetingId) return invalidMeetingId();
+
+    try {
+      const meeting = await services.getMeetingReview(meetingId);
+      if (!meeting) return apiError(404, "meeting_not_found", "Meeting was not found.");
+      return Response.json(MeetingMotionsSummarySchema.parse({
+        meetingId: meeting.id,
+        meetingVersion: meeting.version,
+        items: meeting.motions.map((motion) => ({
+          motionId: motion.motionId,
+          text: motion.text,
+          outcome: motion.outcome,
+          putToVote: motion.outcome !== "not_seconded",
+        })),
+      }));
     } catch {
       return serviceUnavailable();
     }

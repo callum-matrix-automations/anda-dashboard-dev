@@ -134,6 +134,29 @@ describe("frontend API client", () => {
     );
   });
 
+  it("loads the separate stored-motions summary", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      meetingId,
+      meetingVersion: 4,
+      items: [{
+        motionId: "99999999-9999-4999-8999-999999999999",
+        text: "Accept the annual financial statements.",
+        outcome: "carried",
+        putToVote: true,
+      }],
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(apiClient.meetings.motionsSummary(meetingId)).resolves.toMatchObject({
+      meetingVersion: 4,
+      items: [{ text: "Accept the annual financial statements.", outcome: "carried" }],
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/meetings/${meetingId}/motions-summary`,
+      expect.any(Object),
+    );
+  });
+
   it("requests protected transcript renormalization with optimistic locking", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
       action: "transcript_renormalized",

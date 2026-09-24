@@ -6,6 +6,7 @@ import {
   createMarkMeetingReadyHandler,
   createMeetingDetailHandler,
   createMeetingListHandler,
+  createMeetingMotionsSummaryHandler,
   createMeetingSearchHandler,
   createMeetingSigningSessionHandler,
   createRejectMeetingSigningHandler,
@@ -49,6 +50,7 @@ describe("meeting controller authentication and reads", () => {
       () => createMeetingListHandler(options)(request("/api/meetings")),
       () => createMeetingSearchHandler(options)(request("/api/meetings/search?q=board")),
       () => createMeetingDetailHandler(options)(request(`/api/meetings/${meetingId}`), context(meetingId)),
+      () => createMeetingMotionsSummaryHandler(options)(request(`/api/meetings/${meetingId}/motions-summary`), context(meetingId)),
       () => createSaveMeetingDraftHandler(options)(jsonRequest(`/api/meetings/${meetingId}/draft`, "PATCH", {
         expectedVersion: 4,
         draft: validDraft(),
@@ -192,6 +194,47 @@ describe("meeting controller authentication and reads", () => {
 
     services.getMeetingReview = vi.fn().mockResolvedValue(null);
     expect((await handler(request(`/api/meetings/${meetingId}`), context(meetingId))).status).toBe(404);
+  });
+
+  it("returns a separate vote summary generated only from stored motions", async () => {
+    const services = servicesMock();
+    services.getMeetingReview = vi.fn().mockResolvedValue({
+      ...detail(),
+      motions: [{
+        motionId: "99999999-9999-4999-8999-999999999999",
+        text: "Accept the annual financial statements.",
+        moverProfileId: null,
+        seconderProfileId: null,
+        outcome: "carried",
+        votes: [],
+      }, {
+        motionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        text: "Consider a property sale.",
+        moverProfileId: attendeeId,
+        seconderProfileId: null,
+        outcome: "not_seconded",
+        votes: [],
+      }],
+    });
+    const handler = createMeetingMotionsSummaryHandler({ services, actorResolver: userResolver });
+    const response = await handler(request(`/api/meetings/${meetingId}/motions-summary`), context(meetingId));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      meetingId,
+      meetingVersion: 4,
+      items: [{
+        motionId: "99999999-9999-4999-8999-999999999999",
+        text: "Accept the annual financial statements.",
+        outcome: "carried",
+        putToVote: true,
+      }, {
+        motionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        text: "Consider a property sale.",
+        outcome: "not_seconded",
+        putToVote: false,
+      }],
+    });
   });
 
   it("only exposes signing status actions that match the persisted outcome state", async () => {

@@ -10,6 +10,60 @@ import type { MeetingApiDetail } from "../../src/shared/contracts/meetingApi";
 afterEach(cleanup);
 
 describe("MeetingTabs motions", () => {
+  it("shows items voted on above the minutes summary and links to full motions", async () => {
+    const user = userEvent.setup();
+    const onOpenMotions = vi.fn();
+    render(<MeetingTabs
+      meeting={{
+        ...meeting,
+        minutes: {
+          summary: "The board reviewed the annual financial statements.",
+          sections: [{ heading: "Finance", content: "The statements were accepted." }],
+        },
+      }}
+      tab="Minutes"
+      motionsSummary={{
+        meetingId: meeting.id,
+        meetingVersion: meeting.version,
+        items: [{
+          motionId: meeting.motions[0]!.motionId,
+          text: "Accept the annual financial statements.",
+          outcome: "carried",
+          putToVote: true,
+        }, {
+          motionId: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+          text: "Consider another proposal.",
+          outcome: "not_seconded",
+          putToVote: false,
+        }],
+      }}
+      onOpenMotions={onOpenMotions}
+    />);
+
+    expect(screen.getByRole("heading", { name: "Items voted on" })).toBeTruthy();
+    expect(screen.getByText("Accept the annual financial statements.")).toBeTruthy();
+    expect(screen.queryByText("Consider another proposal.")).toBeNull();
+    expect(screen.getByText("Summary")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "View full motion details" }));
+    expect(onOpenMotions).toHaveBeenCalledOnce();
+  });
+
+  it("labels missing mover and seconder attribution as unidentified", () => {
+    render(<MeetingTabs
+      meeting={{
+        ...meeting,
+        motions: [{
+          ...meeting.motions[0]!,
+          moverProfileId: null,
+          seconderProfileId: null,
+        }],
+      }}
+      tab="Motions"
+    />);
+
+    expect(screen.getAllByText("Unidentified speaker")).toHaveLength(2);
+  });
+
   it("uses semantic pills for motion outcomes and attendee votes", () => {
     render(<MeetingTabs meeting={meeting} tab="Motions" />);
 

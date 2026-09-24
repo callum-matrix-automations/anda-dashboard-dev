@@ -7,6 +7,38 @@ import { createUniqueReadAiPayload } from "./pre-approval-workflow.helpers";
 const openAiConfigured = Boolean(process.env.OPENAI_API_KEY?.trim());
 
 describe.skipIf(!openAiConfigured)("live OpenAI transcript analysis", () => {
+  it("retains a material criminal allegation without presenting it as established fact", async () => {
+    const draft = await analyzeMeetingTranscript({
+      meeting: {
+        sourceMeetingId: "sensitive-content-regression",
+        title: "Property management meeting",
+        meetingDate: "2026-09-24",
+        durationMinutes: 30,
+      },
+      transcript: {
+        language: "en-GB",
+        content: [
+          "Chair: Residents reported that a tenant is allegedly selling illegal drugs from the property. The allegation has not been proven.",
+          "Chair: I move that management begin a lawful eviction review based on the reported conduct and gather supporting evidence.",
+          "Member: I second the motion.",
+          "Chair: All in favour?",
+          "Member: Aye.",
+          "Chair: The motion is carried.",
+        ].join("\n"),
+      },
+      participants: [
+        { participantRef: "10000000-0000-4000-8000-000000000001", displayName: "Chair" },
+        { participantRef: "10000000-0000-4000-8000-000000000002", displayName: "Member" },
+      ],
+    });
+
+    const record = JSON.stringify(draft).toLocaleLowerCase("en");
+    expect(record).toMatch(/drug/u);
+    expect(record).toMatch(/alleg|report/u);
+    expect(record).toMatch(/evict/u);
+    expect(draft.motions).toContainEqual(expect.objectContaining({ outcome: "carried" }));
+  }, 90_000);
+
   it("turns the long dummy transcript into the planned meeting JSON", async () => {
     const payload = await createUniqueReadAiPayload("live-openai-analysis");
     const adapted = adaptReadAiWebhook(payload);

@@ -5,6 +5,7 @@ import { cn } from "@/frontend/components/design-system/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/frontend/components/design-system/primitives/tooltip";
 import type { MotionApprovalIssue } from "@/frontend/presentation/meetingApprovalReadiness";
 import type { MeetingApiDetail } from "@/shared/contracts/meetingApi";
+import type { MeetingMotionsSummary } from "@/shared/contracts/meetingMotionsSummary";
 
 export type MeetingTab = "Minutes" | "Transcript" | "Attendance" | "Motions";
 
@@ -14,12 +15,20 @@ export function MeetingTabs({
   highlightedMotionIndexes = [],
   motionIssues,
   onEditMotion,
+  motionsSummary,
+  motionsSummaryLoading = false,
+  motionsSummaryError = false,
+  onOpenMotions,
 }: {
   meeting: MeetingApiDetail;
   tab: MeetingTab;
   highlightedMotionIndexes?: number[];
   motionIssues?: MotionApprovalIssue[];
   onEditMotion?: (motionIndex: number) => void;
+  motionsSummary?: MeetingMotionsSummary;
+  motionsSummaryLoading?: boolean;
+  motionsSummaryError?: boolean;
+  onOpenMotions?: () => void;
 }) {
   if (tab === "Transcript") {
     return <pre className="max-h-[42rem] overflow-auto whitespace-pre-wrap rounded-lg bg-muted p-4 font-sans text-sm leading-7">{meeting.transcript.content}</pre>;
@@ -105,6 +114,12 @@ export function MeetingTabs({
 
   return (
     <div className="space-y-5">
+      <MeetingMotionsSummaryPanel
+        summary={motionsSummary}
+        loading={motionsSummaryLoading}
+        error={motionsSummaryError}
+        onOpenMotions={onOpenMotions}
+      />
       <section className="rounded-lg bg-muted p-4">
         <h3 className="font-semibold">Summary</h3>
         <p className="mt-1 text-sm leading-6 text-muted-foreground">{meeting.minutes.summary}</p>
@@ -119,8 +134,50 @@ export function MeetingTabs({
   );
 }
 
+function MeetingMotionsSummaryPanel({
+  summary,
+  loading,
+  error,
+  onOpenMotions,
+}: {
+  summary?: MeetingMotionsSummary;
+  loading: boolean;
+  error: boolean;
+  onOpenMotions?: () => void;
+}) {
+  const items = summary?.items.filter((item) => item.putToVote) ?? [];
+  return (
+    <section className="rounded-lg border border-border bg-card p-4" aria-labelledby="items-voted-on-heading">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 id="items-voted-on-heading" className="font-semibold">Items voted on</h3>
+        {onOpenMotions && (
+          <Button type="button" size="sm" variant="outline" onClick={onOpenMotions}>
+            View full motion details
+          </Button>
+        )}
+      </div>
+      {loading ? (
+        <p className="mt-2 text-sm text-muted-foreground">Loading recorded votes...</p>
+      ) : error ? (
+        <p className="mt-2 text-sm text-muted-foreground">The vote summary is unavailable. Open Motions to review the full record.</p>
+      ) : items.length > 0 ? (
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+          {items.map((item) => (
+            <li key={item.motionId}>
+              <span className="text-foreground">{item.text}</span> — {outcomeLabel(item.outcome)}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-sm text-muted-foreground">No formal votes were recorded.</p>
+      )}
+      <p className="mt-2 text-xs text-muted-foreground">This list comes directly from the stored motions record.</p>
+    </section>
+  );
+}
+
 function profileName(profileId: string | null, displayNames: Map<string, string>): string {
-  if (!profileId) return "Not identified";
+  if (!profileId) return "Unidentified speaker";
   return displayNames.get(profileId) ?? "Unknown attendee";
 }
 
