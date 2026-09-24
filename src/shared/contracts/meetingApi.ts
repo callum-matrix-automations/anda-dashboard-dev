@@ -9,6 +9,7 @@ import {
   MeetingReviewOutcomeSchema,
   MeetingReviewVoteSelectionSchema,
 } from "./meetingReview";
+import { TranscriptNormalizationSummarySchema } from "./transcriptNormalization";
 
 export const MeetingApiQueueSchema = z.enum([
   "all",
@@ -84,10 +85,12 @@ export const MeetingApiListResponseSchema = z.object({
 
 export const MeetingApiSourceSchema = z.object({
   sourceMeetingId: z.string().trim().min(1),
+  provider: z.enum(["manual_upload", "read_ai", "unknown"]).optional(),
   startedAt: z.string().datetime({ offset: true }).nullable(),
   endedAt: z.string().datetime({ offset: true }).nullable(),
   durationMinutes: z.number().int().positive().max(1_440).nullable(),
   importedAt: z.string().datetime({ offset: true }),
+  normalization: TranscriptNormalizationSummarySchema.nullable().optional(),
 }).strict();
 
 export const MeetingApiSourceParticipantSchema = z.object({
@@ -185,6 +188,7 @@ export const MeetingApiMutationResponseSchema = z.object({
     "resumed",
     "marked_ready",
     "analysis_retry_completed",
+    "transcript_renormalized",
     "approved",
     "pdf_retry_started",
     "signing_retry_started",

@@ -23,6 +23,20 @@ database function to create the meeting and immutable transcript atomically.
 The receive operation makes one initial attempt plus three retries before
 returning a failed result. Fallback queuing after exhausted retries is deferred.
 
+Manual uploads pass through a transcript-normalization gateway before storage
+and analysis. Known speaker-labelled, timestamp-block, timestamped-line, SRT,
+and WebVTT formats are handled deterministically. Unknown readable text formats
+use the server-only `OPENAI_TRANSCRIPT_NORMALIZATION_MODEL` (GPT-6 Luna by
+default) with strict structured output. The fallback may only copy dialogue
+that is traceable to the original source. The immutable source stays in
+`transcripts.content`; versioned canonical analysis input and safe audit
+metadata are stored in `transcript_normalizations`.
+
+An authorised reviewer can re-check an untouched manual transcript while its
+meeting is `PENDING_APPROVAL` or `AI_FAILED`. The guarded workflow appends a new
+normalization version, refreshes source-only attendees, and starts a fresh
+analysis run. It refuses to run after a human edit, deferral, or approval.
+
 After a new transcript is stored, the receive service schedules the separate
 meeting-analysis workflow to run after the webhook response. That workflow claims up to three durable attempts,
 calls the structured OpenAI analyser, and atomically saves minutes, motions,

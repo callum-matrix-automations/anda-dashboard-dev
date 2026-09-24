@@ -131,6 +131,13 @@ export const apiClient = {
         { method: "POST", body: JSON.stringify({ expectedVersion }) },
       );
     },
+    async renormalizeTranscript(id: string, expectedVersion: number): Promise<MeetingApiMutationResponse> {
+      return request(
+        `/api/meetings/${encodeURIComponent(id)}/transcript/renormalize`,
+        MeetingApiMutationResponseSchema,
+        { method: "POST", body: JSON.stringify({ expectedVersion }) },
+      );
+    },
     async saveDraft(id: string, expectedVersion: number, draft: MeetingReviewDraft): Promise<MeetingApiMutationResponse> {
       return meetingMutation(id, "draft", "PATCH", { expectedVersion, draft });
     },

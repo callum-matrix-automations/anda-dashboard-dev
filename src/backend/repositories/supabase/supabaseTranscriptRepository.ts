@@ -21,6 +21,10 @@ const ActiveMemberProfileRowSchema = z.object({
   email: z.string().trim().min(1),
 });
 const LinkedManualAttendeeCountSchema = z.number().int().nonnegative();
+const TranscriptRenormalizationResultSchema = z.object({
+  status: z.enum(["saved", "not_found", "forbidden", "conflict", "protected"]),
+  version: z.number().int().positive().nullable(),
+}).strict();
 
 interface SupabaseTranscriptRepositoryOptions {
   apiUrl?: string;
@@ -204,6 +208,37 @@ export function createSupabaseTranscriptRepository({
         throw new TranscriptRepositoryError("Supabase returned an invalid participant resolution result.", {
           status: response.status,
           code: "invalid_supabase_response",
+        });
+      }
+      return parsed.data;
+    },
+
+    async replaceManualNormalization(command) {
+      const configuration = resolveConfiguration(apiUrl, secretKey, fetchImplementation);
+      const rpcUrl = new URL("/rest/v1/rpc/renormalize_manual_transcript", configuration.apiUrl);
+      const responseBody = await requestSupabaseMutation({
+        url: rpcUrl,
+        secretKey: configuration.secretKey,
+        fetchImplementation: configuration.fetchImplementation,
+        body: {
+          p_meeting_id: command.meetingId,
+          p_expected_version: command.expectedVersion,
+          p_actor_profile_id: command.actorProfileId,
+          p_normalization: command.normalization,
+          p_attendees: command.attendees.map((attendee) => ({
+            profile_id: attendee.profileId,
+            display_name_snapshot: attendee.displayNameSnapshot,
+            source_email_snapshot: attendee.sourceEmailSnapshot,
+          })),
+        },
+        operation: "manual transcript renormalization",
+        returnResponse: true,
+      });
+      const parsed = TranscriptRenormalizationResultSchema.safeParse(responseBody);
+      if (!parsed.success) {
+        throw new TranscriptRepositoryError("Supabase returned an invalid transcript renormalization response.", {
+          code: "invalid_supabase_response",
+          cause: parsed.error,
         });
       }
       return parsed.data;

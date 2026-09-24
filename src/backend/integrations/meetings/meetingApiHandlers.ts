@@ -4,6 +4,10 @@ import { actorHasPermission, resolveServerActor } from "../../auth/serverActor";
 import { meetingApprovalService } from "../../services/approvals/approveMeeting";
 import { meetingArchiveService } from "../../services/archive/meetingArchiveService";
 import { retryMeetingAnalysis } from "../../services/ai/retryMeetingAnalysis";
+import {
+  renormalizeMeetingTranscript,
+  type RenormalizeMeetingTranscriptResult,
+} from "../../services/transcripts/renormalizeMeetingTranscript";
 import { meetingReviewService } from "../../services/reviews/meetingReviewService";
 import {
   getMeetingSigningSession,
@@ -89,6 +93,11 @@ interface MeetingControllerServices {
     expectedVersion: number;
     actorProfileId: string;
   }): Promise<MeetingAnalysisRetryResult>;
+  renormalizeMeetingTranscript?(command: {
+    meetingId: string;
+    expectedVersion: number;
+    actorProfileId: string;
+  }): Promise<RenormalizeMeetingTranscriptResult>;
   approveMeeting(command: {
     meetingId: string;
     expectedVersion: number;
@@ -142,6 +151,7 @@ const defaultServices: MeetingControllerServices = {
   ...meetingReviewService,
   ...meetingApprovalService,
   retryMeetingAnalysis,
+  renormalizeMeetingTranscript,
   getMeetingSigningSession,
   getMeetingSigningSessionRecord,
   retryMeetingSigning,
@@ -319,6 +329,27 @@ export function createRetryMeetingAnalysisHandler(options: ControllerOptions = {
     try {
       const result = await services.retryMeetingAnalysis(commandFrom(prepared));
       return mutationResult(result, "analysis_retry_completed");
+    } catch {
+      return serviceUnavailable();
+    }
+  };
+}
+
+export function createRenormalizeMeetingTranscriptHandler(options: ControllerOptions = {}) {
+  const { services, actorResolver } = resolveOptions(options);
+  return async function renormalizeTranscript(request: Request, context: RouteContext) {
+    const prepared = await prepareMutation(
+      request,
+      context,
+      "review",
+      MeetingApiVersionedRequestSchema,
+      actorResolver,
+    );
+    if ("response" in prepared) return prepared.response;
+    try {
+      if (!services.renormalizeMeetingTranscript) return serviceUnavailable();
+      const result = await services.renormalizeMeetingTranscript(commandFrom(prepared));
+      return mutationResult(result, "transcript_renormalized");
     } catch {
       return serviceUnavailable();
     }
@@ -692,6 +723,7 @@ function isSuccessfulActionResult(
     resumed: "resumed",
     marked_ready: "ready",
     analysis_retry_completed: "completed",
+    transcript_renormalized: "completed",
     approved: "approved",
     pdf_retry_started: "retry_started",
     signing_retry_started: "retry_started",

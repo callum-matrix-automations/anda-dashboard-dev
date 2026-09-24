@@ -3,10 +3,12 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import type { ServerActor } from "../../src/backend/auth/serverActor";
 import { createSupabaseMeetingAnalysisRepository } from "../../src/backend/repositories/supabase/supabaseMeetingAnalysisRepository";
+import { createSupabaseMeetingReviewRepository } from "../../src/backend/repositories/supabase/supabaseMeetingReviewRepository";
 import { createSupabaseTranscriptRepository } from "../../src/backend/repositories/supabase/supabaseTranscriptRepository";
 import { createMeetingAnalysisProcessor } from "../../src/backend/services/ai/processMeetingAnalysis";
 import { createManualTranscriptUploadProcessor } from "../../src/backend/services/transcripts/processManualTranscriptUpload";
 import { createTranscriptImportStore } from "../../src/backend/services/transcripts/storeTranscriptImport";
+import { createMeetingTranscriptRenormalizer } from "../../src/backend/services/transcripts/renormalizeMeetingTranscript";
 import type {
   MeetingAnalysisInput,
   MeetingDraft,
@@ -55,7 +57,9 @@ describe.skipIf(!localIntegrationConfigured)("manual transcript upload workflow"
 
     expect(result).toMatchObject({ status: "pending_approval", analysisAttempt: 1 });
     expect(analysisInput).not.toBeNull();
-    expect(analysisInput!.transcript.content).toBe(transcript.trim());
+    expect(analysisInput!.transcript.content).toBe(
+      transcript.trim().replace(/\r\n?/gu, "\n").replace(/\n\s*\n/gu, "\n"),
+    );
     expect(analysisInput!.participants).toHaveLength(5);
     expect(analysisInput!.participants.map((participant) => participant.displayName)).toEqual(expect.arrayContaining([
       "Eleanor Hughes",
@@ -65,7 +69,7 @@ describe.skipIf(!localIntegrationConfigured)("manual transcript upload workflow"
       "Amelia Clarke",
     ]));
 
-    const [meeting] = await selectRows("meetings", "id", result.meetingId, "status,minutes");
+    const [meeting] = await selectRows("meetings", "id", result.meetingId, "status,minutes,version");
     const attendees = await selectRows(
       "meeting_attendees",
       "meeting_id",
@@ -77,6 +81,18 @@ describe.skipIf(!localIntegrationConfigured)("manual transcript upload workflow"
       "meeting_id",
       result.meetingId,
       "motion_text,outcome",
+    );
+    const [storedTranscript] = await selectRows(
+      "transcripts",
+      "meeting_id",
+      result.meetingId,
+      "id,content",
+    );
+    const [normalization] = await selectRows(
+      "transcript_normalizations",
+      "meeting_id",
+      result.meetingId,
+      "method,detected_format,normalized_content,original_content_hash,normalized_content_hash",
     );
 
     expect(meeting).toMatchObject({
@@ -102,6 +118,35 @@ describe.skipIf(!localIntegrationConfigured)("manual transcript upload workflow"
       "FAILED",
       "TABLED",
       "NOT_SECONDED",
+    ]));
+    expect(storedTranscript?.content).toBe(transcript.trim());
+    expect(normalization).toMatchObject({
+      method: "deterministic",
+      detected_format: "speaker_colon",
+      normalized_content: analysisInput!.transcript.content,
+      original_content_hash: expect.stringMatching(/^[a-f0-9]{64}$/u),
+      normalized_content_hash: expect.stringMatching(/^[a-f0-9]{64}$/u),
+    });
+
+    const renormalize = createMeetingTranscriptRenormalizer({
+      reviews: createSupabaseMeetingReviewRepository({ apiUrl, secretKey }),
+      transcripts: transcriptRepository,
+      analyze: processAnalysis,
+    });
+    await expect(renormalize({
+      meetingId: result.meetingId,
+      expectedVersion: meeting?.version as number,
+      actorProfileId: actor.profileId,
+    })).resolves.toMatchObject({ status: "completed", attempt: 1 });
+    const normalizationVersions = await selectRows(
+      "transcript_normalizations",
+      "meeting_id",
+      result.meetingId,
+      "version,method,detected_format",
+    );
+    expect(normalizationVersions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ version: 1, method: "deterministic" }),
+      expect.objectContaining({ version: 2, method: "deterministic" }),
     ]));
   });
 

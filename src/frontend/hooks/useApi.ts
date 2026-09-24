@@ -56,6 +56,14 @@ export function useRetryMeetingAnalysis() {
   );
 }
 
+export function useRenormalizeMeetingTranscript() {
+  return useMeetingMutation(
+    ({ meetingId, expectedVersion }: { meetingId: string; expectedVersion: number }) => (
+      apiClient.meetings.renormalizeTranscript(meetingId, expectedVersion)
+    ),
+  );
+}
+
 export function useSaveMeetingDraft() {
   return useMeetingMutation(
     ({ meetingId, expectedVersion, draft }: { meetingId: string; expectedVersion: number; draft: MeetingReviewDraft }) => (

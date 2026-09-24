@@ -102,7 +102,15 @@ export function MeetingReview({ meetingId, mode }: { meetingId: string; mode: "r
         <MeetingAnalysisState meeting={meeting} />
         <TreasurerRejectionNotice meeting={meeting} />
         <MeetingWorkflowState meeting={meeting} onFeedback={notify} />
-        <MeetingSourcePanel source={meeting.source} sourceParticipants={meeting.sourceParticipants} />
+        <MeetingSourcePanel
+          id={meeting.id}
+          version={meeting.version}
+          status={meeting.status}
+          humanOwned={meeting.humanOwned}
+          source={meeting.source}
+          sourceParticipants={meeting.sourceParticipants}
+          onFeedback={notify}
+        />
         <Tabs value={tab} onValueChange={(value) => setTab(value as MeetingReviewTab)}>
           <TabsList variant="line" className="mx-4 mt-2 justify-start overflow-x-auto overflow-y-hidden">
             {TABS.map((item) => (

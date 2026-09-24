@@ -7,13 +7,30 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/frontend/
 import { Badge } from "@/frontend/components/design-system/primitives/badge";
 import { Button } from "@/frontend/components/design-system/primitives/button";
 import { CaretDownIcon } from "@phosphor-icons/react";
+import { useRenormalizeMeetingTranscript } from "@/frontend/hooks/useApi";
+import { meetingMutationErrorMessage } from "@/frontend/presentation/meetingMutationError";
 
-type MeetingSourcePanelProps = Pick<MeetingApiDetail, "source" | "sourceParticipants">;
+type MeetingSourcePanelProps = Pick<MeetingApiDetail,
+  "id" | "version" | "status" | "humanOwned" | "source" | "sourceParticipants"
+> & { onFeedback: (message: string, tone: "error" | "success") => void };
 
-export function MeetingSourcePanel({ source, sourceParticipants }: MeetingSourcePanelProps) {
+export function MeetingSourcePanel({
+  id,
+  version,
+  status,
+  humanOwned,
+  source,
+  sourceParticipants,
+  onFeedback,
+}: MeetingSourcePanelProps) {
   const matched = matchedParticipants(sourceParticipants);
   const unmatched = unmatchedParticipants(sourceParticipants);
   const [copyStatus, setCopyStatus] = useState("");
+  const renormalize = useRenormalizeMeetingTranscript();
+  const sourceName = source.provider === "manual_upload" ? "Manual upload" : source.provider === "read_ai" ? "Read AI" : "Imported transcript";
+  const canRenormalize = source.provider === "manual_upload"
+    && !humanOwned
+    && (status === "PENDING_APPROVAL" || status === "AI_FAILED");
 
   const copyReference = async () => {
     try {
@@ -29,7 +46,7 @@ export function MeetingSourcePanel({ source, sourceParticipants }: MeetingSource
     <Collapsible className="border-b border-border bg-card">
       <CollapsibleTrigger className="group flex min-h-11 w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
         <CaretDownIcon aria-hidden className="size-4 shrink-0 text-muted-foreground transition-transform group-data-panel-open:rotate-180" />
-        <span>Meeting source · Read AI</span>
+        <span>Meeting source · {sourceName}</span>
         <Badge variant="outline">Imported</Badge>
         {unmatched.length > 0 && (
           <Badge variant="destructive">
@@ -45,13 +62,13 @@ export function MeetingSourcePanel({ source, sourceParticipants }: MeetingSource
           <SourceValue label="Imported" value={formatDateTime(source.importedAt)} />
         </dl>
         <div className="grid min-w-0 gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Read AI meeting reference</span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Source reference</span>
           <code className="select-all break-words text-xs leading-5 [overflow-wrap:anywhere]">{source.sourceMeetingId}</code>
           <Button variant="outline" size="sm" className="w-full sm:w-fit" onClick={() => void copyReference()}>Copy reference</Button>
           {copyStatus && <span role="status" aria-live="polite" className="text-xs text-muted-foreground">{copyStatus}</span>}
         </div>
         {sourceParticipants.length === 0 ? (
-          <p className="text-muted-foreground">Read AI did not supply participant details for this meeting.</p>
+          <p className="text-muted-foreground">The source did not supply participant details for this meeting.</p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
             <section>
@@ -82,7 +99,41 @@ export function MeetingSourcePanel({ source, sourceParticipants }: MeetingSource
             </section>
           </div>
         )}
-        <p className="text-xs text-muted-foreground">The source transcript is read-only. Unmatched participants remain in the transcript but are not added to structured attendance or voting.</p>
+        {source.normalization && (
+          <section className="rounded-lg border border-border bg-muted/30 p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Transcript check</h3>
+            <p className="mt-1 text-sm">
+              {source.normalization.turnCount} speaker turns · {source.normalization.participants.length} speaker labels · {Math.round(source.normalization.attributionCoverage * 100)}% attributed
+            </p>
+            {source.normalization.warnings.length > 0 ? (
+              <ul aria-label="Transcript warnings" className="mt-2 space-y-1 text-sm text-amber-700 dark:text-amber-300">
+                {source.normalization.warnings.map((warning) => <li key={warning.code}>• {warning.message}</li>)}
+              </ul>
+            ) : (
+              <p className="mt-1 text-sm text-muted-foreground">No transcript-format warnings were found.</p>
+            )}
+          </section>
+        )}
+        {canRenormalize && (
+          <div className="flex flex-col gap-2 rounded-lg border border-border p-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              Re-checking creates a new audit version and replaces the AI draft. It is disabled after human edits or approval.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              loading={renormalize.isPending}
+              onClick={() => renormalize.mutate({ meetingId: id, expectedVersion: version }, {
+                onSuccess: () => onFeedback("Transcript re-checked and the AI draft was replaced.", "success"),
+                onError: (error) => onFeedback(meetingMutationErrorMessage(error), "error"),
+              })}
+            >
+              {renormalize.isPending ? "Re-checking..." : "Re-check transcript"}
+            </Button>
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground">The original source transcript is read-only. Unmatched participants remain available as source-only attendees for review, motions, and voting.</p>
       </CollapsibleContent>
     </Collapsible>
   );

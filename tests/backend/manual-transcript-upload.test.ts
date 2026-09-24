@@ -43,10 +43,15 @@ describe("manual transcript upload", () => {
         "Marcus Patel: I second the motion.",
         "Eleanor Hughes: The motion is carried.",
       ].join("\n"),
-    }, actor)).resolves.toEqual({
+    }, actor)).resolves.toMatchObject({
       status: "pending_approval",
       meetingId,
       analysisAttempt: 1,
+      normalization: {
+        method: "deterministic",
+        detectedFormat: "speaker_colon",
+        turnCount: 3,
+      },
     });
 
     expect(store).toHaveBeenCalledWith(expect.objectContaining({
@@ -97,11 +102,12 @@ describe("manual transcript upload", () => {
       meetingDate: "2026-07-22",
       durationMinutes: 60,
       transcript: "Chair: The meeting is open.",
-    }, actor)).resolves.toEqual({
+    }, actor)).resolves.toMatchObject({
       status: "ai_failed",
       meetingId,
       analysisAttempts: 3,
       error: { code: "invalid_model_output", message: "The model output was invalid." },
+      normalization: { method: "deterministic" },
     });
   });
 
@@ -112,5 +118,16 @@ describe("manual transcript upload", () => {
       "Chair: Next item.",
       "  Not a speaker: This line is indented.",
     ].join("\n"))).toEqual(["Chair", "Member 1"]);
+  });
+
+  it("extracts speakers from timestamped blocks and keeps possible aliases separate", () => {
+    expect(extractTranscriptSpeakers([
+      "0:00 - Richard Ripper",
+      "Welcome everyone.",
+      "0:06 - Richard",
+      "Thanks.",
+      "0:08 - Unidentified Speaker",
+      "So moved.",
+    ].join("\n"))).toEqual(["Richard Ripper", "Richard", "Unidentified Speaker"]);
   });
 });

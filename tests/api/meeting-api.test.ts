@@ -161,10 +161,12 @@ describe("meeting controller authentication and reads", () => {
     expect(body.category).toBe("Board Meeting");
     expect(body.source).toEqual({
       sourceMeetingId: "read-ai-meeting-1",
+      provider: "read_ai",
       startedAt: "2026-07-20T08:00:00.000Z",
       endedAt: "2026-07-20T09:30:00.000Z",
       durationMinutes: 90,
       importedAt: "2026-07-20T09:00:00.000Z",
+      normalization: null,
     });
     expect(body.sourceParticipants).toEqual([
       {
