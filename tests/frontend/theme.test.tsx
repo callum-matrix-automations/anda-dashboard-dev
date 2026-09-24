@@ -61,4 +61,11 @@ describe("ANDA theme", () => {
     await user.click(screen.getByRole("button", { name: "Switch to light mode" }));
     expect(workspace.setTheme).toHaveBeenLastCalledWith("board-light");
   });
+
+  it("offers a POST-only sign-out action", () => {
+    render(<Navigation close={vi.fn()} />);
+    const button = screen.getByRole("button", { name: "Sign out" });
+    expect(button.closest("form")?.getAttribute("method")).toBe("post");
+    expect(button.closest("form")?.getAttribute("action")).toBe("/api/auth/logout");
+  });
 });
