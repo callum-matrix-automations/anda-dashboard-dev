@@ -19,6 +19,7 @@ import {
   AccountsIcon,
   DarkModeIcon,
   LightModeIcon,
+  SignOutIcon,
   type PhosphorIcon,
 } from "@/frontend/components/design-system/icons";
 
@@ -127,6 +128,15 @@ export function Navigation({ close }: { close: () => void }) {
             )} />
           </span>
         </button>
+        <form action="/api/auth/logout" method="post">
+          <button
+            type="submit"
+            className="mt-1.5 flex min-h-11 w-full items-center gap-2.5 rounded-md border border-transparent px-2.5 text-left text-[.9rem] font-medium text-sidebar-foreground/80 transition-colors hover:border-sidebar-border hover:bg-card/65 hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+          >
+            <SignOutIcon aria-hidden size={18} weight="bold" className="text-primary" />
+            <span>Sign out</span>
+          </button>
+        </form>
       </div>
     </aside>
   );

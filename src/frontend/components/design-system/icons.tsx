@@ -20,6 +20,7 @@ export {
   GearIcon as SettingsIcon,
   MoonStarsIcon as DarkModeIcon,
   SunIcon as LightModeIcon,
+  SignOutIcon as SignOutIcon,
   UploadSimpleIcon as UploadIcon,
   ListIcon as MenuIcon,
   MagnifyingGlassIcon as SearchIcon,
