@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MasterLoginRateLimiter } from "../../src/backend/auth/masterLoginRateLimit";
-import {
-  assertPasswordStrength,
-  hashMasterPassword,
-  verifyMasterCredentials,
-} from "../../src/backend/auth/masterPassword";
+import { verifyMasterCredentials } from "../../src/backend/auth/masterPassword";
 import {
   MasterAuthConfigurationError,
   createMasterSessionToken,
@@ -17,28 +13,18 @@ import {
 const password = "correct-horse-battery-staple";
 
 describe("master password credentials", () => {
-  it("hashes and verifies the configured username and password", async () => {
-    const configuration = await testConfiguration();
+  it("verifies the configured username and password", () => {
+    const configuration = testConfiguration();
 
-    await expect(verifyMasterCredentials("ANDA-ADMIN", password, configuration)).resolves.toBe(true);
-    await expect(verifyMasterCredentials("another-admin", password, configuration)).resolves.toBe(false);
-    await expect(verifyMasterCredentials("anda-admin", "wrong-password-value", configuration)).resolves.toBe(false);
-    expect(configuration.passwordHash).not.toContain(password);
-  });
-
-  it("rejects weak generated passwords and malformed password hashes", async () => {
-    expect(() => assertPasswordStrength("too-short")).toThrow(/14 characters/);
-    const configuration = await testConfiguration();
-    await expect(verifyMasterCredentials("anda-admin", password, {
-      ...configuration,
-      passwordHash: "not-a-password-hash",
-    })).rejects.toThrow(/invalid/);
+    expect(verifyMasterCredentials("ANDA-ADMIN", password, configuration)).toBe(true);
+    expect(verifyMasterCredentials("another-admin", password, configuration)).toBe(false);
+    expect(verifyMasterCredentials("anda-admin", "wrong-password-value", configuration)).toBe(false);
   });
 });
 
 describe("master session", () => {
   it("creates a signed, expiring session bound to the current credentials", async () => {
-    const configuration = await testConfiguration();
+    const configuration = testConfiguration();
     const now = Date.UTC(2026, 8, 24, 12, 0, 0);
     const token = await createMasterSessionToken(configuration, now);
 
@@ -46,16 +32,16 @@ describe("master session", () => {
       username: "anda-admin",
       issuedAt: Math.floor(now / 1_000),
     });
-    await expect(verifyMasterSessionToken(token, configuration, now + 2 * 60 * 60 * 1_000)).resolves.toBeNull();
+    await expect(verifyMasterSessionToken(token, configuration, now + 13 * 60 * 60 * 1_000)).resolves.toBeNull();
     await expect(verifyMasterSessionToken(token, {
       ...configuration,
-      passwordHash: `${configuration.passwordHash}changed`,
+      password: `${configuration.password}changed`,
     }, now + 1_000)).resolves.toBeNull();
   });
 
   it("fails closed on missing configuration and uses hardened cookies", () => {
     expect(() => getMasterAuthConfiguration({})).toThrow(MasterAuthConfigurationError);
-    expect(masterSessionCookieOptions("production", 12)).toMatchObject({
+    expect(masterSessionCookieOptions("production")).toMatchObject({
       httpOnly: true,
       secure: true,
       sameSite: "strict",
@@ -79,14 +65,9 @@ describe("master login rate limiting", () => {
   });
 });
 
-async function testConfiguration(): Promise<MasterAuthConfiguration> {
+function testConfiguration(): MasterAuthConfiguration {
   return {
     username: "anda-admin",
-    passwordHash: await hashMasterPassword(password, {
-      cost: 16_384,
-      salt: Buffer.alloc(24, 7),
-    }),
-    sessionSecret: "test-session-secret-with-more-than-32-bytes",
-    sessionHours: 1,
+    password,
   };
 }

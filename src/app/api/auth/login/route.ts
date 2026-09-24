@@ -45,16 +45,11 @@ export async function POST(request: Request) {
     );
   }
 
-  let credentialsValid = false;
-  try {
-    credentialsValid = await verifyMasterCredentials(
-      parsed.data.username,
-      parsed.data.password,
-      configuration,
-    );
-  } catch {
-    return errorResponse(503, "authentication_unavailable", "Master login is not configured.");
-  }
+  const credentialsValid = verifyMasterCredentials(
+    parsed.data.username,
+    parsed.data.password,
+    configuration,
+  );
 
   if (!credentialsValid) {
     const updatedLimit = masterLoginRateLimiter.recordFailure(clientKey);
@@ -74,7 +69,7 @@ export async function POST(request: Request) {
   response.cookies.set(
     MASTER_SESSION_COOKIE,
     token,
-    masterSessionCookieOptions(process.env.NODE_ENV, configuration.sessionHours),
+    masterSessionCookieOptions(process.env.NODE_ENV),
   );
   response.headers.set("Cache-Control", "no-store");
   return response;

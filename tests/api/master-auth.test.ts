@@ -1,31 +1,21 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { hashMasterPassword } from "../../src/backend/auth/masterPassword";
 import { POST as login } from "../../src/app/api/auth/login/route";
 import { POST as logout } from "../../src/app/api/auth/logout/route";
 
 const originalEnvironment = {
   username: process.env.MASTER_AUTH_USERNAME,
-  passwordHash: process.env.MASTER_AUTH_PASSWORD_HASH,
-  sessionSecret: process.env.MASTER_AUTH_SESSION_SECRET,
-  sessionHours: process.env.MASTER_AUTH_SESSION_HOURS,
+  password: process.env.MASTER_AUTH_PASSWORD,
 };
 const password = "correct-horse-battery-staple";
 
-beforeAll(async () => {
+beforeAll(() => {
   process.env.MASTER_AUTH_USERNAME = "anda-admin";
-  process.env.MASTER_AUTH_PASSWORD_HASH = await hashMasterPassword(password, {
-    cost: 16_384,
-    salt: Buffer.alloc(24, 9),
-  });
-  process.env.MASTER_AUTH_SESSION_SECRET = "test-session-secret-with-more-than-32-bytes";
-  process.env.MASTER_AUTH_SESSION_HOURS = "12";
+  process.env.MASTER_AUTH_PASSWORD = password;
 });
 
 afterAll(() => {
   restoreEnvironment("MASTER_AUTH_USERNAME", originalEnvironment.username);
-  restoreEnvironment("MASTER_AUTH_PASSWORD_HASH", originalEnvironment.passwordHash);
-  restoreEnvironment("MASTER_AUTH_SESSION_SECRET", originalEnvironment.sessionSecret);
-  restoreEnvironment("MASTER_AUTH_SESSION_HOURS", originalEnvironment.sessionHours);
+  restoreEnvironment("MASTER_AUTH_PASSWORD", originalEnvironment.password);
 });
 
 describe("master authentication routes", () => {
