@@ -46,17 +46,9 @@ describe("master authentication routes", () => {
     });
   });
 
-  it("rejects cross-origin login and clears the cookie on logout", async () => {
-    const crossOrigin = await login(new Request("https://anda.test/api/auth/login", {
-      method: "POST",
-      headers: { "content-type": "application/json", origin: "https://attacker.test" },
-      body: JSON.stringify({ username: "anda-admin", password }),
-    }));
-    expect(crossOrigin.status).toBe(403);
-
+  it("clears the cookie on logout", async () => {
     const response = await logout(new Request("https://anda.test/api/auth/logout", {
       method: "POST",
-      headers: { origin: "https://anda.test" },
     }));
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("https://anda.test/auth/sign-in");

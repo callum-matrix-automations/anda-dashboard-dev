@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { masterLoginRateLimiter } from "@/backend/auth/masterLoginRateLimit";
 import { verifyMasterCredentials } from "@/backend/auth/masterPassword";
-import { requestClientKey, requestHasTrustedOrigin } from "@/backend/auth/requestOrigin";
+import { requestClientKey } from "@/backend/auth/requestOrigin";
 import {
   MASTER_SESSION_COOKIE,
   MasterAuthConfigurationError,
@@ -15,10 +15,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  if (!requestHasTrustedOrigin(request)) {
-    return errorResponse(403, "invalid_origin", "The login request was rejected.");
-  }
-
   const parsed = MasterLoginRequestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return errorResponse(400, "invalid_request", "Enter a username and password.");
