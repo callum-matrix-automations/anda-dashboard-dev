@@ -2,7 +2,7 @@ export function requestHasTrustedOrigin(request: Request) {
   const origin = request.headers.get("origin");
   if (!origin) return true;
   try {
-    return new URL(origin).origin === new URL(request.url).origin;
+    return new URL(origin).origin === new URL(process.env.APP_ORIGIN ?? request.url).origin;
   } catch {
     return false;
   }

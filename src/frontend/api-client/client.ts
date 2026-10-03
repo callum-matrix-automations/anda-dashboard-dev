@@ -1,3 +1,4 @@
+import { CurrentAccountSchema } from "@/shared/contracts/account";
 import type {
   AccountListResponse,
   ModuleName,
@@ -116,6 +117,9 @@ async function requestBlob(path: string): Promise<Blob> {
 }
 
 export const apiClient = {
+  account: {
+    current: () => request("/api/auth/me", CurrentAccountSchema, { cache: "no-store" }),
+  },
   meetings: {
     async list(query: Partial<MeetingApiListQuery> = {}): Promise<MeetingApiListResponse> {
       const search = meetingListSearch(query);
@@ -153,6 +157,9 @@ export const apiClient = {
     },
     async defer(id: string, expectedVersion: number, note: string): Promise<MeetingApiMutationResponse> {
       return meetingMutation(id, "defer", "POST", { expectedVersion, note });
+    },
+    async discard(id: string, expectedVersion: number): Promise<MeetingApiMutationResponse> {
+      return meetingMutation(id, "discard", "POST", { expectedVersion });
     },
     async resume(id: string, expectedVersion: number): Promise<MeetingApiMutationResponse> {
       return meetingMutation(id, "resume", "POST", { expectedVersion });

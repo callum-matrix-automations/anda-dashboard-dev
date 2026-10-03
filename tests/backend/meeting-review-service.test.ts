@@ -69,6 +69,7 @@ function repositoryMock(): MeetingReviewRepository {
     saveDraft: vi.fn().mockResolvedValue({ status: "saved", meetingId, version: 5 }),
     deferReview: vi.fn().mockResolvedValue({ status: "deferred", meetingId, version: 5 }),
     resumeReview: vi.fn().mockResolvedValue({ status: "resumed", meetingId, version: 5 }),
-    markReady: vi.fn().mockResolvedValue({ status: "ready", meetingId, version: 5 }),
+    discardDraft: vi.fn(),
+  markReady: vi.fn().mockResolvedValue({ status: "ready", meetingId, version: 5 }),
   };
 }

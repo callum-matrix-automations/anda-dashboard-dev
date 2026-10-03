@@ -28,6 +28,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Isolate local test servers from the interactive dev server when requested.
+  distDir: process.env.ANDA_NEXT_DIST_DIR || ".next",
   // AIDEV-NOTE: Phosphor's Next.js guidance — tree-shake per-icon imports so the
   // whole icon family never lands in a client bundle. Complements the `/ssr` subpath.
   experimental: { optimizePackageImports: ["@phosphor-icons/react"] },

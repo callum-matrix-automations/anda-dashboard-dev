@@ -141,7 +141,7 @@ describe.skipIf(!localIntegrationConfigured)("local approval-to-PDF workflow", (
       humanOwned: true,
       approval: {
         approvedByProfileId: eleanorId,
-        approvedByDisplayName: "Eleanor Hughes",
+        approvedByDisplayName: "Ernesto",
         contentVersion: currentVersion,
         unresolvedVotesAcknowledged: true,
       },

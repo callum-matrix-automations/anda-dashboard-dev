@@ -51,9 +51,9 @@ describe.skipIf(!localIntegrationConfigured)("pre-approval workflow with a prede
     })]);
     expect(result.attendees).toHaveLength(predefinedDraft.attendees.length);
     expect(result.attendees.map((attendee) => attendee.source_email_snapshot)).toEqual(expect.arrayContaining([
-      "eleanor.hughes@example.test",
+      "ernesto@example.com",
       "marcus.patel@example.test",
-      "priya.shah@example.test",
+      "james.wilson@example.com",
       "daniel.brooks@example.test",
       "amelia.clarke@example.test",
     ]));

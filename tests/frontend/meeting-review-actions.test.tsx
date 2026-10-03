@@ -9,6 +9,8 @@ import { MeetingReviewActions } from "../../src/frontend/components/meetings/Mee
 import { MeetingWorkflowState } from "../../src/frontend/components/meetings/MeetingWorkflowState";
 import type { MeetingApiDetail } from "../../src/shared/contracts/meetingApi";
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }) }));
+
 const meetingId = "33333333-3333-4333-8333-333333333333";
 const profileId = "11111111-1111-4111-8111-111111111111";
 const seconderProfileId = "22222222-2222-4222-8222-222222222222";
@@ -155,7 +157,8 @@ describe("meeting review workflow actions", () => {
       status: "AWAITING_SIGNATURE",
       capabilities: {
         ...reviewMeeting().capabilities,
-        canEdit: false,
+        canDiscard: false,
+    canEdit: false,
         canDefer: false,
         canApprove: false,
         canOpenSigningSession: true,
@@ -184,7 +187,8 @@ describe("meeting review workflow actions", () => {
       status: "ESIGN_FAILED",
       capabilities: {
         ...reviewMeeting().capabilities,
-        canEdit: false,
+        canDiscard: false,
+    canEdit: false,
         canDefer: false,
         canApprove: false,
         canRetrySigning: true,
@@ -207,7 +211,8 @@ describe("meeting review workflow actions", () => {
       status: "ARCHIVE_FAILED",
       capabilities: {
         ...reviewMeeting().capabilities,
-        canEdit: false,
+        canDiscard: false,
+    canEdit: false,
         canDefer: false,
         canApprove: false,
         canRetrySigning: false,
@@ -245,7 +250,8 @@ function reviewMeeting(overrides: Partial<MeetingApiDetail> = {}): MeetingApiDet
     pdfAttempt: 0,
     updatedAt: "2026-07-21T10:00:00.000Z",
     capabilities: {
-      canEdit: true, canDefer: true, canResume: false, canMarkReady: false, canRetryAnalysis: false,
+      canDiscard: false,
+    canEdit: true, canDefer: true, canResume: false, canMarkReady: false, canRetryAnalysis: false,
       canApprove: true, canRetryPdf: false, canOpenSigningSession: false, canRetrySigning: false,
       canRejectSigning: false, canCheckSigningStatus: false, canRetrySigningOutcome: false, canDownloadArchive: false,
     },

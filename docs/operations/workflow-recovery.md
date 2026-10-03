@@ -74,7 +74,7 @@ Content-Type: application/json
 The comment is stored in `operational_issue_reports` but is never copied into a
 Telegram alert. Production access remains fail-closed until the production
 authentication work supplies the server actor resolver. Local development uses
-the configured `ANDA_DEV_ACTOR_PROFILE_ID`.
+the server-verified active account. There is no fixed development actor fallback.
 
 ## Local verification
 

@@ -32,7 +32,7 @@ export function createMeetingSigningSessionService({
     if (record.status !== "available") return record;
 
     const expectedEmail = z.string().trim().email().parse(
-      signerEmail ?? process.env.SIGNING_TEST_SIGNER_EMAIL,
+      signerEmail ?? record.recipientEmail,
     );
     const details = await provider.getRequest(record.externalRequestId);
     const recipient = details.recipients.find(

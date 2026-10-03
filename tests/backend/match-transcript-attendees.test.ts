@@ -8,8 +8,8 @@ import {
 const profiles = [
   {
     profileId: "10000000-0000-4000-8000-000000000001",
-    displayName: "Eleanor Hughes",
-    email: "eleanor.hughes@example.test",
+    displayName: "Ernesto",
+    email: "ernesto@example.com",
   },
   {
     profileId: "10000000-0000-4000-8000-000000000002",
@@ -23,12 +23,12 @@ describe("matchTranscriptAttendees", () => {
     expect(normalizeDisplayName("  Guest   Display Name  ")).toBe("Guest Display Name");
     expect(matchTranscriptAttendees([{
       displayName: "  Guest   Display Name  ",
-      email: " ELEANOR.HUGHES@EXAMPLE.TEST ",
+      email: " ERNESTO@EXAMPLE.COM ",
     }], profiles)).toEqual({
       matched: [{
         profileId: "10000000-0000-4000-8000-000000000001",
         displayNameSnapshot: "Guest Display Name",
-        sourceEmailSnapshot: "eleanor.hughes@example.test",
+        sourceEmailSnapshot: "ernesto@example.com",
       }],
       unmatched: [],
     });
@@ -36,12 +36,12 @@ describe("matchTranscriptAttendees", () => {
 
   it("never uses a matching display name when email is missing or unknown", () => {
     expect(matchTranscriptAttendees([
-      { displayName: "Eleanor Hughes", email: null },
+      { displayName: "Ernesto", email: null },
       { displayName: "Marcus Patel", email: "unknown@example.test" },
     ], profiles)).toEqual({
       matched: [],
       unmatched: [
-        { displayName: "Eleanor Hughes", email: null, reason: "missing_email" },
+        { displayName: "Ernesto", email: null, reason: "missing_email" },
         { displayName: "Marcus Patel", email: "unknown@example.test", reason: "not_found" },
       ],
     });
@@ -49,12 +49,12 @@ describe("matchTranscriptAttendees", () => {
 
   it("keeps malformed source emails unmatched without rejecting the transcript", () => {
     expect(matchTranscriptAttendees([{
-      displayName: "Eleanor Hughes",
+      displayName: "Ernesto",
       email: "not-an-email",
     }], profiles)).toEqual({
       matched: [],
       unmatched: [{
-        displayName: "Eleanor Hughes",
+        displayName: "Ernesto",
         email: "not-an-email",
         reason: "invalid_email",
       }],
@@ -67,18 +67,18 @@ describe("matchTranscriptAttendees", () => {
       {
         profileId: "10000000-0000-4000-8000-000000000003",
         displayName: "Another Eleanor",
-        email: "ELEANOR.HUGHES@example.test",
+        email: "ernesto@example.com",
       },
     ];
 
     expect(matchTranscriptAttendees([{
-      displayName: "Eleanor Hughes",
-      email: "eleanor.hughes@example.test",
+      displayName: "Ernesto",
+      email: "ernesto@example.com",
     }], ambiguousProfiles)).toEqual({
       matched: [],
       unmatched: [{
-        displayName: "Eleanor Hughes",
-        email: "eleanor.hughes@example.test",
+        displayName: "Ernesto",
+        email: "ernesto@example.com",
         reason: "ambiguous",
       }],
     });
@@ -86,12 +86,12 @@ describe("matchTranscriptAttendees", () => {
 
   it("deduplicates repeated provider participants by normalized email", () => {
     expect(matchTranscriptAttendees([
-      { displayName: "Eleanor Hughes", email: "eleanor.hughes@example.test" },
-      { displayName: "Duplicate Eleanor", email: " ELEANOR.HUGHES@EXAMPLE.TEST " },
+      { displayName: "Ernesto", email: "ernesto@example.com" },
+      { displayName: "Duplicate Eleanor", email: " ERNESTO@EXAMPLE.COM " },
     ], profiles).matched).toEqual([{
       profileId: "10000000-0000-4000-8000-000000000001",
-      displayNameSnapshot: "Eleanor Hughes",
-      sourceEmailSnapshot: "eleanor.hughes@example.test",
+      displayNameSnapshot: "Ernesto",
+      sourceEmailSnapshot: "ernesto@example.com",
     }]);
   });
 
@@ -102,11 +102,11 @@ describe("matchTranscriptAttendees", () => {
     }];
 
     expect(matchTranscriptAttendees([{
-      displayName: "Eleanor Hughes",
-      email: "eleanor.hughes@example.test",
+      displayName: "Ernesto",
+      email: "ernesto@example.com",
     }], changedProfiles).matched).toEqual([]);
     expect(matchTranscriptAttendees([{
-      displayName: "Eleanor Hughes",
+      displayName: "Ernesto",
       email: "eleanor.current@example.test",
     }], changedProfiles).matched).toEqual([expect.objectContaining({
       profileId: profiles[0]!.profileId,
@@ -116,14 +116,14 @@ describe("matchTranscriptAttendees", () => {
 
   it("links manual transcript speakers only by a unique exact normalized profile name", () => {
     expect(matchManualTranscriptAttendeesByName([
-      { displayName: "  ELEANOR   HUGHES ", email: null },
+      { displayName: "  ERNESTO ", email: null },
       { displayName: "Marcus Patel", email: null },
       { displayName: "Unknown Guest", email: null },
     ], profiles)).toEqual({
       matched: [
         {
           profileId: "10000000-0000-4000-8000-000000000001",
-          displayNameSnapshot: "ELEANOR HUGHES",
+          displayNameSnapshot: "ERNESTO",
         },
         {
           profileId: "10000000-0000-4000-8000-000000000002",
@@ -140,19 +140,19 @@ describe("matchTranscriptAttendees", () => {
 
   it("does not guess a manual attendee when display names are ambiguous", () => {
     expect(matchManualTranscriptAttendeesByName([{
-      displayName: "Eleanor Hughes",
+      displayName: "Ernesto",
       email: null,
     }], [
       ...profiles,
       {
         profileId: "10000000-0000-4000-8000-000000000003",
-        displayName: " eleanor  hughes ",
+        displayName: " ernesto ",
         email: "another.eleanor@example.test",
       },
     ])).toEqual({
       matched: [],
       unmatched: [{
-        displayName: "Eleanor Hughes",
+        displayName: "Ernesto",
         email: null,
         reason: "ambiguous",
       }],

@@ -33,6 +33,7 @@ export const MeetingApiSearchQuerySchema = z.object({
 }).strict();
 
 export const MeetingApiCapabilitiesSchema = z.object({
+  canDiscard: z.boolean(),
   canEdit: z.boolean(),
   canDefer: z.boolean(),
   canResume: z.boolean(),
@@ -183,6 +184,7 @@ export const MeetingApiRejectSigningRequestSchema = z.object({
 
 export const MeetingApiMutationResponseSchema = z.object({
   action: z.enum([
+    "discarded",
     "draft_saved",
     "deferred",
     "resumed",

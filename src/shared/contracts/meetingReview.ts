@@ -143,6 +143,7 @@ export const MeetingReviewHistoryActionSchema = z.enum([
   "MARKED_READY",
   "DEFERRED",
   "RESUMED",
+  "DISCARDED",
   "APPROVED",
   "SIGNED",
   "TREASURER_REJECTED",
@@ -210,6 +211,7 @@ export const ResumeMeetingReviewCommandSchema = z.object(ReviewCommandIdentity).
 export const MarkMeetingReadyCommandSchema = z.object(ReviewCommandIdentity).strict();
 
 export const MEETING_REVIEW_MUTATION_STATUSES = [
+  "discarded",
   "saved",
   "deferred",
   "resumed",

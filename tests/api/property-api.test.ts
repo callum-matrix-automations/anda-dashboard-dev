@@ -11,9 +11,8 @@ import { actorId, imageId, propertyDetail, propertyDraft, propertyId, propertyLi
 
 const userResolver = vi.fn().mockResolvedValue({
   profileId: actorId,
-  displayName: "Priya Shah",
+  displayName: "James Wilson",
   role: "USER" as const,
-  isAdmin: false,
 });
 
 describe("property API handlers", () => {

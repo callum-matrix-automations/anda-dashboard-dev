@@ -66,13 +66,13 @@ describe("Supabase meeting review repository", () => {
   it("lists only safe active member profile fields as attendee options", async () => {
     const fetchImplementation = vi.fn().mockResolvedValue(Response.json([{
       id: actorProfileId,
-      display_name: "Eleanor Hughes",
+      display_name: "Ernesto",
     }]));
     const repository = createSupabaseMeetingReviewRepository({ apiUrl, secretKey, fetchImplementation });
 
     await expect(repository.listAttendeeOptions()).resolves.toEqual([{
       profileId: actorProfileId,
-      displayName: "Eleanor Hughes",
+      displayName: "Ernesto",
     }]);
 
     const [url, request] = fetchImplementation.mock.calls[0] as [URL, RequestInit];
@@ -166,7 +166,7 @@ function detail() {
     attendees: [{
       attendeeId: "33333333-3333-4333-8333-333333333333",
       profileId: actorProfileId,
-      displayName: "Eleanor Hughes",
+      displayName: "Ernesto",
       sourceEmailSnapshot: "eleanor@example.test",
     }],
     motions: [],

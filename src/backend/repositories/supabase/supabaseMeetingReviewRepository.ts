@@ -171,6 +171,10 @@ export function createSupabaseMeetingReviewRepository({
       }));
     },
 
+    async discardDraft(command) {
+      return parseMutation(await callRpc("discard_meeting_draft", { p_meeting_id: command.meetingId, p_expected_version: command.expectedVersion, p_actor_profile_id: command.actorProfileId }));
+    },
+
     async resumeReview(command) {
       return parseMutation(await callRpc("resume_meeting_review", {
         p_meeting_id: command.meetingId,

@@ -15,6 +15,7 @@ export interface MeetingReviewRepository {
   listAttendeeOptions(): Promise<MeetingReviewAttendeeOption[]>;
   saveDraft(command: SaveMeetingReviewDraftCommand): Promise<MeetingReviewMutationResult>;
   deferReview(command: DeferMeetingReviewCommand): Promise<MeetingReviewMutationResult>;
+  discardDraft(command: ResumeMeetingReviewCommand): Promise<MeetingReviewMutationResult>;
   resumeReview(command: ResumeMeetingReviewCommand): Promise<MeetingReviewMutationResult>;
   markReady(command: MarkMeetingReadyCommand): Promise<MeetingReviewMutationResult>;
 }

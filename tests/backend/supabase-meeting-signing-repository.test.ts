@@ -18,7 +18,9 @@ describe("Supabase meeting signing repository", () => {
       pdfSha256: "a".repeat(64),
       pdfSizeBytes: 2_048,
       documentVersion: 4,
-      requestName: `ANDA meeting ${meetingId} v4`,
+      recipient: { firstName: "Test", lastName: "Treasurer", email: "treasurer@example.test" },
+    recipientProfileId: "10000000-0000-4000-8000-000000000006",
+    requestName: `ANDA meeting ${meetingId} v4`,
       externalRequestId: null,
     }));
     const repository = createSupabaseMeetingSigningRepository({ apiUrl, secretKey, fetchImplementation });

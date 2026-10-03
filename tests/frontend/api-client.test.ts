@@ -343,7 +343,8 @@ function summary() {
     pdfAttempt: 0,
     updatedAt: "2026-07-21T10:00:00.000Z",
     capabilities: {
-      canEdit: true,
+      canDiscard: false,
+    canEdit: true,
       canDefer: true,
       canResume: false,
       canMarkReady: false,
@@ -382,19 +383,19 @@ function detailResponse() {
       importedAt: "2026-07-21T09:00:00.000Z",
     },
     sourceParticipants: [{
-      displayName: "Eleanor Hughes",
+      displayName: "Ernesto",
       email: "eleanor@example.test",
       profileId,
       matchStatus: "matched",
     }],
     attendeeOptions: [{
       profileId,
-      displayName: "Eleanor Hughes",
+      displayName: "Ernesto",
     }],
     attendees: [{
       attendeeId: "44444444-4444-4444-8444-444444444444",
       profileId,
-      displayName: "Eleanor Hughes",
+      displayName: "Ernesto",
     }],
     motions: [],
     history: [],

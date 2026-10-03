@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { MasterSignInScreen } from "@/frontend/components/auth/MasterSignInScreen";
+import { SignInScreen } from "@/frontend/components/auth/SignInScreen";
 
 export const metadata: Metadata = { title: "Sign in | ANDA Dashboard" };
 
@@ -16,5 +16,5 @@ export default async function SignInPage({
     ? requestedReturnTo
     : "/app/dashboard";
   const error = Array.isArray(parameters.error) ? parameters.error[0] : parameters.error;
-  return <MasterSignInScreen returnTo={returnTo} configurationError={error === "configuration"} />;
+  return <SignInScreen returnTo={returnTo} configurationError={error === "configuration"} />;
 }

@@ -18,7 +18,6 @@ const titles: Record<string, string> = {
   properties: "Properties",
   vendors: "Vendors",
   contacts: "Contacts",
-  members: "Account administration",
   failures: "Processing exception",
   settings: "Settings",
   reports: "Reporting preview",

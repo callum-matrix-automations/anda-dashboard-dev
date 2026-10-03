@@ -225,6 +225,8 @@ function claim(overrides: Partial<Extract<MeetingSigningClaim, { status: "claime
     pdfSha256: createHash("sha256").update(document).digest("hex"),
     pdfSizeBytes: document.byteLength,
     documentVersion: 4,
+    recipient: { firstName: "Test", lastName: "Treasurer", email: "treasurer@example.test" },
+    recipientProfileId: "10000000-0000-4000-8000-000000000006",
     requestName: `ANDA meeting ${meetingId} v4`,
     externalRequestId: null,
     ...overrides,

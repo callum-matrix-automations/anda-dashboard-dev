@@ -1,23 +1,19 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
+import { parseCookieHeader } from "@supabase/ssr";
+import { createRequestAuthClient, authResponseCookies, type AuthCookie } from "@/backend/auth/supabaseAuth";
 import { requestHasTrustedOrigin } from "@/backend/auth/requestOrigin";
-import { MASTER_SESSION_COOKIE, masterSessionCookieOptions } from "@/backend/auth/masterSession";
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
 export async function POST(request: Request) {
-  if (!requestHasTrustedOrigin(request)) {
-    return NextResponse.json(
-      { error: { code: "invalid_origin", message: "The logout request was rejected." } },
-      { status: 403, headers: { "Cache-Control": "no-store" } },
-    );
+  if (!requestHasTrustedOrigin(request)) return NextResponse.json({error: {code: "invalid_origin", message: "The logout request was rejected."}}, {status: 403});
+  const pending: AuthCookie[] = [];
+  try {
+    const client = createRequestAuthClient(request, cookies => pending.push(...cookies));
+    await client.auth.signOut({scope: "local"});
+  } catch { /* Clearing local cookies ends browser access if Auth is unavailable. */ }
+  const response = authResponseCookies(NextResponse.redirect(new URL("/auth/sign-in", process.env.APP_ORIGIN ?? request.url), 303), pending);
+  for (const {name} of parseCookieHeader(request.headers.get("cookie") ?? "")) {
+    if (name.startsWith("sb-") || name === "anda_master_session") response.cookies.set(name, "", {httpOnly: true, path: "/", maxAge: 0});
   }
-
-  const response = NextResponse.redirect(new URL("/auth/sign-in", request.url), 303);
-  response.cookies.set(MASTER_SESSION_COOKIE, "", {
-    ...masterSessionCookieOptions(),
-    maxAge: 0,
-  });
-  response.headers.set("Cache-Control", "no-store");
   return response;
 }

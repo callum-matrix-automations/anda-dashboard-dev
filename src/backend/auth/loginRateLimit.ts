@@ -6,7 +6,7 @@ interface AttemptWindow {
   startedAt: number;
 }
 
-export class MasterLoginRateLimiter {
+export class LoginRateLimiter {
   private readonly attempts = new Map<string, AttemptWindow>();
 
   constructor(
@@ -47,4 +47,4 @@ export class MasterLoginRateLimiter {
   }
 }
 
-export const masterLoginRateLimiter = new MasterLoginRateLimiter();
+export const loginRateLimiter = new LoginRateLimiter();

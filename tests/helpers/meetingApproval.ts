@@ -33,18 +33,18 @@ export function approvedSnapshot({
       sections,
     },
     attendees: [
-      { profileId: eleanorId, displayName: "Eleanor Hughes" },
+      { profileId: eleanorId, displayName: "Ernesto" },
       { profileId: marcusId, displayName: "Marcus Patel" },
     ],
     motions: [{
       text: "Adopt the revised governance policy.",
       moverProfileId: eleanorId,
-      moverDisplayName: "Eleanor Hughes",
+      moverDisplayName: "Ernesto",
       seconderProfileId: marcusId,
       seconderDisplayName: "Marcus Patel",
       outcome: "carried",
       votes: [
-        { profileId: eleanorId, displayName: "Eleanor Hughes", selection: "for" },
+        { profileId: eleanorId, displayName: "Ernesto", selection: "for" },
         {
           profileId: marcusId,
           displayName: "Marcus Patel",
@@ -54,7 +54,7 @@ export function approvedSnapshot({
     }],
     approval: {
       approvedByProfileId: eleanorId,
-      approvedByDisplayName: "Eleanor Hughes",
+      approvedByDisplayName: "Ernesto",
       approvedAt: "2026-07-19T15:00:00.000Z",
       unresolvedVotesAcknowledged: unresolvedVote,
       unresolvedVoteCount: unresolvedVote ? 1 : 0,

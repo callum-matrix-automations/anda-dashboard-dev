@@ -47,7 +47,7 @@ describe("manual transcript upload dialog", () => {
     await user.type(screen.getByLabelText("Meeting title"), "Uploaded governance meeting");
     await user.type(
       screen.getByLabelText("Transcript"),
-      "Eleanor Hughes: Welcome.\nMarcus Patel: I second the motion.",
+      "Ernesto: Welcome.\nMarcus Patel: I second the motion.",
     );
     await user.click(screen.getByRole("button", { name: "Begin processing" }));
 
@@ -59,7 +59,7 @@ describe("manual transcript upload dialog", () => {
     expect(requestBody).toMatchObject({
       title: "Uploaded governance meeting",
       durationMinutes: 60,
-      transcript: "Eleanor Hughes: Welcome.\nMarcus Patel: I second the motion.",
+      transcript: "Ernesto: Welcome.\nMarcus Patel: I second the motion.",
     });
     expect(requestBody.meetingDate).toMatch(/^\d{4}-\d{2}-\d{2}$/u);
 
@@ -78,7 +78,7 @@ function normalizationSummary() {
     method: "deterministic",
     detectedFormat: "speaker_colon",
     participants: [
-      { displayName: "Eleanor Hughes", kind: "named" },
+      { displayName: "Ernesto", kind: "named" },
       { displayName: "Marcus Patel", kind: "named" },
     ],
     possibleAliases: [],

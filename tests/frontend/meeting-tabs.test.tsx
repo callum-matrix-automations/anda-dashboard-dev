@@ -121,6 +121,7 @@ const meeting: MeetingApiDetail = {
   pdfAttempt: 0,
   updatedAt: "2026-07-23T10:00:00.000Z",
   capabilities: {
+    canDiscard: false,
     canEdit: true, canDefer: true, canResume: false, canMarkReady: false, canRetryAnalysis: false,
     canApprove: true, canRetryPdf: false, canOpenSigningSession: false, canRetrySigning: false,
     canRejectSigning: false, canCheckSigningStatus: false, canRetrySigningOutcome: false, canDownloadArchive: false,

@@ -17,7 +17,6 @@ const localIntegrationConfigured = configuration.configured;
 const eleanorId = "10000000-0000-4000-8000-000000000001";
 const marcusId = "10000000-0000-4000-8000-000000000002";
 const priyaId = "10000000-0000-4000-8000-000000000003";
-const danielId = "10000000-0000-4000-8000-000000000004";
 
 describe.skipIf(!localIntegrationConfigured)("local Supabase meeting review", () => {
   it("loads, atomically edits, version-checks, and protects a PENDING_APPROVAL meeting", async () => {
@@ -99,8 +98,8 @@ describe.skipIf(!localIntegrationConfigured)("local Supabase meeting review", ()
     await expect(service.deferMeetingReview({
       meetingId,
       expectedVersion: before.version,
-      actorProfileId: danielId,
-      note: "A normal member cannot defer this meeting.",
+      actorProfileId: "99999999-9999-4999-8999-999999999999",
+      note: "An unknown profile cannot defer this meeting.",
     })).resolves.toEqual({ status: "forbidden", meetingId, version: before.version });
 
     const deferred = await service.deferMeetingReview({
@@ -234,7 +233,7 @@ function editedDraft(): MeetingReviewDraft {
 
 async function createAiFailedMeeting() {
   const suffix = randomUUID();
-  const transcriptContent = "Eleanor Hughes: The meeting record requires manual recovery after analysis failed.";
+  const transcriptContent = "Ernesto: The meeting record requires manual recovery after analysis failed.";
   const storeTranscript = createTranscriptImportStore(createSupabaseTranscriptRepository(configuration));
   const stored = await storeTranscript({
     eventId: `review-failure-event-${suffix}`,
@@ -249,9 +248,9 @@ async function createAiFailedMeeting() {
       durationMinutes: 60,
     },
     attendees: [
-      { displayName: "Eleanor Hughes" },
+      { displayName: "Ernesto" },
       { displayName: "Marcus Patel" },
-      { displayName: "Priya Shah" },
+      { displayName: "James Wilson" },
     ],
     transcript: {
       sourceTranscriptId: `review-failure-transcript-${suffix}`,

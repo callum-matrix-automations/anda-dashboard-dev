@@ -26,7 +26,7 @@ describe("frontend presentation helpers", () => {
   it("separates matched and unmatched Read AI participants", () => {
     const participants = [
       {
-        displayName: "Eleanor Hughes",
+        displayName: "Ernesto",
         email: "eleanor@example.test",
         profileId: "11111111-1111-4111-8111-111111111111",
         matchStatus: "matched" as const,
@@ -39,7 +39,7 @@ describe("frontend presentation helpers", () => {
       },
     ];
 
-    expect(matchedParticipants(participants).map((participant) => participant.displayName)).toEqual(["Eleanor Hughes"]);
+    expect(matchedParticipants(participants).map((participant) => participant.displayName)).toEqual(["Ernesto"]);
     expect(unmatchedParticipants(participants).map((participant) => participant.displayName)).toEqual(["Guest Speaker"]);
   });
 });

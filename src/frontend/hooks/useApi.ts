@@ -19,6 +19,10 @@ import type {
   PropertyUpdateRequest,
 } from "@/shared/contracts/property";
 
+export function useCurrentAccount() {
+  return useQuery({ queryKey: ["current-account"], queryFn: apiClient.account.current, retry: false });
+}
+
 export function useMeetings(queue: MeetingApiQueue = "all") {
   return useQuery({
     queryKey: ["meetings", queue],
@@ -88,6 +92,11 @@ export function useDeferMeeting() {
       apiClient.meetings.defer(meetingId, expectedVersion, note)
     ),
   );
+}
+
+export function useDiscardMeeting() {
+  const client = useQueryClient();
+  return useMutation({ mutationFn: ({ meetingId, expectedVersion }: { meetingId: string; expectedVersion: number }) => apiClient.meetings.discard(meetingId, expectedVersion), onSuccess: async (_, { meetingId }) => { await client.cancelQueries({ queryKey: ["meeting", meetingId] }); client.removeQueries({ queryKey: ["meeting", meetingId] }); await Promise.all([client.invalidateQueries({ queryKey: ["meetings"] }), client.invalidateQueries({ queryKey: ["meeting-search"] })]); } });
 }
 
 export function useResumeMeeting() {

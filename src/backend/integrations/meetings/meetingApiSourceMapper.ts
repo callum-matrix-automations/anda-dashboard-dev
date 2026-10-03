@@ -12,7 +12,9 @@ const SourceMetadataSchema = z.object({
     name: z.string(),
     email: z.string().nullable().optional(),
   }).passthrough()).max(1_000).optional(),
-  normalization: TranscriptNormalizationSummarySchema.passthrough().optional(),
+  // Read AI records can have an empty normalization placeholder. Keep their
+  // source dates and participants even when no valid normalization is available.
+  normalization: TranscriptNormalizationSummarySchema.passthrough().nullable().optional().catch(undefined),
 }).passthrough();
 
 type MeetingApiSourceFields = Pick<MeetingApiDetail, "source" | "sourceParticipants">;

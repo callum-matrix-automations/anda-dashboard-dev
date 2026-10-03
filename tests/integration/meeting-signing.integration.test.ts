@@ -21,7 +21,7 @@ import { createRejectMeetingSigningService } from "../../src/backend/services/si
 import { createRetryMeetingSigningOutcomeService } from "../../src/backend/services/signing/retryMeetingSigningOutcome";
 import { createStaleSigningReconciliation } from "../../src/backend/services/operations/reconcileStaleMeetingSignings";
 import type { MeetingReviewDraft } from "../../src/shared/contracts/meetingReview";
-import { FakeSigningProvider, testSigningRecipient } from "../helpers/fakeSigningProvider";
+import { FakeSigningProvider } from "../helpers/fakeSigningProvider";
 import {
   loadPredefinedMeetingDraft,
   localSupabaseConfiguration,
@@ -32,6 +32,7 @@ const configuration = localSupabaseConfiguration();
 const localIntegrationConfigured = configuration.configured;
 const eleanorId = "10000000-0000-4000-8000-000000000001";
 const marcusId = "10000000-0000-4000-8000-000000000002";
+const testSigningRecipient = { firstName: "Richard", lastName: "Smith", email: "richard@example.com" };
 const priyaId = "10000000-0000-4000-8000-000000000003";
 const johnId = "10000000-0000-4000-8000-000000000006";
 
@@ -66,8 +67,7 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
     expect(provider.sent).toEqual([provider.created[0]?.id]);
     expect(provider.created[0]).toMatchObject({
       requestName: `ANDA meeting ${scenario.meetingId} v${scenario.version}`,
-      recipient: testSigningRecipient,
-      signatureAnchor: TREASURER_SIGNATURE_ANCHOR,
+        signatureAnchor: TREASURER_SIGNATURE_ANCHOR,
     });
     const routedDocument = provider.created[0]?.document;
     if (!routedDocument || !detail.pdfArtifact) throw new Error("The routed PDF was not captured.");
@@ -159,7 +159,7 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
     await expect(retry.retryMeetingSigning({
       meetingId: scenario.meetingId,
       expectedVersion: detail.version,
-      actorProfileId: eleanorId,
+      actorProfileId: priyaId,
     })).resolves.toMatchObject({ status: "invalid_actor" });
     await expect(retry.retryMeetingSigning({
       meetingId: scenario.meetingId,
@@ -285,7 +285,6 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
     const processor = createSigningOutcomeProcessor({
       repository: outcomeRepository,
       provider: scenario.provider,
-      signerEmail: testSigningRecipient.email,
     });
 
     await expect(outcomeRepository.receiveWebhook(
@@ -340,7 +339,6 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
     const processor = createSigningOutcomeProcessor({
       repository: createSupabaseMeetingSigningOutcomeRepository(configuration),
       provider: scenario.provider,
-      signerEmail: testSigningRecipient.email,
     });
     const reconcile = createStaleSigningReconciliation({
       repository: createSupabaseOperationalAlertRepository(configuration),
@@ -374,7 +372,6 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
     const outcome = createSigningOutcomeProcessor({
       repository: createSupabaseMeetingSigningOutcomeRepository(configuration),
       provider: scenario.provider,
-      signerEmail: testSigningRecipient.email,
     });
     await expect(outcome.reconcileMeeting(scenario.meetingId)).resolves.toMatchObject({
       status: "ready_for_archive",
@@ -466,7 +463,6 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
     await createSigningOutcomeProcessor({
       repository: createSupabaseMeetingSigningOutcomeRepository(configuration),
       provider: scenario.provider,
-      signerEmail: testSigningRecipient.email,
     }).reconcileMeeting(scenario.meetingId);
 
     const repository = createSupabaseMeetingArchiveRepository(configuration);
@@ -537,7 +533,6 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
     const processor = createSigningOutcomeProcessor({
       repository: outcomeRepository,
       provider: scenario.provider,
-      signerEmail: testSigningRecipient.email,
     });
 
     await expect(processor.processWebhookEvent(event.id)).resolves.toMatchObject({
@@ -663,7 +658,6 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
     const staleProcessor = createSigningOutcomeProcessor({
       repository: outcomeRepository,
       provider: scenario.provider,
-      signerEmail: testSigningRecipient.email,
     });
     await expect(staleProcessor.processWebhookEvent(staleEvent.id)).resolves.toMatchObject({
       status: "stale",
@@ -719,7 +713,6 @@ describe.skipIf(!localIntegrationConfigured)("local approved-PDF-to-signing work
     const processor = createSigningOutcomeProcessor({
       repository: outcomeRepository,
       provider: scenario.provider,
-      signerEmail: testSigningRecipient.email,
     });
     await expect(processor.reconcileMeeting(scenario.meetingId)).resolves.toMatchObject({
       status: "failed",
@@ -805,7 +798,6 @@ function createSigningProcessor(provider: FakeSigningProvider) {
     repository: createSupabaseMeetingSigningRepository(configuration),
     pdfSource: createSupabaseMinutesPdfStorage(configuration),
     provider,
-    recipient: testSigningRecipient,
   });
 }
 

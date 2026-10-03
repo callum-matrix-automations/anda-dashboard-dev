@@ -5,6 +5,18 @@ import type { MeetingReviewDetail } from "../../src/shared/contracts/meetingRevi
 const matchedProfileId = "11111111-1111-4111-8111-111111111111";
 
 describe("meeting API source mapper", () => {
+  it.each([null, {}])("retains Read AI provenance without a normalization summary (%j)", (normalization) => {
+    const meeting = detail();
+    meeting.transcript.metadata = { ...meeting.transcript.metadata, normalization };
+    const result = mapMeetingApiSource(meeting);
+    expect(result.source).toMatchObject({
+      startedAt: "2026-07-20T08:00:00.000Z",
+      endedAt: "2026-07-20T09:00:00.000Z",
+      normalization: null,
+    });
+    expect(result.sourceParticipants[0]).toMatchObject({ profileId: matchedProfileId, matchStatus: "matched" });
+  });
+
   it("returns curated provider-neutral provenance and email-based participant matches", () => {
     const result = mapMeetingApiSource(detail());
 
@@ -19,7 +31,7 @@ describe("meeting API source mapper", () => {
     });
     expect(result.sourceParticipants).toEqual([
       {
-        displayName: "Eleanor Hughes",
+        displayName: "Ernesto",
         email: "eleanor@example.test",
         profileId: matchedProfileId,
         matchStatus: "matched",
@@ -45,7 +57,7 @@ describe("meeting API source mapper", () => {
     legacy.transcript.metadata = {};
 
     expect(mapMeetingApiSource(legacy).sourceParticipants).toEqual([{
-      displayName: "Eleanor Hughes",
+      displayName: "Ernesto",
       email: "eleanor@example.test",
       profileId: matchedProfileId,
       matchStatus: "matched",
@@ -64,7 +76,7 @@ describe("meeting API source mapper", () => {
 
     expect(mapMeetingApiSource(sourceOnly).sourceParticipants).toEqual([
       {
-        displayName: "Eleanor Hughes",
+        displayName: "Ernesto",
         email: "eleanor@example.test",
         profileId: null,
         matchStatus: "unmatched",
@@ -146,7 +158,7 @@ function detail(): MeetingReviewDetail {
         startTime: "2026-07-20T08:00:00.000Z",
         endTime: "2026-07-20T09:00:00.000Z",
         participants: [
-          { name: " Eleanor   Hughes ", email: "ELEANOR@example.test" },
+          { name: " Ernesto ", email: "ELEANOR@example.test" },
           { name: "Duplicate", email: "eleanor@example.test" },
           { name: "Guest Person", email: "guest@example.test" },
           { name: "Invalid Email", email: "not-an-email" },
@@ -157,7 +169,7 @@ function detail(): MeetingReviewDetail {
     attendees: [{
       attendeeId: "44444444-4444-4444-8444-444444444444",
       profileId: matchedProfileId,
-      displayName: "Eleanor Hughes",
+      displayName: "Ernesto",
       sourceEmailSnapshot: "eleanor@example.test",
     }],
     motions: [],

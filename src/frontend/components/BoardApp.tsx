@@ -25,7 +25,6 @@ type MeetingQueue = (typeof MEETING_QUEUES)[number];
 const COMING_SOON_AREAS: Record<string, { area: "Association" | "Administration"; title: string }> = {
   vendors: { area: "Association", title: "Vendors" },
   contacts: { area: "Association", title: "Contacts" },
-  members: { area: "Administration", title: "Account administration" },
 };
 
 function isMeetingQueue(value: string): value is MeetingQueue {
