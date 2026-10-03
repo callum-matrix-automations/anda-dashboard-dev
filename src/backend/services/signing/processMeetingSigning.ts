@@ -65,7 +65,7 @@ export function createMeetingSigningProcessor({
     }
 
     try {
-      const signingRecipient = recipient ?? resolveTestSigningRecipient();
+      const signingRecipient = recipient ?? SigningRecipientSchema.parse(claim.recipient);
       const document = await pdfSource.loadApprovedPdf(claim.pdfPath);
       verifyApprovedPdf(document, claim.pdfSha256, claim.pdfSizeBytes);
 
@@ -149,13 +149,6 @@ export function createMeetingSigningProcessor({
   };
 }
 
-function resolveTestSigningRecipient(): SigningRecipient {
-  return SigningRecipientSchema.parse({
-    firstName: process.env.SIGNING_TEST_SIGNER_FIRST_NAME,
-    lastName: process.env.SIGNING_TEST_SIGNER_LAST_NAME,
-    email: process.env.SIGNING_TEST_SIGNER_EMAIL,
-  });
-}
 
 function verifyApprovedPdf(document: Uint8Array, expectedSha256: string, expectedSize: number) {
   if (document.byteLength !== expectedSize) {

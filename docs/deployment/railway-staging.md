@@ -19,12 +19,8 @@ through `PORT`. The container already binds to `0.0.0.0`.
 ```dotenv
 SUPABASE_URL=https://PROJECT_REF.supabase.co
 SUPABASE_SECRET_KEY=sb_secret_REPLACE_ME
-
-ANDA_ENVIRONMENT=staging
-ANDA_STAGING_ACTOR_PROFILE_ID=10000000-0000-4000-8000-000000000006
-
-MASTER_AUTH_USERNAME=REPLACE_ME
-MASTER_AUTH_PASSWORD=REPLACE_ME
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_REPLACE_ME
+APP_ORIGIN=https://YOUR-RAILWAY-DOMAIN
 
 OPENAI_API_KEY=REPLACE_ME
 OPENAI_MODEL=gpt-5.6-terra
@@ -32,35 +28,66 @@ OPENAI_TRANSCRIPT_NORMALIZATION_MODEL=gpt-6-luna
 
 FIRMA_API_KEY=REPLACE_ME
 FIRMA_WEBHOOK_SECRET=REPLACE_ME
-SIGNING_TEST_SIGNER_FIRST_NAME=REPLACE_ME
-SIGNING_TEST_SIGNER_LAST_NAME=REPLACE_ME
-SIGNING_TEST_SIGNER_EMAIL=REPLACE_ME
 ```
 
-`SUPABASE_SECRET_KEY`, `MASTER_AUTH_PASSWORD`, `OPENAI_API_KEY`, `FIRMA_API_KEY`, and
+`SUPABASE_SECRET_KEY`, `OPENAI_API_KEY`, `FIRMA_API_KEY`, and
 `FIRMA_WEBHOOK_SECRET` are server-only secrets. Do not prefix them with
 `NEXT_PUBLIC_` or commit their real values.
 
-Set the same username and password that testers will type into the sign-in
-screen. Store the password in the organisation's password manager. The app
-creates a 12-hour signed session cookie and changing either value immediately
-invalidates existing sessions.
+Testers sign in with their individual Supabase email/password account. The server
+verifies Auth and loads the active `MEMBER` profile on every protected request.
+Hosted cookies are HttpOnly, Secure and SameSite=Lax. Set `APP_ORIGIN` to the exact
+public HTTPS origin so mutation requests work behind Railway's proxy.
 
-The dashboard, its browser-facing APIs, and bookmarked `/app` URLs require the
-master session. Read AI and Firma webhooks keep their existing signature checks,
-and internal recovery/analysis routes keep their independent bearer secrets.
+The dashboard and browser-facing APIs require an active account. Read AI and
+Firma webhooks retain their signature checks; internal recovery/analysis routes
+retain their independent bearer secrets. There is no shared master-login bypass.
 
-The fixed staging actor is John Smith. The hosted database must contain the
-active John Smith profile with UUID
-`10000000-0000-4000-8000-000000000006` and role `TREASURER` before the UI can
-read, review, approve, or send meetings for signing. This temporary identity is
-accepted only when both `NODE_ENV=production` and
-`ANDA_ENVIRONMENT=staging`; other production environments fail closed.
+## ANDA-024 account and migration cutover
+
+1. Back up the staging database and apply all migrations in filename order,
+   including the four `20261003100...` migrations. Keep the discard enum addition
+   as its own committed migration before applying the discard function.
+2. Create Ernesto's Auth user and active `MEMBER/OFFICER` profile; create Richard's
+   Auth user and active `MEMBER/TREASURER` profile. Use client-confirmed email
+   addresses. Richard requires explicit `signing_first_name`, `signing_last_name`
+   and profile email for Firma. Passwords are manually issued for this milestone.
+   If an old dummy Treasurer is active, resolve that profile manually first: the
+   database permits only one active Treasurer. Do not alter old signature history.
+3. Operator setup can use `node --env-file=.env.staging scripts/provision-account.mjs
+   --email EMAIL --name "DISPLAY NAME" --role OFFICER`. Set a temporary
+   `ANDA_ACCOUNT_PASSWORD` environment variable (12+ characters) beforehand.
+   Treasurer additionally takes `--first-name` and `--last-name`. This creates a
+   confirmed Auth account without sending an invitation. Share credentials
+   privately, then clear the temporary password variable.
+4. Set `SUPABASE_PUBLISHABLE_KEY` and `APP_ORIGIN` in Railway and release this
+   branch through the normal development-to-staging process. No container or
+   private storage changes are required.
+5. Verify member upload/edit/prepare, officer approval/discard, Treasurer signing,
+   sign-out, session refresh and inactive-account denial against staging.
+6. Retire `MASTER_AUTH_USERNAME`, `MASTER_AUTH_PASSWORD`,
+   `ANDA_DEV_ACTOR_PROFILE_ID`, `ANDA_STAGING_ACTOR_PROFILE_ID`, and application
+   `SIGNING_TEST_SIGNER_*` settings. The new runtime never uses these fallbacks.
+
+New signing requests capture the Treasurer profile ID, explicit first/last name
+and email before any provider call. Delivery retries and outcomes use that frozen
+recipient. Existing provider envelopes with no snapshot are held for manual
+verification; do not automatically assign them to Richard. Preserve completed
+records' original `signed_by`, signature evidence and audit history. For a legacy
+pending envelope, confirm its PDF/version, provider reference, actual recipient
+and historical profile before an operator backfills the four recipient snapshot
+columns. Do not send a replacement envelope just to bypass this verification.
+
+The release adds soft discard for unapproved `AI_FAILED` and `PENDING_APPROVAL`
+records, including deferred drafts. Discarded records leave lists/detail/search;
+their source evidence and history remain frozen. There is no restore/trash UI.
+Production registration, invitation, password recovery and account administration
+remain outside this milestone. Client production provisioning is still undecided.
 
 ## Hosted Supabase
 
 Apply every committed migration to the staging Supabase project in filename
-order. Seed the required John Smith staging profile separately after migrations
+order. Provision the client-confirmed accounts separately after migrations
 have been applied. The local `supabase/seed.sql` is a development fixture and
 must not be applied wholesale to a client database unless all of its dummy
 profiles are intentionally wanted.
@@ -96,7 +123,7 @@ Redeploy if the Railway domain or any build-time variable changes.
 4. Select **Begin processing** and wait for the meeting to reach
    `PENDING_APPROVAL`.
 5. Review and edit minutes, attendance, and motions.
-6. Approve the minutes and open the generated Firma signing request.
+6. As Officer or Treasurer, approve the minutes. As Treasurer, open the generated Firma signing request.
 7. Sign the document and confirm the Firma callback moves it through archive to
    `COMPLETED`.
 

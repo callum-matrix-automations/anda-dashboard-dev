@@ -16,10 +16,10 @@ const input = {
     meetingDate: "2026-07-19",
     durationMinutes: 60,
   },
-  transcript: { language: "en-GB", content: "Eleanor Hughes: The motion carried." },
+  transcript: { language: "en-GB", content: "Ernesto: The motion carried." },
   participants: [{
     participantRef: "10000000-0000-4000-8000-000000000001",
-    displayName: "Eleanor Hughes",
+    displayName: "Ernesto",
   }],
 };
 
@@ -31,7 +31,7 @@ const draft: MeetingDraft = {
   },
   attendees: [{
     participantRef: "10000000-0000-4000-8000-000000000001",
-    displayName: "Eleanor Hughes",
+    displayName: "Ernesto",
   }],
   motions: [],
 };

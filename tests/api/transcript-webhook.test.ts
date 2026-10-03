@@ -15,10 +15,10 @@ const validPayload = {
   start_time: "2026-07-18T17:00:00.000Z",
   end_time: "2026-07-18T17:41:30.000Z",
   participants: [
-    { name: "Eleanor Hughes", first_name: "Eleanor", last_name: "Hughes", email: "eleanor@example.test" },
+    { name: "Ernesto", first_name: "Eleanor", last_name: "Hughes", email: "eleanor@example.test" },
     { name: "Marcus Patel", first_name: "Marcus", last_name: "Patel", email: null },
   ],
-  owner: { name: "Eleanor Hughes", first_name: "Eleanor", last_name: "Hughes", email: "eleanor@example.test" },
+  owner: { name: "Ernesto", first_name: "Eleanor", last_name: "Hughes", email: "eleanor@example.test" },
   summary: "Provider summary",
   action_items: [{ text: "Provider action" }],
   key_questions: [{ text: "Provider question?" }],
@@ -28,9 +28,9 @@ const validPayload = {
   transcript: {
     speaker_blocks: [
       { start_time: "1752858060000", end_time: "1752858065000", speaker: { name: "Marcus Patel" }, words: "Minutes confirmed." },
-      { start_time: "1752858000000", end_time: "1752858005000", speaker: { name: "Eleanor Hughes" }, words: "Meeting opened." },
+      { start_time: "1752858000000", end_time: "1752858005000", speaker: { name: "Ernesto" }, words: "Meeting opened." },
     ],
-    speakers: [{ name: "Eleanor Hughes" }, { name: "Marcus Patel" }],
+    speakers: [{ name: "Ernesto" }, { name: "Marcus Patel" }],
   },
   platform_meeting_id: "teams-meeting-test-001",
   platform: "teams",
@@ -70,13 +70,13 @@ describe("POST /api/webhooks/transcripts", () => {
         durationMinutes: 42,
       }),
       attendees: [
-        { displayName: "Eleanor Hughes", email: "eleanor@example.test" },
+        { displayName: "Ernesto", email: "eleanor@example.test" },
         { displayName: "Marcus Patel", email: null },
       ],
       transcript: expect.objectContaining({
         sourceTranscriptId: `read_ai:${validPayload.session_id}`,
         language: "und",
-        content: "Eleanor Hughes: Meeting opened.\nMarcus Patel: Minutes confirmed.",
+        content: "Ernesto: Meeting opened.\nMarcus Patel: Minutes confirmed.",
         metadata: expect.objectContaining({ provider: "read_ai" }),
       }),
     }));

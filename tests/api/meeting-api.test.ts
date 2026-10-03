@@ -3,6 +3,7 @@ import {
   createApproveMeetingHandler,
   createCheckMeetingSigningStatusHandler,
   createDeferMeetingHandler,
+  createDiscardMeetingDraftHandler,
   createMarkMeetingReadyHandler,
   createMeetingDetailHandler,
   createMeetingListHandler,
@@ -27,19 +28,16 @@ const userResolver = vi.fn().mockResolvedValue({
   profileId: attendeeId,
   displayName: "General Member",
   role: "USER" as const,
-  isAdmin: false,
 });
 const officerResolver = vi.fn().mockResolvedValue({
   profileId: officerId,
   displayName: "Board Officer",
   role: "OFFICER" as const,
-  isAdmin: false,
 });
 const treasurerResolver = vi.fn().mockResolvedValue({
   profileId: treasurerId,
   displayName: "Treasurer",
   role: "TREASURER" as const,
-  isAdmin: false,
 });
 
 describe("meeting controller authentication and reads", () => {
@@ -110,7 +108,8 @@ describe("meeting controller authentication and reads", () => {
     expect(response.status).toBe(200);
     expect(body).toMatchObject({ total: 1, limit: 1, offset: 0 });
     expect(body.items[0].capabilities).toMatchObject({
-      canEdit: true,
+      canDiscard: true,
+    canEdit: true,
       canApprove: true,
       canOpenSigningSession: false,
     });
@@ -250,6 +249,7 @@ describe("meeting controller authentication and reads", () => {
         externalRequestId: "firma-request-1",
         documentVersion: 4,
         outcomeStatus: "AWAITING",
+      recipientProfileId: treasurerId,
         recipientEmail: "treasurer@example.test",
       })
       .mockResolvedValueOnce({
@@ -259,6 +259,7 @@ describe("meeting controller authentication and reads", () => {
         externalRequestId: "firma-request-1",
         documentVersion: 4,
         outcomeStatus: "COMPLETION_FAILED",
+      recipientProfileId: treasurerId,
         recipientEmail: "treasurer@example.test",
       });
     const handler = createMeetingDetailHandler({ services, actorResolver: treasurerResolver });
@@ -282,6 +283,23 @@ describe("meeting controller authentication and reads", () => {
 });
 
 describe("meeting review and approval controllers", () => {
+  it("keeps approval and discard out of member access and uses the verified officer for discard", async () => {
+    const services = servicesMock();
+    const member = { services, actorResolver: userResolver };
+    expect((await createApproveMeetingHandler(member)(jsonRequest(`/api/meetings/${meetingId}/approve`, "POST", { expectedVersion: 4, acknowledgeUnresolvedVotes: false }), context(meetingId))).status).toBe(403);
+    expect((await createDiscardMeetingDraftHandler(member)(versionedRequest("discard"), context(meetingId))).status).toBe(403);
+    expect(services.discardMeetingDraft).not.toHaveBeenCalled();
+    services.discardMeetingDraft.mockResolvedValue({status:"discarded",meetingId,version:5});
+    const handler=createDiscardMeetingDraftHandler({services,actorResolver:officerResolver});
+    const response=await handler(versionedRequest("discard"),context(meetingId));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({action:"discarded",meetingId,version:5});
+    expect(services.discardMeetingDraft).toHaveBeenCalledWith({meetingId,expectedVersion:4,actorProfileId:officerId});
+    for (const status of ["conflict","protected","not_found"]) {
+      services.discardMeetingDraft.mockResolvedValue({status,meetingId,version:5});
+      expect((await handler(versionedRequest("discard"),context(meetingId))).status).toBe(status==="not_found"?404:409);
+    }
+  });
   it("does not accept actor identity from the client", async () => {
     const services = servicesMock();
     const handler = createSaveMeetingDraftHandler({ services, actorResolver: officerResolver });
@@ -313,15 +331,15 @@ describe("meeting review and approval controllers", () => {
     await expect(response.json()).resolves.toMatchObject({ action: "draft_saved", version: 5 });
   });
 
-  it("blocks ordinary members before any review service call", async () => {
+  it("allows ordinary members to resume review", async () => {
     const services = servicesMock();
     const handler = createResumeMeetingHandler({ services, actorResolver: userResolver });
     const response = await handler(jsonRequest(`/api/meetings/${meetingId}/resume`, "POST", {
       expectedVersion: 4,
     }), context(meetingId));
 
-    expect(response.status).toBe(403);
-    expect(services.resumeMeetingReview).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(services.resumeMeetingReview).toHaveBeenCalled();
   });
 
   it("exposes defer, resume, ready, approval, and PDF retry controller actions", async () => {
@@ -379,8 +397,8 @@ describe("meeting review and approval controllers", () => {
   it("authorizes and safely maps AI retry conflicts, invalid states, and failures", async () => {
     const services = servicesMock();
     const memberHandler = createRetryMeetingAnalysisHandler({ services, actorResolver: userResolver });
-    expect((await memberHandler(versionedRequest("analysis/retry"), context(meetingId))).status).toBe(403);
-    expect(services.retryMeetingAnalysis).not.toHaveBeenCalled();
+    expect((await memberHandler(versionedRequest("analysis/retry"), context(meetingId))).status).toBe(200);
+    expect(services.retryMeetingAnalysis).toHaveBeenCalled();
 
     services.retryMeetingAnalysis = vi.fn()
       .mockResolvedValueOnce({ status: "conflict", meetingId, version: 8, attempt: null })
@@ -509,7 +527,8 @@ describe("meeting signing controllers", () => {
 
 function servicesMock() {
   return {
-    listMeetingReviews: vi.fn().mockResolvedValue([summary()]),
+    discardMeetingDraft: vi.fn(),
+  listMeetingReviews: vi.fn().mockResolvedValue([summary()]),
     getMeetingReview: vi.fn().mockResolvedValue(detail()),
     listMeetingAttendeeOptions: vi.fn().mockResolvedValue([{
       profileId: attendeeId,
@@ -545,6 +564,7 @@ function servicesMock() {
       externalRequestId: "firma-request-1",
       documentVersion: 4,
       outcomeStatus: "AWAITING",
+      recipientProfileId: treasurerId,
       providerStatus: "in_progress",
       recipientId: "firma-recipient-1",
       recipientEmail: "treasurer@example.test",
@@ -557,6 +577,7 @@ function servicesMock() {
       externalRequestId: "firma-request-1",
       documentVersion: 4,
       outcomeStatus: "AWAITING",
+      recipientProfileId: treasurerId,
       recipientEmail: "treasurer@example.test",
     }),
     retryMeetingSigning: vi.fn().mockResolvedValue({

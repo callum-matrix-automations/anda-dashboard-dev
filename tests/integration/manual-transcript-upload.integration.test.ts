@@ -22,9 +22,8 @@ const localIntegrationConfigured = isLoopbackUrl(apiUrl)
 
 const actor: ServerActor = {
   profileId: "10000000-0000-4000-8000-000000000001",
-  displayName: "Eleanor Hughes",
+  displayName: "Ernesto",
   role: "OFFICER",
-  isAdmin: true,
 };
 
 describe.skipIf(!localIntegrationConfigured)("manual transcript upload workflow", () => {
@@ -62,9 +61,9 @@ describe.skipIf(!localIntegrationConfigured)("manual transcript upload workflow"
     );
     expect(analysisInput!.participants).toHaveLength(5);
     expect(analysisInput!.participants.map((participant) => participant.displayName)).toEqual(expect.arrayContaining([
-      "Eleanor Hughes",
+      "Ernesto",
       "Marcus Patel",
-      "Priya Shah",
+      "James Wilson",
       "Daniel Brooks",
       "Amelia Clarke",
     ]));
@@ -104,7 +103,7 @@ describe.skipIf(!localIntegrationConfigured)("manual transcript upload workflow"
     expect(attendees).toHaveLength(5);
     expect(attendees).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        display_name_snapshot: "Eleanor Hughes",
+        display_name_snapshot: "Ernesto",
         source_email_snapshot: null,
       }),
       expect.objectContaining({
@@ -241,9 +240,9 @@ function deterministicDraft(input: MeetingAnalysisInput): MeetingDraft {
     if (!match) throw new Error(`Missing expected manual transcript participant: ${displayName}`);
     return match.participantRef;
   };
-  const eleanor = participant("Eleanor Hughes");
+  const eleanor = participant("Ernesto");
   const marcus = participant("Marcus Patel");
-  const priya = participant("Priya Shah");
+  const priya = participant("James Wilson");
   const daniel = participant("Daniel Brooks");
   const amelia = participant("Amelia Clarke");
 

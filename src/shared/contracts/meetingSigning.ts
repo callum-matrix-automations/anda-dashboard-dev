@@ -39,6 +39,8 @@ export const MeetingSigningClaimSchema = z.discriminatedUnion("status", [
     pdfSha256: z.string().regex(/^[a-f0-9]{64}$/u),
     pdfSizeBytes: z.number().int().positive(),
     documentVersion: z.number().int().positive(),
+    recipient: SigningRecipientSchema,
+    recipientProfileId: z.string().uuid(),
     requestName: z.string().trim().min(1).max(255),
     externalRequestId: z.string().trim().min(1).nullable(),
   }).strict(),
@@ -102,6 +104,7 @@ export const SignedDocumentSchema = z.object({
 export const MeetingSigningOutcomeClaimSchema = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("claimed"),
+    recipientEmail: z.string().email(),
     eventId: z.string().trim().min(1).nullable(),
     eventRecordId: z.string().uuid().nullable(),
     meetingId: z.string().uuid(),
@@ -140,6 +143,7 @@ export const MeetingSigningSessionRecordSchema = z.discriminatedUnion("status", 
     externalRequestId: z.string().trim().min(1),
     documentVersion: z.number().int().positive(),
     outcomeStatus: z.enum(SIGNING_OUTCOME_STATUSES),
+    recipientProfileId: z.string().uuid().nullable(),
     recipientEmail: z.string().email().nullable(),
   }).strict(),
   z.object({

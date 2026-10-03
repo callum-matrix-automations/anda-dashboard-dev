@@ -13,9 +13,8 @@ const liveConfigured = isLoopbackUrl(apiUrl)
 
 const actor: ServerActor = {
   profileId: "10000000-0000-4000-8000-000000000001",
-  displayName: "Eleanor Hughes",
+  displayName: "Ernesto",
   role: "OFFICER",
-  isAdmin: true,
 };
 
 describe.skipIf(!liveConfigured)("live manual transcript upload workflow", () => {
@@ -35,9 +34,9 @@ describe.skipIf(!liveConfigured)("live manual transcript upload workflow", () =>
     ]);
 
     expect(attendees.map((attendee) => attendee.display_name_snapshot)).toEqual(expect.arrayContaining([
-      "Eleanor Hughes",
+      "Ernesto",
       "Marcus Patel",
-      "Priya Shah",
+      "James Wilson",
       "Daniel Brooks",
       "Amelia Clarke",
     ]));

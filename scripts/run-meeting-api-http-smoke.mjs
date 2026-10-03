@@ -6,8 +6,9 @@ const port = Number(process.env.ANDA_API_SMOKE_PORT ?? "3011");
 if (!Number.isInteger(port) || port < 1 || port > 65_535) {
   throw new Error("ANDA_API_SMOKE_PORT must be a valid TCP port.");
 }
-const developmentActorProfileId = process.env.ANDA_DEV_ACTOR_PROFILE_ID?.trim()
-  || "10000000-0000-4000-8000-000000000001";
+const email = process.env.ANDA_SMOKE_EMAIL || "ernesto@example.com";
+const password = process.env.ANDA_SMOKE_PASSWORD || "local-only-password";
+let sessionCookies = "";
 
 const baseUrl = `http://127.0.0.1:${port}`;
 let nextProcess;
@@ -22,12 +23,18 @@ try {
     cwd: process.cwd(),
     env: {
       ...process.env,
-      ANDA_DEV_ACTOR_PROFILE_ID: developmentActorProfileId,
+      APP_ORIGIN: baseUrl,
+      ANDA_NEXT_DIST_DIR: ".next-api-smoke",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
   pipeOutput(nextProcess, "next");
   await waitForServer(`${baseUrl}/api/meetings?limit=1`, nextProcess);
+
+  await expectJson(`${baseUrl}/api/meetings?limit=1`, 401);
+  const login = await fetch(`${baseUrl}/api/auth/login`, {method:"POST",headers:{"content-type":"application/json",origin:baseUrl},body:JSON.stringify({email,password})});
+  if (!login.ok) throw new Error(`Account smoke login failed with HTTP ${login.status}.`);
+  sessionCookies = login.headers.getSetCookie().map(cookie => cookie.split(";")[0]).join("; ");
 
   const list = await expectJson(`${baseUrl}/api/meetings?limit=1`, 200);
   if (!Array.isArray(list.items) || typeof list.total !== "number") {
@@ -82,7 +89,7 @@ async function waitForServer(url, child) {
 }
 
 async function expectJson(url, expectedStatus, init) {
-  const response = await fetch(url, init);
+  const response = await fetch(url, { ...init, headers: { ...init?.headers, ...(sessionCookies ? {cookie: sessionCookies} : {}) } });
   const text = await response.text();
   let body;
   try {

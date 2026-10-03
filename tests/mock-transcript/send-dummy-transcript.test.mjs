@@ -19,7 +19,7 @@ describe("Read AI dummy transcript sender", () => {
     });
     expect(packet.participants).toHaveLength(5);
     expect(packet.participants.slice(0, 2)).toEqual([
-      expect.objectContaining({ name: "Eleanor Hughes", email: "eleanor.hughes@example.test" }),
+      expect.objectContaining({ name: "Ernesto", email: "ernesto@example.com" }),
       expect.objectContaining({ name: "Marcus Patel", email: "marcus.patel@example.test" }),
     ]);
     expect(packet.transcript.speaker_blocks.length).toBeGreaterThan(100);

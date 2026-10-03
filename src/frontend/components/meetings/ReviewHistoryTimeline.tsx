@@ -4,6 +4,7 @@ import { newestFirst } from "@/frontend/presentation/history";
 type HistoryEntry = MeetingApiDetail["history"][number];
 
 const actionLabel: Record<HistoryEntry["action"], string> = {
+  DISCARDED: "Draft discarded",
   EDIT_SAVED: "Draft edited",
   MARKED_READY: "Marked ready for review",
   DEFERRED: "Review deferred",

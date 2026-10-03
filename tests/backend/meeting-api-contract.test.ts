@@ -46,7 +46,7 @@ describe("meeting HTTP contracts", () => {
 
   it("requires source participant match state to agree with its profile link", () => {
     expect(MeetingApiSourceParticipantSchema.safeParse({
-      displayName: "Eleanor Hughes",
+      displayName: "Ernesto",
       email: "eleanor@example.test",
       profileId,
       matchStatus: "matched",

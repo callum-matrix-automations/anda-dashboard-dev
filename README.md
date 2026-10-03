@@ -2,8 +2,8 @@
 
 ## Application structure
 
-The repository currently contains the Next.js frontend and browser-safe API
-contracts. The previous in-browser repository simulation, fixture records,
+The repository contains a Next.js modular monolith: the frontend, browser-safe
+contracts, backend services, Supabase persistence and external integrations. The previous in-browser repository simulation, fixture records,
 lifecycle engine, fake permissions, and demo authentication have been removed.
 
 ```text
@@ -24,10 +24,29 @@ src/
 Frontend code may import only `src/frontend` and `src/shared`. It must not
 contain authoritative lifecycle, authorization, persistence, integration, or
 credential-handling logic. Data-backed screens call typed `/api/...` endpoints
-and intentionally show an unavailable state until those endpoints are built.
+and show an unavailable state when the backend cannot be reached.
 
 The `supabase/` directory contains the local database infrastructure and atomic
 transcript-ingestion operation used by the backend.
+
+## Accounts and roles
+
+The app uses Supabase email/password accounts with a server-verified active profile.
+Members can view, upload, edit and prepare drafts. Officers and the Treasurer can
+approve and discard; only the Treasurer can open signing sessions or reject them.
+There are no registration, account administration or Microsoft OAuth flows in this
+milestone. See [staging setup](docs/deployment/railway-staging.md) for manual account
+provisioning, the four migrations, environment changes and legacy signing requests.
+
+`APP_ORIGIN` must match the browser's public origin. `SUPABASE_PUBLISHABLE_KEY`
+configures Auth; `SUPABASE_SECRET_KEY` stays on the server. Local seeded accounts
+use `local-only-password`; these fixtures must never be loaded into client staging.
+The local role-test logins are `ernesto@example.com` (Officer),
+`richard@example.com` (Treasurer), and `james.wilson@example.com` (User).
+These reserved example addresses are confirmed locally and require no mailbox.
+Run `npm.cmd run test:accounts` with local Supabase for the account/discard tests.
+When running a second local test server, set `ANDA_NEXT_DIST_DIR` to a distinct
+`.next-*` directory to keep it separate from the port-3000 dev output.
 
 ## Read AI transcript sender
 

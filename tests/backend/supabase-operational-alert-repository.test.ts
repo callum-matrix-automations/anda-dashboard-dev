@@ -92,6 +92,7 @@ describe("Supabase operational alert repository", () => {
   it("atomically claims stale signing work for overlapping schedulers", async () => {
     const fetchImplementation = vi.fn().mockResolvedValue(Response.json([{
       status: "claimed",
+      recipientEmail: "treasurer@example.test",
       eventId: null,
       eventRecordId: null,
       meetingId,

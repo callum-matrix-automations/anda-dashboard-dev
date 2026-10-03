@@ -8,7 +8,6 @@ const actor = {
   profileId: "11111111-1111-4111-8111-111111111111",
   displayName: "Board Officer",
   role: "OFFICER" as const,
-  isAdmin: false,
 };
 const meetingId = "22222222-2222-4222-8222-222222222222";
 const transcriptId = "33333333-3333-4333-8333-333333333333";
@@ -39,9 +38,9 @@ describe("manual transcript upload", () => {
       meetingDate: "2026-07-22",
       durationMinutes: 75,
       transcript: [
-        "Eleanor Hughes: Welcome to the meeting.",
+        "Ernesto: Welcome to the meeting.",
         "Marcus Patel: I second the motion.",
-        "Eleanor Hughes: The motion is carried.",
+        "Ernesto: The motion is carried.",
       ].join("\n"),
     }, actor)).resolves.toMatchObject({
       status: "pending_approval",
@@ -62,7 +61,7 @@ describe("manual transcript upload", () => {
         durationMinutes: 75,
       }),
       attendees: [
-        { displayName: "Eleanor Hughes", email: null },
+        { displayName: "Ernesto", email: null },
         { displayName: "Marcus Patel", email: null },
       ],
       transcript: expect.objectContaining({

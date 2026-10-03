@@ -36,6 +36,10 @@ export function createMeetingReviewService(repository: MeetingReviewRepository) 
       return repository.deferReview(DeferMeetingReviewCommandSchema.parse(command));
     },
 
+    discardMeetingDraft(command: ResumeMeetingReviewCommand) {
+      return repository.discardDraft(ResumeMeetingReviewCommandSchema.parse(command));
+    },
+
     resumeMeetingReview(command: ResumeMeetingReviewCommand) {
       return repository.resumeReview(ResumeMeetingReviewCommandSchema.parse(command));
     },

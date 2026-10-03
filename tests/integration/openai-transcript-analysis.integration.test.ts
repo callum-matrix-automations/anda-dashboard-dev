@@ -57,9 +57,9 @@ describe.skipIf(!openAiConfigured)("live OpenAI transcript analysis", () => {
         content: packet.transcript.content,
       },
       participants: [
-        { participantRef: "10000000-0000-4000-8000-000000000001", displayName: "Eleanor Hughes" },
+        { participantRef: "10000000-0000-4000-8000-000000000001", displayName: "Ernesto" },
         { participantRef: "10000000-0000-4000-8000-000000000002", displayName: "Marcus Patel" },
-        { participantRef: "10000000-0000-4000-8000-000000000003", displayName: "Priya Shah" },
+        { participantRef: "10000000-0000-4000-8000-000000000003", displayName: "James Wilson" },
         { participantRef: "10000000-0000-4000-8000-000000000004", displayName: "Daniel Brooks" },
         { participantRef: "10000000-0000-4000-8000-000000000005", displayName: "Amelia Clarke" },
       ],

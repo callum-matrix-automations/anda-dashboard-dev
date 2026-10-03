@@ -20,11 +20,11 @@ values
     '10000000-0000-4000-8000-000000000001',
     'authenticated',
     'authenticated',
-    'eleanor.hughes@example.test',
+    'ernesto@example.com',
     extensions.crypt('local-only-password', extensions.gen_salt('bf')),
     now(),
     '{"provider":"email","providers":["email"]}'::jsonb,
-    '{"display_name":"Eleanor Hughes"}'::jsonb,
+    '{"display_name":"Ernesto"}'::jsonb,
     now(),
     now()
   ),
@@ -46,11 +46,11 @@ values
     '10000000-0000-4000-8000-000000000003',
     'authenticated',
     'authenticated',
-    'priya.shah@example.test',
+    'james.wilson@example.com',
     extensions.crypt('local-only-password', extensions.gen_salt('bf')),
     now(),
     '{"provider":"email","providers":["email"]}'::jsonb,
-    '{"display_name":"Priya Shah"}'::jsonb,
+    '{"display_name":"James Wilson"}'::jsonb,
     now(),
     now()
   ),
@@ -85,11 +85,11 @@ values
     '10000000-0000-4000-8000-000000000006',
     'authenticated',
     'authenticated',
-    'john.smith@example.test',
+    'richard@example.com',
     extensions.crypt('local-only-password', extensions.gen_salt('bf')),
     now(),
     '{"provider":"email","providers":["email"]}'::jsonb,
-    '{"display_name":"John Smith"}'::jsonb,
+    '{"display_name":"Richard"}'::jsonb,
     now(),
     now()
   )
@@ -105,12 +105,12 @@ insert into public.profiles (
   account_status
 )
 values
-  ('10000000-0000-4000-8000-000000000001', 'MEMBER', 'OFFICER', true, 'Eleanor Hughes', 'eleanor.hughes@example.test', 'ACTIVE'),
+  ('10000000-0000-4000-8000-000000000001', 'MEMBER', 'OFFICER', true, 'Ernesto', 'ernesto@example.com', 'ACTIVE'),
   ('10000000-0000-4000-8000-000000000002', 'MEMBER', 'OFFICER', false, 'Marcus Patel', 'marcus.patel@example.test', 'ACTIVE'),
-  ('10000000-0000-4000-8000-000000000003', 'MEMBER', 'USER', false, 'Priya Shah', 'priya.shah@example.test', 'ACTIVE'),
+  ('10000000-0000-4000-8000-000000000003', 'MEMBER', 'USER', false, 'James Wilson', 'james.wilson@example.com', 'ACTIVE'),
   ('10000000-0000-4000-8000-000000000004', 'MEMBER', 'USER', false, 'Daniel Brooks', 'daniel.brooks@example.test', 'ACTIVE'),
   ('10000000-0000-4000-8000-000000000005', 'MEMBER', 'USER', false, 'Amelia Clarke', 'amelia.clarke@example.test', 'ACTIVE'),
-  ('10000000-0000-4000-8000-000000000006', 'MEMBER', 'TREASURER', false, 'John Smith', 'john.smith@example.test', 'ACTIVE')
+  ('10000000-0000-4000-8000-000000000006', 'MEMBER', 'TREASURER', false, 'Richard', 'richard@example.com', 'ACTIVE')
 on conflict (id) do update set
   account_type = excluded.account_type,
   member_role = excluded.member_role,
@@ -118,3 +118,9 @@ on conflict (id) do update set
   display_name = excluded.display_name,
   email = excluded.email,
   account_status = excluded.account_status;
+
+-- Seeded users must match Auth's non-null token expectations. These are local-only fixtures.
+update auth.users set confirmation_token='', recovery_token='', email_change_token_new='', email_change='', email_change_token_current=''
+where id::text like '10000000-0000-4000-8000-00000000000%';
+update public.profiles set signing_first_name='Richard', signing_last_name='Smith'
+where id='10000000-0000-4000-8000-000000000006';

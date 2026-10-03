@@ -28,9 +28,9 @@ describe.skipIf(!localIntegrationConfigured)("local Supabase transcript ingestio
         durationMinutes: 60,
       },
       attendees: [
-        { displayName: "  Source   Eleanor ", email: " ELEANOR.HUGHES@EXAMPLE.TEST " },
+        { displayName: "  Source   Eleanor ", email: " ERNESTO@EXAMPLE.COM " },
         { displayName: "Marcus from Read", email: "marcus.patel@example.test" },
-        { displayName: "Eleanor Hughes" },
+        { displayName: "Ernesto" },
         { displayName: "Unmatched Visitor", email: "unknown@example.test" },
         { displayName: "Malformed Visitor", email: "not-an-email" },
       ],
@@ -45,9 +45,9 @@ describe.skipIf(!localIntegrationConfigured)("local Supabase transcript ingestio
           requestId: `request_${suffix}`,
           platformMeetingId: `platform_${suffix}`,
           participants: [
-            { name: "  Source   Eleanor ", email: " ELEANOR.HUGHES@EXAMPLE.TEST " },
+            { name: "  Source   Eleanor ", email: " ERNESTO@EXAMPLE.COM " },
             { name: "Marcus from Read", email: "marcus.patel@example.test" },
-            { name: "Eleanor Hughes", email: null },
+            { name: "Ernesto", email: null },
             { name: "Unmatched Visitor", email: "unknown@example.test" },
             { name: "Malformed Visitor", email: "not-an-email" },
           ],
@@ -85,9 +85,9 @@ describe.skipIf(!localIntegrationConfigured)("local Supabase transcript ingestio
         requestId: `request_${suffix}`,
         platformMeetingId: `platform_${suffix}`,
         participants: [
-          { name: "  Source   Eleanor ", email: " ELEANOR.HUGHES@EXAMPLE.TEST " },
+          { name: "  Source   Eleanor ", email: " ERNESTO@EXAMPLE.COM " },
           { name: "Marcus from Read", email: "marcus.patel@example.test" },
-          { name: "Eleanor Hughes", email: null },
+          { name: "Ernesto", email: null },
           { name: "Unmatched Visitor", email: "unknown@example.test" },
           { name: "Malformed Visitor", email: "not-an-email" },
         ],
@@ -98,7 +98,7 @@ describe.skipIf(!localIntegrationConfigured)("local Supabase transcript ingestio
       {
         profile_id: "10000000-0000-4000-8000-000000000001",
         display_name_snapshot: "Source Eleanor",
-        source_email_snapshot: "eleanor.hughes@example.test",
+        source_email_snapshot: "ernesto@example.com",
       },
       {
         profile_id: "10000000-0000-4000-8000-000000000002",
@@ -107,7 +107,7 @@ describe.skipIf(!localIntegrationConfigured)("local Supabase transcript ingestio
       },
       {
         profile_id: null,
-        display_name_snapshot: "Eleanor Hughes",
+        display_name_snapshot: "Ernesto",
         source_email_snapshot: null,
       },
       {

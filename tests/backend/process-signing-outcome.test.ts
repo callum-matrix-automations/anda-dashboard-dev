@@ -217,7 +217,8 @@ describe("signing outcome processor", () => {
     const repository = repositoryMock();
     repository.claimWebhook = vi.fn().mockResolvedValue({
       status: "already_completed",
-      eventId: "evt_1",
+      recipientEmail: "treasurer@example.test",
+    eventId: "evt_1",
       attempt: 1,
     });
     const provider = providerMock();
@@ -239,6 +240,7 @@ function alertServiceMock() {
 function claim(overrides: Partial<Extract<MeetingSigningOutcomeClaim, { status: "claimed" }>> = {}) {
   return {
     status: "claimed" as const,
+    recipientEmail: "treasurer@example.test",
     eventId: "evt_1",
     eventRecordId,
     meetingId,

@@ -6,10 +6,10 @@
   "end_time": "2026-07-25T19:00:00.000Z",
   "participants": [
     {
-      "name": "Eleanor Hughes",
-      "first_name": "Eleanor",
-      "last_name": "Hughes",
-      "email": "eleanor.hughes@example.test"
+      "name": "Ernesto",
+      "first_name": "Ernesto",
+      "last_name": null,
+      "email": "ernesto@example.com"
     },
     {
       "name": "Marcus Patel",
@@ -18,10 +18,10 @@
       "email": "marcus.patel@example.test"
     },
     {
-      "name": "Priya Shah",
-      "first_name": "Priya",
-      "last_name": "Shah",
-      "email": "priya.shah@example.test"
+      "name": "James Wilson",
+      "first_name": "James",
+      "last_name": "Wilson",
+      "email": "james.wilson@example.com"
     },
     {
       "name": "Daniel Brooks",
@@ -37,10 +37,10 @@
     }
   ],
   "owner": {
-    "name": "Eleanor Hughes",
-    "first_name": "Eleanor",
-    "last_name": "Hughes",
-    "email": "eleanor.hughes@example.test"
+    "name": "Ernesto",
+    "first_name": "Ernesto",
+    "last_name": null,
+    "email": "ernesto@example.com"
   },
   "summary": "A fictional board meeting covering governance, finance, maintenance, procurement and officer training.",
   "action_items": [
@@ -65,9 +65,9 @@
   "transcript": {
     "speaker_blocks": [],
     "speakers": [
-      { "name": "Eleanor Hughes" },
+      { "name": "Ernesto" },
       { "name": "Marcus Patel" },
-      { "name": "Priya Shah" },
+      { "name": "James Wilson" },
       { "name": "Daniel Brooks" },
       { "name": "Amelia Clarke" }
     ]

@@ -11,7 +11,6 @@ const actorResolver = vi.fn().mockResolvedValue({
   profileId,
   displayName: "Active Member",
   role: "USER" as const,
-  isAdmin: false,
 });
 
 describe("operational recovery APIs", () => {

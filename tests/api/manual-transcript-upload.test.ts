@@ -6,7 +6,6 @@ const officer = {
   profileId: "11111111-1111-4111-8111-111111111111",
   displayName: "Board Officer",
   role: "OFFICER" as const,
-  isAdmin: false,
 };
 const member = { ...officer, role: "USER" as const };
 const meetingId = "22222222-2222-4222-8222-222222222222";
@@ -18,8 +17,8 @@ const validBody = {
 };
 
 describe("manual transcript upload API", () => {
-  it("requires an authenticated reviewer", async () => {
-    const processUpload = vi.fn();
+  it("allows authenticated members to upload", async () => {
+    const processUpload = vi.fn().mockResolvedValue({status:"pending_approval", meetingId, analysisAttempt:1, normalization:normalizationSummary()});
     const unauthenticated = createManualTranscriptUploadHandler({
       actorResolver: vi.fn().mockResolvedValue(null),
       processUpload,
@@ -30,8 +29,8 @@ describe("manual transcript upload API", () => {
     });
 
     expect((await unauthenticated(request(validBody))).status).toBe(401);
-    expect((await forbidden(request(validBody))).status).toBe(403);
-    expect(processUpload).not.toHaveBeenCalled();
+    expect((await forbidden(request(validBody))).status).toBe(200);
+    expect(processUpload).toHaveBeenCalledWith(validBody, member);
   });
 
   it("validates the upload and passes server-resolved actor attribution to processing", async () => {

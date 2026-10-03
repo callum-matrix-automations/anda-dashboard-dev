@@ -1,9 +1,11 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   useApproveMeeting,
   useDeferMeeting,
+  useDiscardMeeting,
   useMarkMeetingReady,
   useResumeMeeting,
 } from "@/frontend/hooks/useApi";
@@ -30,7 +32,7 @@ interface MeetingReviewActionsProps {
 }
 
 export function MeetingReviewActions({ meeting, editing, onGoToMotions, onFeedback }: MeetingReviewActionsProps) {
-  const [dialog, setDialog] = useState<"defer" | "approve" | null>(null);
+  const [dialog, setDialog] = useState<"defer" | "approve" | "discard" | null>(null);
   const resume = useResumeMeeting();
   const markReady = useMarkMeetingReady();
   const anyPending = resume.isPending || markReady.isPending;
@@ -54,12 +56,14 @@ export function MeetingReviewActions({ meeting, editing, onGoToMotions, onFeedba
   const hasReviewAction = meeting.capabilities.canDefer
     || meeting.capabilities.canResume
     || meeting.capabilities.canMarkReady
-    || meeting.capabilities.canApprove;
+    || meeting.capabilities.canApprove
+    || meeting.capabilities.canDiscard;
   if (!hasReviewAction) return null;
 
   return (
     <>
       <div className="flex flex-wrap justify-end gap-2 border-t border-border p-4">
+        {meeting.capabilities.canDiscard && <Button type="button" size="sm" variant="outline" disabled={anyPending} onClick={() => setDialog("discard")}>Discard draft</Button>}
         {meeting.capabilities.canDefer && <Button type="button" size="sm" variant="outline" className="!font-bold" disabled={anyPending} onClick={() => setDialog("defer")}>Defer review</Button>}
         {meeting.capabilities.canResume && <Button type="button" size="sm" variant="outline" loading={resume.isPending} disabled={anyPending} onClick={runResume}>{resume.isPending ? "Resuming..." : "Resume review"}</Button>}
         {meeting.capabilities.canMarkReady && (
@@ -69,9 +73,38 @@ export function MeetingReviewActions({ meeting, editing, onGoToMotions, onFeedba
         )}
         {meeting.capabilities.canApprove && <Button type="button" size="sm" className="!font-bold" disabled={anyPending} onClick={() => setDialog("approve")}>Approve minutes</Button>}
       </div>
+      <DiscardDialog open={dialog === "discard"} meeting={meeting} dismiss={() => setDialog(null)} onFeedback={onFeedback} />
       <DeferDialog open={dialog === "defer"} meeting={meeting} dismiss={() => setDialog(null)} onFeedback={onFeedback} />
       <ApproveDialog open={dialog === "approve"} meeting={meeting} dismiss={() => setDialog(null)} onFeedback={onFeedback} onGoToMotions={onGoToMotions} />
     </>
+  );
+}
+
+function DiscardDialog({ open, meeting, dismiss }: DialogProps) {
+  const discard = useDiscardMeeting();
+  const router = useRouter();
+  const [error, setError] = useState("");
+  const submit = () => discard.mutate(
+    { meetingId: meeting.id, expectedVersion: meeting.version },
+    {
+      onSuccess: () => { dismiss(); router.replace("/app/meetings"); },
+      onError: (failure) => setError(meetingMutationErrorMessage(failure)),
+    },
+  );
+  return (
+    <Dialog open={open} onOpenChange={(next) => { if (!next && !discard.isPending) dismiss(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Discard this draft?</DialogTitle>
+          <DialogDescription>This removes the draft from meeting lists and search. Its transcript and history are retained. You cannot restore it from the dashboard.</DialogDescription>
+        </DialogHeader>
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        <DialogFooter>
+          <Button type="button" variant="ghost" disabled={discard.isPending} onClick={dismiss}>Cancel</Button>
+          <Button type="button" loading={discard.isPending} disabled={discard.isPending} onClick={submit}>Discard draft</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
