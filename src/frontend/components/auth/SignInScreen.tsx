@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/frontend/components/design-system/primitives/button";
 
-export function MasterSignInScreen({
+export function SignInScreen({
   returnTo,
   configurationError = false,
 }: {
@@ -13,19 +13,19 @@ export function MasterSignInScreen({
   configurationError?: boolean;
 }) {
   const router = useRouter();
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(
-    configurationError ? "Master login has not been configured for this environment." : "",
+    configurationError ? "Account sign-in is currently unavailable." : "",
   );
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    if (!username.trim() || !password) {
-      setError("Enter your username and password.");
+    if (!email.trim() || !password) {
+      setError("Enter your email address and password.");
       return;
     }
 
@@ -34,7 +34,7 @@ export function MasterSignInScreen({
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
       });
       const body = await response.json().catch(() => null) as {
         error?: { message?: string };
@@ -69,21 +69,21 @@ export function MasterSignInScreen({
         <div className="mb-6">
           <p className="mb-2 text-[.68rem] font-bold uppercase tracking-[.16em] text-secondary">Restricted access</p>
           <h1 id="sign-in-title" className="text-2xl font-semibold">Sign in to continue</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Use the master dashboard credentials supplied by the association.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Use your association account to access meeting records.</p>
         </div>
 
         <form className="grid gap-4" onSubmit={submit} noValidate>
           <label className="grid gap-1.5 text-sm font-medium">
-            Username
+            Email address
             <input
               className="h-11 rounded-md border border-input bg-background px-3 text-sm outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/25"
-              name="username"
-              type="text"
+              name="email"
+              type="email"
               autoComplete="username"
               autoCapitalize="none"
               spellCheck={false}
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
               disabled={submitting}
             />
           </label>

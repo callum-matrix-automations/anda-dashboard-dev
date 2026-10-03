@@ -22,14 +22,10 @@ export const ROLES = ["user", "officer", "treasurer"] as const;
 export const RoleSchema = z.enum(ROLES);
 export type Role = z.infer<typeof RoleSchema>;
 
-// AIDEV-NOTE: Account Admin is an independent flag. Superadmin is an internal-only
-// identity with no meeting access and is deliberately outside role inheritance.
 export const ViewerSchema = z.object({
   id: z.string(),
   name: z.string(),
   role: RoleSchema,
-  isAdmin: z.boolean(),
-  isSuperadmin: z.boolean(),
 });
 export type Viewer = z.infer<typeof ViewerSchema>;
 
@@ -198,7 +194,6 @@ export const MemberSchema = z.object({
   name: z.string(),
   email: z.string(),
   role: RoleSchema,
-  isAdmin: z.boolean(),
   active: z.boolean(),
   position: z.string(),
   termEnd: z.string(), // ISO date

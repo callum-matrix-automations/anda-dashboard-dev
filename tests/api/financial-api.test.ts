@@ -21,9 +21,8 @@ import {
 
 const actorResolver = vi.fn().mockResolvedValue({
   profileId: financialActorId,
-  displayName: "Priya Shah",
+  displayName: "James Wilson",
   role: "USER" as const,
-  isAdmin: false,
 });
 
 describe("financial API handlers", () => {

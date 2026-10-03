@@ -45,7 +45,7 @@ const TranscriptRowSchema = z.object({
 });
 
 const AttendeeRowSchema = z.object({
-  profile_id: z.string().uuid(),
+  profile_id: z.string().uuid().nullable(),
   display_name_snapshot: z.string(),
   source_email_snapshot: z.string().nullable(),
 });

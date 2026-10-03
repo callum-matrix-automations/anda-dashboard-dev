@@ -57,7 +57,7 @@ function createDraft(): MeetingDraft {
       sections: [{ heading: "Opening", content: "The chair opened the meeting." }],
     },
     attendees: [
-      { participantRef: "profile_001", displayName: "Eleanor Hughes" },
+      { participantRef: "profile_001", displayName: "Ernesto" },
       { participantRef: "profile_002", displayName: "Marcus Patel" },
     ],
     motions: [{

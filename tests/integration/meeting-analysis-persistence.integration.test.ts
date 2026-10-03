@@ -14,7 +14,7 @@ const marcusId = "10000000-0000-4000-8000-000000000002";
 
 describe.skipIf(!localIntegrationConfigured)("local Supabase meeting analysis persistence", () => {
   it("atomically stores minutes, motions, and votes without changing source evidence", async () => {
-    const sourceContent = "Eleanor Hughes: I move. Marcus Patel: I second. The decision is recorded.";
+    const sourceContent = "Ernesto: I move. Marcus Patel: I second. The decision is recorded.";
     const stored = await createStoredMeeting(sourceContent);
     const repository = createSupabaseMeetingAnalysisRepository({ apiUrl, secretKey });
     const claimed = await repository.claimAnalysis(stored.meetingId);
@@ -137,7 +137,7 @@ function analysisDraft(): MeetingDraft {
       sections: [{ heading: "Decisions", content: "One motion carried, one was tabled, and one remained unresolved." }],
     },
     attendees: [
-      { participantRef: eleanorId, displayName: "Eleanor Hughes" },
+      { participantRef: eleanorId, displayName: "Ernesto" },
       { participantRef: marcusId, displayName: "Marcus Patel" },
     ],
     motions: [
@@ -188,7 +188,7 @@ async function createStoredMeeting(content: string) {
       durationMinutes: 60,
     },
     attendees: [
-      { displayName: "Eleanor Hughes", email: "eleanor.hughes@example.test" },
+      { displayName: "Ernesto", email: "ernesto@example.com" },
       { displayName: "Marcus Patel", email: "marcus.patel@example.test" },
     ],
     transcript: {

@@ -86,7 +86,8 @@ function meetingWithPdf(): MeetingApiDetail {
     pdfAttempt: 1,
     updatedAt: "2026-07-21T11:00:02.000Z",
     capabilities: {
-      canEdit: false, canDefer: false, canResume: false, canMarkReady: false, canRetryAnalysis: false,
+      canDiscard: false,
+    canEdit: false, canDefer: false, canResume: false, canMarkReady: false, canRetryAnalysis: false,
       canApprove: false, canRetryPdf: false, canOpenSigningSession: true, canRetrySigning: false,
       canRejectSigning: true, canCheckSigningStatus: true, canRetrySigningOutcome: false, canDownloadArchive: false,
     },

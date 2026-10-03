@@ -22,8 +22,7 @@ import { cn } from "@/frontend/components/design-system/lib/utils";
 
 // AIDEV-NOTE: Headless TanStack Table for the operational queues. The markup and ANDA
 // styling stay under our control (design-system Table primitive); TanStack only supplies
-// sorting/model. The action routing (meetingActionFor) and responsive mobile card list are
-// unchanged from the DaisyUI original so queue workflows keep working.
+// sorting/model. Queue action labels and routes also respect each record's server capabilities.
 
 function meetingDate(date: string): string {
   return new Date(`${date}T12:00:00`).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
@@ -84,7 +83,7 @@ export function MeetingTable({
         header: () => <span className="sr-only">Action</span>,
         enableSorting: false,
         cell: ({ row }) => {
-          const action = meetingActionFor(row.original.status, row.original.id, { browseAll, reviewAccess, signerAccess });
+          const action = recordAction(row.original, { browseAll, reviewAccess, signerAccess });
           return (
             <Link
               aria-label={`${action.label} for ${row.original.title}`}
@@ -119,7 +118,7 @@ export function MeetingTable({
       <ul aria-label="Meeting records" className="grid gap-2 sm:hidden">
         {table.getRowModel().rows.map((row) => {
           const meeting = row.original;
-          const action = meetingActionFor(meeting.status, meeting.id, { browseAll, reviewAccess, signerAccess });
+          const action = recordAction(meeting, { browseAll, reviewAccess, signerAccess });
           return (
             <li
               key={meeting.id}
@@ -188,7 +187,7 @@ export function MeetingTable({
           <TableBody>
             {table.getRowModel().rows.map((row) => {
               const meeting = row.original;
-              const action = meetingActionFor(meeting.status, meeting.id, { browseAll, reviewAccess, signerAccess });
+              const action = recordAction(meeting, { browseAll, reviewAccess, signerAccess });
               return (
                 <TableRow
                   key={row.id}
@@ -228,4 +227,13 @@ function SortIcon({ direction }: { direction: false | "asc" | "desc" }) {
   if (direction === "asc") return <CaretUpIcon aria-hidden className="size-3" />;
   if (direction === "desc") return <CaretDownIcon aria-hidden className="size-3" />;
   return <CaretUpDownIcon aria-hidden className="size-3 opacity-40" />;
+}
+
+function recordAction(meeting: MeetingApiSummary, options: { browseAll: boolean; reviewAccess: boolean; signerAccess: boolean }) {
+  const capabilities = meeting.capabilities;
+  return meetingActionFor(meeting.status, meeting.id, {
+    ...options,
+    reviewAccess: options.reviewAccess && (capabilities.canEdit || capabilities.canResume || capabilities.canRetryPdf),
+    signerAccess: options.signerAccess && (capabilities.canOpenSigningSession || capabilities.canRejectSigning || capabilities.canRetrySigning || capabilities.canRetrySigningOutcome),
+  });
 }

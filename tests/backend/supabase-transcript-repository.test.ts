@@ -13,8 +13,8 @@ const record = {
   content: "Chair: Repository test transcript.",
   attendees: [{
     profileId: "10000000-0000-4000-8000-000000000001",
-    displayNameSnapshot: "Eleanor Hughes",
-    sourceEmailSnapshot: "eleanor.hughes@example.test",
+    displayNameSnapshot: "Ernesto",
+    sourceEmailSnapshot: "ernesto@example.com",
   }],
 };
 
@@ -29,8 +29,8 @@ describe("Supabase transcript repository", () => {
   it("lists active member profiles for deterministic display-name matching", async () => {
     const fetchImplementation = vi.fn().mockResolvedValue(Response.json([{
       id: "10000000-0000-4000-8000-000000000001",
-      display_name: "Eleanor Hughes",
-      email: "eleanor.hughes@example.test",
+      display_name: "Ernesto",
+      email: "ernesto@example.com",
     }]));
     const repository = createSupabaseTranscriptRepository({
       apiUrl: "https://supabase.example.test",
@@ -40,8 +40,8 @@ describe("Supabase transcript repository", () => {
 
     await expect(repository.listActiveMemberProfiles()).resolves.toEqual([{
       profileId: "10000000-0000-4000-8000-000000000001",
-      displayName: "Eleanor Hughes",
-      email: "eleanor.hughes@example.test",
+      displayName: "Ernesto",
+      email: "ernesto@example.com",
     }]);
     const [url, init] = fetchImplementation.mock.calls[0] as [URL, RequestInit];
     expect(url.pathname).toBe("/rest/v1/profiles");
@@ -84,8 +84,8 @@ describe("Supabase transcript repository", () => {
       p_metadata: {},
       p_attendees: [{
         profile_id: "10000000-0000-4000-8000-000000000001",
-        display_name_snapshot: "Eleanor Hughes",
-        source_email_snapshot: "eleanor.hughes@example.test",
+        display_name_snapshot: "Ernesto",
+        source_email_snapshot: "ernesto@example.com",
       }],
     });
   });
@@ -115,7 +115,7 @@ describe("Supabase transcript repository", () => {
     await expect(repository.linkManualAttendees(rpcRow.meeting_id, [
       {
         profileId: "10000000-0000-4000-8000-000000000001",
-        displayNameSnapshot: "Eleanor Hughes",
+        displayNameSnapshot: "Ernesto",
       },
       {
         profileId: "10000000-0000-4000-8000-000000000002",
@@ -130,7 +130,7 @@ describe("Supabase transcript repository", () => {
       p_attendees: [
         {
           profile_id: "10000000-0000-4000-8000-000000000001",
-          display_name_snapshot: "Eleanor Hughes",
+          display_name_snapshot: "Ernesto",
         },
         {
           profile_id: "10000000-0000-4000-8000-000000000002",

@@ -6,12 +6,11 @@ const officerResolver = vi.fn().mockResolvedValue({
   profileId: "22222222-2222-4222-8222-222222222222",
   displayName: "Board Officer",
   role: "OFFICER" as const,
-  isAdmin: false,
 });
 
 describe("meeting PDF preview API", () => {
   it("requires authentication and reviewer permission", async () => {
-    const previewService = vi.fn();
+    const previewService = vi.fn().mockResolvedValue({status:"available", meetingId, documentVersion:4, bytes:new TextEncoder().encode("%PDF-test")});
     const unauthenticated = createMeetingPdfPreviewHandler({
       previewService,
       actorResolver: vi.fn().mockResolvedValue(null),
@@ -22,13 +21,12 @@ describe("meeting PDF preview API", () => {
         profileId: "33333333-3333-4333-8333-333333333333",
         displayName: "Member",
         role: "USER",
-        isAdmin: false,
-      }),
+            }),
     });
 
     expect((await unauthenticated(request(), context())).status).toBe(401);
-    expect((await member(request(), context())).status).toBe(403);
-    expect(previewService).not.toHaveBeenCalled();
+    expect((await member(request(), context())).status).toBe(200);
+    expect(previewService).toHaveBeenCalled();
   });
 
   it("streams the private PDF inline without exposing its storage path", async () => {

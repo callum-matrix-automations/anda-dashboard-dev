@@ -32,9 +32,8 @@ const marcusId = "10000000-0000-4000-8000-000000000002";
 const priyaId = "10000000-0000-4000-8000-000000000003";
 const officerResolver = vi.fn().mockResolvedValue({
   profileId: officerId,
-  displayName: "Eleanor Hughes",
+  displayName: "Ernesto",
   role: "OFFICER" as const,
-  isAdmin: false,
 });
 
 describe.skipIf(!configuration.configured)("local Supabase meeting controller workflow", () => {

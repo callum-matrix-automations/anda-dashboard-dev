@@ -99,7 +99,7 @@ describe("Treasurer signing screen", () => {
       history: [{
         id: "88888888-8888-4888-8888-888888888888",
         actorProfileId: "22222222-2222-4222-8222-222222222222",
-        actorDisplayName: "Priya Shah",
+        actorDisplayName: "James Wilson",
         action: "TREASURER_REJECTED",
         note: "Correct the recorded vote count.",
         createdAt: "2026-07-21T13:00:00.000Z",
@@ -191,7 +191,7 @@ function signingMeeting(overrides: Partial<MeetingApiDetail> = {}): MeetingApiDe
     failure: null,
     approval: {
       approvedByProfileId: "22222222-2222-4222-8222-222222222222",
-      approvedByDisplayName: "Eleanor Hughes",
+      approvedByDisplayName: "Ernesto",
       approvedAt: "2026-07-21T11:00:00.000Z",
       contentVersion: 4,
       unresolvedVotesAcknowledged: false,
@@ -206,7 +206,8 @@ function signingMeeting(overrides: Partial<MeetingApiDetail> = {}): MeetingApiDe
     pdfAttempt: 1,
     updatedAt: "2026-07-21T11:00:02.000Z",
     capabilities: {
-      canEdit: false, canDefer: false, canResume: false, canMarkReady: false, canRetryAnalysis: false,
+      canDiscard: false,
+    canEdit: false, canDefer: false, canResume: false, canMarkReady: false, canRetryAnalysis: false,
       canApprove: false, canRetryPdf: false, canOpenSigningSession: true, canRetrySigning: false,
       canRejectSigning: true, canCheckSigningStatus: true, canRetrySigningOutcome: false, canDownloadArchive: false,
     },

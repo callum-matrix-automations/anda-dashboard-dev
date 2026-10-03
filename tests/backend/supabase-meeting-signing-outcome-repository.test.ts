@@ -38,7 +38,8 @@ describe("Supabase signing outcome repository", () => {
   it("maps a completion claim and verified signed-document metadata", async () => {
     const claim = {
       status: "claimed" as const,
-      eventId: "evt_1",
+      recipientEmail: "treasurer@example.test",
+    eventId: "evt_1",
       eventRecordId,
       meetingId,
       requestId,

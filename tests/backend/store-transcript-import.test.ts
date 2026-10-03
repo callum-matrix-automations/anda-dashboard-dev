@@ -16,8 +16,8 @@ const packet: TranscriptWebhookPacket = {
     durationMinutes: 45,
   },
   attendees: [
-    { displayName: "  Source   Eleanor ", email: " ELEANOR.HUGHES@EXAMPLE.TEST " },
-    { displayName: "Eleanor Hughes" },
+    { displayName: "  Source   Eleanor ", email: " ERNESTO@EXAMPLE.COM " },
+    { displayName: "Ernesto" },
     { displayName: "Unknown Guest", email: "unknown@example.test" },
   ],
   transcript: {
@@ -32,8 +32,8 @@ describe("storeTranscriptImport", () => {
   it("maps the provider-neutral webhook packet to the repository record", async () => {
     const listActiveMemberProfiles = vi.fn().mockResolvedValue([{
       profileId: "10000000-0000-4000-8000-000000000001",
-      displayName: "Eleanor Hughes",
-      email: "eleanor.hughes@example.test",
+      displayName: "Ernesto",
+      email: "ernesto@example.com",
     }]);
     const storeImport = vi.fn().mockResolvedValue({
       status: "stored",
@@ -62,11 +62,11 @@ describe("storeTranscriptImport", () => {
         {
           profileId: "10000000-0000-4000-8000-000000000001",
           displayNameSnapshot: "Source Eleanor",
-          sourceEmailSnapshot: "eleanor.hughes@example.test",
+          sourceEmailSnapshot: "ernesto@example.com",
         },
         {
           profileId: null,
-          displayNameSnapshot: "Eleanor Hughes",
+          displayNameSnapshot: "Ernesto",
           sourceEmailSnapshot: null,
         },
         {
@@ -91,8 +91,8 @@ describe("storeTranscriptImport", () => {
       listActiveMemberProfiles: vi.fn().mockResolvedValue([
         {
           profileId: "10000000-0000-4000-8000-000000000001",
-          displayName: "Eleanor Hughes",
-          email: "eleanor.hughes@example.test",
+          displayName: "Ernesto",
+          email: "ernesto@example.com",
         },
         {
           profileId: "10000000-0000-4000-8000-000000000002",
@@ -108,7 +108,7 @@ describe("storeTranscriptImport", () => {
     await createTranscriptImportStore(repository)({
       ...packet,
       attendees: [
-        { displayName: "Eleanor Hughes", email: null },
+        { displayName: "Ernesto", email: null },
         { displayName: "Marcus Patel", email: null },
       ],
       transcript: {
@@ -121,7 +121,7 @@ describe("storeTranscriptImport", () => {
       attendees: [
         {
           profileId: "10000000-0000-4000-8000-000000000001",
-          displayNameSnapshot: "Eleanor Hughes",
+          displayNameSnapshot: "Ernesto",
           sourceEmailSnapshot: null,
         },
         {

@@ -78,7 +78,7 @@ export function createSigningOutcomeProcessor({
     try {
       const details = await provider.getRequest(claim.externalRequestId);
       providerStatus = details.status.toLocaleLowerCase("en");
-      const recipient = findExpectedRecipient(details.recipients, signerEmail ?? configuredSignerEmail());
+      const recipient = findExpectedRecipient(details.recipients, signerEmail ?? claim.recipientEmail);
 
       if (IN_PROGRESS_STATUSES.has(providerStatus)) {
         const saved = await repository.completeNoChange(claim, {
@@ -180,9 +180,6 @@ export function createSigningOutcomeProcessor({
   };
 }
 
-function configuredSignerEmail(): string {
-  return z.string().trim().email().parse(process.env.SIGNING_TEST_SIGNER_EMAIL);
-}
 
 function findExpectedRecipient(recipients: FirmaRecipient[], signerEmail: string) {
   const email = signerEmail.toLocaleLowerCase("en");

@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:integration": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/transcript-ingestion.integration.test.ts tests/integration/manual-transcript-upload.integration.test.ts tests/integration/meeting-analysis-persistence.integration.test.ts tests/integration/pre-approval-workflow.integration.test.ts tests/integration/pre-approval-workflow.ui.integration.test.ts tests/integration/meeting-review.integration.test.ts tests/integration/meeting-api.integration.test.ts tests/integration/meeting-approval-pdf.integration.test.ts tests/integration/meeting-signing.integration.test.ts tests/integration/operational-recovery.integration.test.ts tests/integration/property-centre.integration.test.ts tests/integration/financial-records.integration.test.ts",
+    "test:integration": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run --no-file-parallelism tests/integration/accounts-draft-discard.integration.test.ts tests/integration/transcript-ingestion.integration.test.ts tests/integration/manual-transcript-upload.integration.test.ts tests/integration/meeting-analysis-persistence.integration.test.ts tests/integration/pre-approval-workflow.integration.test.ts tests/integration/pre-approval-workflow.ui.integration.test.ts tests/integration/meeting-review.integration.test.ts tests/integration/meeting-api.integration.test.ts tests/integration/meeting-approval-pdf.integration.test.ts tests/integration/meeting-signing.integration.test.ts tests/integration/operational-recovery.integration.test.ts tests/integration/property-centre.integration.test.ts tests/integration/financial-records.integration.test.ts",
     "test:properties": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/shared/property-contract.test.ts tests/backend/property-service.test.ts tests/backend/supabase-property-repository.test.ts tests/api/property-api.test.ts tests/frontend/property-centre.test.tsx tests/integration/property-centre.integration.test.ts",
     "test:financials": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/shared/financial-contract.test.ts tests/backend/financial-service.test.ts tests/backend/supabase-financial-repository.test.ts tests/api/financial-api.test.ts tests/frontend/financial-records.test.tsx tests/integration/financial-records.integration.test.ts",
     "test:api:http": "node --env-file-if-exists=.env.local scripts/run-meeting-api-http-smoke.mjs",
@@ -38,11 +38,15 @@
     "supabase:env": "node scripts/write-local-supabase-env.mjs",
     "supabase:reset": "supabase db reset",
     "supabase:seed:ux": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/ux-fixtures.integration.test.ts",
-    "supabase:migration:new": "supabase migration new"
+    "supabase:migration:new": "supabase migration new",
+    "account:create": "node --env-file-if-exists=.env.local scripts/provision-account.mjs",
+    "test:accounts": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/backend/account-auth.test.ts tests/backend/server-actor.test.ts tests/api/meeting-api.test.ts tests/frontend/sign-in.test.tsx tests/frontend/meeting-review-actions.test.tsx tests/integration/accounts-draft-discard.integration.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
     "@phosphor-icons/react": "^2.1.10",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.117.2",
     "@tanstack/react-query": "^5.62.0",
     "@tanstack/react-table": "^8.21.3",
     "class-variance-authority": "^0.7.1",

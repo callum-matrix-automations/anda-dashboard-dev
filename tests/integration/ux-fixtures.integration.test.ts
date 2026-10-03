@@ -35,8 +35,8 @@ const localIntegrationConfigured = isLoopbackUrl(apiUrl)
 const profiles = {
   eleanor: {
     id: "10000000-0000-4000-8000-000000000001",
-    name: "Eleanor Hughes",
-    email: "eleanor.hughes@example.test",
+    name: "Ernesto",
+    email: "ernesto@example.com",
   },
   marcus: {
     id: "10000000-0000-4000-8000-000000000002",
@@ -45,8 +45,8 @@ const profiles = {
   },
   priya: {
     id: "10000000-0000-4000-8000-000000000003",
-    name: "Priya Shah",
-    email: "priya.shah@example.test",
+    name: "James Wilson",
+    email: "james.wilson@example.com",
   },
   daniel: {
     id: "10000000-0000-4000-8000-000000000004",
@@ -96,7 +96,7 @@ describe.skipIf(!localIntegrationConfigured)("manual UX fixture seed", () => {
       endedAt: "2026-07-21T09:00:00.000Z",
       attendees: [profiles.eleanor, profiles.marcus, profiles.daniel],
       transcript: [
-        "Eleanor Hughes: We need to document the blocked stormwater drain and agree the immediate inspection scope.",
+        "Ernesto: We need to document the blocked stormwater drain and agree the immediate inspection scope.",
         "Marcus Patel: The contractor photographs and cost estimate have not yet arrived.",
         "Daniel Brooks: The western courtyard flooded during the last storm.",
       ].join("\n\n"),
@@ -109,9 +109,9 @@ describe.skipIf(!localIntegrationConfigured)("manual UX fixture seed", () => {
       endedAt: "2026-06-30T18:35:00.000Z",
       attendees: [profiles.eleanor, profiles.marcus, profiles.priya],
       transcript: [
-        "Eleanor Hughes: The annual budget includes the heritage roof renewal and the updated reserve contribution.",
+        "Ernesto: The annual budget includes the heritage roof renewal and the updated reserve contribution.",
         "Marcus Patel: I move that the 2026 annual budget be adopted.",
-        "Priya Shah: I second the motion. The motion is carried unanimously.",
+        "James Wilson: I second the motion. The motion is carried unanimously.",
       ].join("\n\n"),
       draft: completedMeetingDraft(),
       tags: ["ux-archive", "finance", "heritage"],

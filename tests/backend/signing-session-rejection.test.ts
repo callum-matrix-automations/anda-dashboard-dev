@@ -267,7 +267,8 @@ function repositoryMock(): MeetingSigningOutcomeRepository {
       externalRequestId: "firma-request-1",
       documentVersion: 4,
       outcomeStatus: "AWAITING",
-      recipientEmail: null,
+      recipientProfileId: "10000000-0000-4000-8000-000000000006",
+    recipientEmail: null,
     }),
     claimRejection: vi.fn().mockResolvedValue({
       status: "claimed",

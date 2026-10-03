@@ -14,7 +14,7 @@ const packet: TranscriptWebhookPacket = {
     endedAt: "2026-07-18T17:41:00.000Z",
     durationMinutes: 41,
   },
-  attendees: [{ displayName: "Eleanor Hughes" }],
+  attendees: [{ displayName: "Ernesto" }],
   transcript: {
     sourceTranscriptId: "transcript_test_001",
     contentType: "text/plain",

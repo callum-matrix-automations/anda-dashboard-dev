@@ -1,5 +1,6 @@
 "use client";
 
+import { useCurrentAccount } from "@/frontend/hooks/useApi";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -16,7 +17,6 @@ import {
   PropertiesIcon,
   VendorsIcon,
   ContactsIcon,
-  AccountsIcon,
   DarkModeIcon,
   LightModeIcon,
   SignOutIcon,
@@ -46,10 +46,10 @@ const groups: readonly { label: string; links: readonly NavLink[] }[] = [
       ["Contacts", "/app/contacts", ContactsIcon],
     ],
   },
-  { label: "Administration", links: [["Accounts", "/app/members", AccountsIcon]] },
 ];
 
 export function Navigation({ close }: { close: () => void }) {
+  const { data: account } = useCurrentAccount();
   const pathname = usePathname();
   const { avatar, theme, setTheme } = useWorkspace();
   const settingsActive = pathname === "/app/settings" || pathname.startsWith("/app/settings/");
@@ -94,6 +94,7 @@ export function Navigation({ close }: { close: () => void }) {
         ))}
       </nav>
       <div className="mt-auto border-t border-sidebar-border/80 p-2">
+        {account && <div className="px-2.5 pb-2 text-sm"><strong className="block truncate">{account.displayName}</strong><span className="text-xs text-muted-foreground">{account.role === "USER" ? "Member" : account.role === "OFFICER" ? "Officer" : "Treasurer"}</span></div>}
         <Link
           href="/app/settings"
           aria-current={settingsActive ? "page" : undefined}

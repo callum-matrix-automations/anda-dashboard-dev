@@ -18,10 +18,10 @@ const input = {
   },
   transcript: {
     language: "en-GB",
-    content: "Eleanor Hughes: I move to approve. Marcus Patel: I second. The motion carried.",
+    content: "Ernesto: I move to approve. Marcus Patel: I second. The motion carried.",
   },
   participants: [
-    { participantRef: "profile_001", displayName: "Eleanor Hughes" },
+    { participantRef: "profile_001", displayName: "Ernesto" },
     { participantRef: "profile_002", displayName: "Marcus Patel" },
   ],
 };
@@ -115,7 +115,7 @@ function validDraft(): MeetingDraft {
       sections: [{ heading: "Decision", content: "The motion was moved, seconded, and carried." }],
     },
     attendees: [
-      { participantRef: "profile_001", displayName: "Eleanor Hughes" },
+      { participantRef: "profile_001", displayName: "Ernesto" },
       { participantRef: "profile_002", displayName: "Marcus Patel" },
     ],
     motions: [{

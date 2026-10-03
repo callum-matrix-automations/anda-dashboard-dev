@@ -39,6 +39,8 @@ describe("meeting signing contracts", () => {
       pdfSha256: "a".repeat(64),
       pdfSizeBytes: 12_345,
       documentVersion: 4,
+      recipientProfileId: eleanorId,
+      recipient: { firstName: "Test", lastName: "Treasurer", email: "treasurer@example.test" },
       requestName: `ANDA meeting ${meetingId} v4`,
       externalRequestId: null,
     })).toMatchObject({ status: "claimed", attempt: 2, documentVersion: 4 });
@@ -55,6 +57,8 @@ describe("meeting signing contracts", () => {
       pdfSha256: "NOT-A-SHA",
       pdfSizeBytes: 0,
       documentVersion: 4,
+      recipientProfileId: eleanorId,
+      recipient: { firstName: "Test", lastName: "Treasurer", email: "treasurer@example.test" },
       requestName: "request",
       externalRequestId: null,
     })).toThrow();

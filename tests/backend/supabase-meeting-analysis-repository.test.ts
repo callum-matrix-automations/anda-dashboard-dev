@@ -15,7 +15,7 @@ const draft: MeetingDraft = {
   },
   attendees: [{
     participantRef: "10000000-0000-4000-8000-000000000001",
-    displayName: "Eleanor Hughes",
+    displayName: "Ernesto",
   }],
   motions: [],
 };
@@ -36,7 +36,7 @@ describe("Supabase meeting analysis repository", () => {
         transcript: { language: "und", content: "Chair: Meeting opened." },
         participants: [{
           participantRef: "10000000-0000-4000-8000-000000000001",
-          displayName: "Eleanor Hughes",
+          displayName: "Ernesto",
         }],
       },
     }]));

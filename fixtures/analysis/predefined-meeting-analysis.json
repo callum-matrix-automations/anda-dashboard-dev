@@ -5,11 +5,11 @@
     "sections": [
       {
         "heading": "Opening and quorum",
-        "content": "Eleanor Hughes opened the meeting and all five board members were present, establishing a quorum."
+        "content": "Ernesto opened the meeting and all five board members were present, establishing a quorum."
       },
       {
         "heading": "Previous minutes and finance",
-        "content": "The corrected June minutes were approved unanimously. Priya Shah presented the financial report, which the board received without a motion."
+        "content": "The corrected June minutes were approved unanimously. James Wilson presented the financial report, which the board received without a motion."
       },
       {
         "heading": "Roof inspection",
@@ -28,7 +28,7 @@
   "attendees": [
     {
       "participantRef": "10000000-0000-4000-8000-000000000001",
-      "displayName": "Eleanor Hughes"
+      "displayName": "Ernesto"
     },
     {
       "participantRef": "10000000-0000-4000-8000-000000000002",
@@ -36,7 +36,7 @@
     },
     {
       "participantRef": "10000000-0000-4000-8000-000000000003",
-      "displayName": "Priya Shah"
+      "displayName": "James Wilson"
     },
     {
       "participantRef": "10000000-0000-4000-8000-000000000004",

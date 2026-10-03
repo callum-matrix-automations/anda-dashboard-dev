@@ -123,7 +123,8 @@ function meeting(overrides: Partial<MeetingApiDetail> = {}): MeetingApiDetail {
     pdfAttempt: 0,
     updatedAt: "2026-07-21T10:00:00.000Z",
     capabilities: {
-      canEdit: true, canDefer: true, canResume: false, canMarkReady: false, canRetryAnalysis: false,
+      canDiscard: false,
+    canEdit: true, canDefer: true, canResume: false, canMarkReady: false, canRetryAnalysis: false,
       canApprove: true, canRetryPdf: false, canOpenSigningSession: false, canRetrySigning: false,
       canRejectSigning: false, canCheckSigningStatus: false, canRetrySigningOutcome: false, canDownloadArchive: false,
     },

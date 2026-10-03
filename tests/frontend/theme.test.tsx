@@ -11,6 +11,8 @@ import {
   type BoardTheme,
 } from "../../src/frontend/components/shell/theme";
 
+vi.mock("@tanstack/react-query", () => ({ useQuery: () => ({ data: { profileId: "test", displayName: "Test Member", role: "USER" } }) }));
+
 const workspace = vi.hoisted(() => ({
   avatar: null as string | null,
   theme: "board-light" as BoardTheme,

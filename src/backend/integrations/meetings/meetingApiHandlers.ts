@@ -64,6 +64,7 @@ type RouteContext = { params: Promise<{ meetingId: string }> };
 type SigningRejectionResult = Awaited<ReturnType<typeof rejectMeetingSigning>>;
 
 interface MeetingControllerServices {
+  discardMeetingDraft: typeof meetingReviewService.discardMeetingDraft;
   listMeetingReviews(): Promise<MeetingReviewSummary[]>;
   getMeetingReview(meetingId: string): Promise<MeetingReviewDetail | null>;
   listMeetingAttendeeOptions(): Promise<MeetingReviewAttendeeOption[]>;
@@ -387,7 +388,7 @@ export function createRenormalizeMeetingTranscriptHandler(options: ControllerOpt
 export function createApproveMeetingHandler(options: ControllerOptions = {}) {
   const { services, actorResolver } = resolveOptions(options);
   return async function approveMeeting(request: Request, context: RouteContext) {
-    const prepared = await prepareMutation(request, context, "review", MeetingApiApproveRequestSchema, actorResolver);
+    const prepared = await prepareMutation(request, context, "approve", MeetingApiApproveRequestSchema, actorResolver);
     if ("response" in prepared) return prepared.response;
     try {
       const result = await services.approveMeeting({
@@ -405,7 +406,7 @@ export function createApproveMeetingHandler(options: ControllerOptions = {}) {
 export function createRetryMeetingPdfHandler(options: ControllerOptions = {}) {
   const { services, actorResolver } = resolveOptions(options);
   return async function retryMeetingPdf(request: Request, context: RouteContext) {
-    const prepared = await prepareMutation(request, context, "review", MeetingApiVersionedRequestSchema, actorResolver);
+    const prepared = await prepareMutation(request, context, "approve", MeetingApiVersionedRequestSchema, actorResolver);
     if ("response" in prepared) return prepared.response;
     try {
       const result = await services.retryMeetingPdf(commandFrom(prepared));
@@ -413,6 +414,15 @@ export function createRetryMeetingPdfHandler(options: ControllerOptions = {}) {
     } catch {
       return serviceUnavailable();
     }
+  };
+}
+
+export function createDiscardMeetingDraftHandler(options: ControllerOptions = {}) {
+  const { services, actorResolver } = resolveOptions(options);
+  return async (request: Request, context: RouteContext) => {
+    const prepared = await prepareMutation(request, context, "discard", MeetingApiVersionedRequestSchema, actorResolver);
+    if ("response" in prepared) return prepared.response;
+    try { return mutationResult(await services.discardMeetingDraft(commandFrom(prepared)), "discarded"); } catch { return serviceUnavailable(); }
   };
 }
 
@@ -424,6 +434,8 @@ export function createMeetingSigningSessionHandler(options: ControllerOptions = 
     const meetingId = await parseMeetingId(context);
     if (!meetingId) return invalidMeetingId();
     try {
+      const record = await services.getMeetingSigningSessionRecord(meetingId);
+      if (record.status === "available" && record.recipientProfileId !== auth.actor.profileId) return apiError(403, "insufficient_role", "This signing request belongs to another account.");
       const result = await services.getMeetingSigningSession(meetingId);
       if (result.status !== "available") {
         if (result.status === "not_found") {
@@ -447,7 +459,7 @@ export function createMeetingSigningSessionHandler(options: ControllerOptions = 
 export function createRetryMeetingSigningHandler(options: ControllerOptions = {}) {
   const { services, actorResolver } = resolveOptions(options);
   return async function retrySigning(request: Request, context: RouteContext) {
-    const prepared = await prepareMutation(request, context, "sign", MeetingApiVersionedRequestSchema, actorResolver);
+    const prepared = await prepareMutation(request, context, "approve", MeetingApiVersionedRequestSchema, actorResolver);
     if ("response" in prepared) return prepared.response;
     try {
       const result = await services.retryMeetingSigning(commandFrom(prepared));
@@ -496,6 +508,8 @@ export function createCheckMeetingSigningStatusHandler(options: ControllerOption
     const prepared = await prepareMutation(request, context, "sign", MeetingApiVersionedRequestSchema, actorResolver);
     if ("response" in prepared) return prepared.response;
     try {
+      const record = await services.getMeetingSigningSessionRecord(prepared.meetingId);
+      if (record.status !== "available" || record.recipientProfileId !== prepared.actor.profileId) return apiError(403, "insufficient_role", "This signing request is unavailable to your account.");
       const result = await services.checkMeetingSigningStatus(commandFrom(prepared));
       return mutationResult(result, "signing_status_checked");
     } catch {
@@ -637,10 +651,12 @@ function capabilitiesFor(
   signingSession: MeetingSigningSessionRecord | null = null,
 ): MeetingApiCapabilities {
   const reviewer = actorHasPermission(actor, "review");
-  const signer = actorHasPermission(actor, "sign");
+  const approver = actorHasPermission(actor, "approve");
+  const signer = actorHasPermission(actor, "sign") && (signingSession === null || (signingSession.status === "available" && signingSession.recipientProfileId === actor.profileId));
   const editableState = meeting.status === "AI_FAILED" || meeting.status === "PENDING_APPROVAL";
   const activeReview = editableState && meeting.deferredAt === null && meeting.approval === null;
   return {
+    canDiscard: approver && editableState && meeting.approval === null,
     canEdit: reviewer && activeReview,
     canDefer: reviewer && activeReview,
     canResume: reviewer && editableState && meeting.deferredAt !== null && meeting.approval === null,
@@ -650,10 +666,10 @@ function capabilitiesFor(
       && meeting.deferredAt === null
       && meeting.approval === null
       && !meeting.humanOwned,
-    canApprove: reviewer && meeting.status === "PENDING_APPROVAL" && meeting.deferredAt === null && meeting.approval === null,
-    canRetryPdf: reviewer && meeting.status === "PDF_FAILED",
+    canApprove: approver && meeting.status === "PENDING_APPROVAL" && meeting.deferredAt === null && meeting.approval === null,
+    canRetryPdf: approver && meeting.status === "PDF_FAILED",
     canOpenSigningSession: signer && meeting.status === "AWAITING_SIGNATURE",
-    canRetrySigning: signer && meeting.status === "ESIGN_FAILED",
+    canRetrySigning: approver && meeting.status === "ESIGN_FAILED",
     canRejectSigning: signer && (meeting.status === "AWAITING_SIGNATURE" || meeting.status === "ESIGN_FAILED"),
     canCheckSigningStatus: signer
       && meeting.status === "AWAITING_SIGNATURE"
@@ -679,7 +695,7 @@ function invalidMeetingId() {
 async function prepareMutation<T>(
   request: Request,
   context: RouteContext,
-  permission: "review" | "sign",
+  permission: "review" | "sign" | "approve" | "discard",
   schema: z.ZodType<T>,
   actorResolver: ServerActorResolver,
 ): Promise<
@@ -746,6 +762,7 @@ function isSuccessfulActionResult(
   status: string,
 ) {
   const expectedStatus: Record<typeof action, string> = {
+    discarded: "discarded",
     draft_saved: "saved",
     deferred: "deferred",
     resumed: "resumed",
