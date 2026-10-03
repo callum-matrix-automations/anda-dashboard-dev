@@ -97,14 +97,40 @@ Apply these additive migrations in order through the established release process
 4. `20261003100300_bind_signing_requests_to_treasurer.sql`: immutable recipient
    snapshot, delivery/session/outcome guards and original signer attribution.
 
-Hosted staging has not been modified or deployed. Follow
-[the Railway staging cutover instructions](../deployment/railway-staging.md),
-including database backup, legacy envelope inspection, manual OFFICER/TREASURER
-provisioning, `SUPABASE_PUBLISHABLE_KEY` and public HTTPS `APP_ORIGIN`, and retirement
-of the shared master, fixed actor and test signer variables. The provisioning
-tool reads the initial password from temporary `ANDA_ACCOUNT_PASSWORD` and sends
-no invitation. Do not apply local dummy seeds to hosted staging.
+On 3 October 2026, implementation commit `36f229b` was pushed to GitLab, merged
+normally into development (`5cf4f1a`) and pushed to GitLab and the existing
+`callum-matrix-automations/anda-dashboard-dev` GitHub mirror. Development was
+merged normally into GitLab staging (`00bb601`), preserving the ancestry of the
+Railway proxy fix. Its obsolete shared-login changes were resolved to the tested
+account implementation with public `APP_ORIGIN` validation. The resulting
+application tree matched development exactly.
 
-Client-confirmed Ernesto/Richard emails and Richard's explicit Firma signing name
-are still required. Staging role/browser and real Firma checks remain release
-tasks. No commit, push, merge or deployment was performed during implementation.
+Supabase project `huogkdcopyitjvpftdnl` had a completed managed physical backup
+from 3 October at 07:55 UTC. A private schema backup was also saved locally.
+Automatic approval review rejected a full local data export because it would
+copy private association and Auth data; the managed backup was verified instead.
+The four additive migrations were applied without a reset and verified in the
+remote migration ledger. All seven existing meetings and four existing signing
+requests remain present. All four legacy requests lack recipient snapshots and
+remain protected pending manual verification; no historical recipient or signer
+was reassigned. Supabase CLI reported a non-fatal catalog-cache warning after
+successful migration application; the remote ledger and new columns were
+independently verified.
+
+Ernesto OFFICER (`ernesto@example.com`) and James Wilson USER
+(`james.wilson@example.com`) were manually provisioned as confirmed staging test
+accounts and their Supabase Auth logins verified. No invitation was sent.
+Temporary credentials are stored only in ignored
+`output/anda-024/staging-test-credentials.private.json`. These are made-up test
+addresses authorised by the user. The pre-existing Treasurer login was preserved
+pending the user's choice about replacement with Richard; its signing names are
+not yet configured. No local seed was applied to hosted staging.
+
+The GitHub deployment branch remains at `5c46209` while Railway browser sign-in
+is pending. Before pushing GitHub staging, set `SUPABASE_PUBLISHABLE_KEY` and the
+public HTTPS `APP_ORIGIN` through
+[the Railway staging cutover instructions](../deployment/railway-staging.md),
+finish the staging Treasurer setup, and then verify the actual deployed SHA and
+hosted account/role UI. Retire unused shared-master, fixed-actor and test-signer
+variables after cutover. Client-confirmed production addresses and Richard's
+real signing name remain pending; no real Firma signing test has been performed.
