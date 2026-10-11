@@ -656,7 +656,7 @@ function capabilitiesFor(
   const editableState = meeting.status === "AI_FAILED" || meeting.status === "PENDING_APPROVAL";
   const activeReview = editableState && meeting.deferredAt === null && meeting.approval === null;
   return {
-    canDiscard: approver && editableState && meeting.approval === null,
+    canDiscard: actorHasPermission(actor, "discard") && editableState && meeting.approval === null,
     canEdit: reviewer && activeReview,
     canDefer: reviewer && activeReview,
     canResume: reviewer && editableState && meeting.deferredAt !== null && meeting.approval === null,

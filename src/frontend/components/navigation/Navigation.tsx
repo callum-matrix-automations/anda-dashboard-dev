@@ -94,7 +94,7 @@ export function Navigation({ close }: { close: () => void }) {
         ))}
       </nav>
       <div className="mt-auto border-t border-sidebar-border/80 p-2">
-        {account && <div className="px-2.5 pb-2 text-sm"><strong className="block truncate">{account.displayName}</strong><span className="text-xs text-muted-foreground">{account.role === "USER" ? "Member" : account.role === "OFFICER" ? "Officer" : "Treasurer"}</span></div>}
+        {account && <div className="px-2.5 pb-2 text-sm"><strong className="block truncate">{account.displayName}</strong><span className="text-xs text-muted-foreground">{account.role === "USER" ? "Member" : account.role === "TREASURER" ? "Treasurer" : account.boardPosition === "PRESIDENT" ? "President" : account.boardPosition === "VICE_PRESIDENT" ? "Vice President" : "Officer (unassigned)"}</span></div>}
         <Link
           href="/app/settings"
           aria-current={settingsActive ? "page" : undefined}

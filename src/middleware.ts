@@ -2,6 +2,7 @@
 import { createRequestAuthClient, authResponseCookies, type AuthCookie } from "@/backend/auth/supabaseAuth";
 import { loadServerActor } from "@/backend/auth/serverActor";
 import { requestHasTrustedOrigin } from "@/backend/auth/requestOrigin";
+import { hasActiveAccountSession } from "@/backend/auth/activeSession";
 const SIGN_IN_PATH = "/auth/sign-in";
 export async function middleware(request: NextRequest) {
   const {pathname} = request.nextUrl;
@@ -15,10 +16,10 @@ export async function middleware(request: NextRequest) {
     });
     const {data, error} = await client.auth.getUser();
     if (error?.status && error.status >= 500) available = false;
-    authenticated = Boolean(!error && data.user && await loadServerActor(data.user.id));
+    authenticated = Boolean(!error && data.user && await hasActiveAccountSession(client, data.user.id) && await loadServerActor(data.user.id));
   } catch { available = false; }
   const finish = (response: NextResponse) => authResponseCookies(response, pending, cacheHeaders);
-  if (pathname === SIGN_IN_PATH) {
+  if (pathname === SIGN_IN_PATH || pathname === "/auth/register") {
     if (!authenticated) return finish(NextResponse.next({request}));
     return finish(NextResponse.redirect(new URL(safeReturnTo(request.nextUrl.searchParams.get("returnTo")), request.url)));
   }

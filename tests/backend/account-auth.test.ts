@@ -5,8 +5,10 @@ import { POST as login } from "../../src/app/api/auth/login/route";
 import { POST as logout } from "../../src/app/api/auth/logout/route";
 import { GET as me } from "../../src/app/api/auth/me/route";
 import { LoginRateLimiter } from "../../src/backend/auth/loginRateLimit";
+import { hasActiveAccountSession } from "../../src/backend/auth/activeSession";
 
 const mocks = vi.hoisted(() => ({ getUser: vi.fn(), signInWithPassword: vi.fn(), signOut: vi.fn(), loadActor: vi.fn() }));
+vi.mock("../../src/backend/auth/activeSession", () => ({ hasActiveAccountSession: vi.fn().mockResolvedValue(true) }));
 vi.mock("../../src/backend/auth/supabaseAuth", async importOriginal => {
   const original = await importOriginal<typeof import("../../src/backend/auth/supabaseAuth")>();
   return { ...original, createRequestAuthClient: vi.fn(() => ({ auth: mocks })) };
@@ -16,10 +18,21 @@ vi.mock("../../src/backend/auth/serverActor", async importOriginal => ({
 }));
 const id="10000000-0000-4000-8000-000000000003";
 const actor={profileId:id,displayName:"Test Member",role:"USER"};
-beforeEach(() => { vi.resetAllMocks(); mocks.getUser.mockResolvedValue({data:{user:null},error:null}); mocks.signOut.mockResolvedValue({error:null}); vi.stubEnv("APP_ORIGIN","https://anda.test"); });
+beforeEach(() => { vi.resetAllMocks(); vi.mocked(hasActiveAccountSession).mockResolvedValue(true); mocks.getUser.mockResolvedValue({data:{user:null},error:null}); mocks.signOut.mockResolvedValue({error:null}); vi.stubEnv("APP_ORIGIN","https://anda.test"); });
 afterEach(() => vi.unstubAllEnvs());
 const loginRequest=(body:unknown,origin="https://anda.test")=>new Request("https://anda.test/api/auth/login",{method:"POST",headers:{origin,"content-type":"application/json","x-real-ip":crypto.randomUUID()},body:JSON.stringify(body)});
 describe("individual account authentication", () => {
+  it("allows the public registration page but not meeting APIs without a session", async () => {
+    expect((await middleware(new NextRequest("https://anda.test/auth/register"))).headers.get("x-middleware-next")).toBe("1");
+    expect((await middleware(new NextRequest("https://anda.test/api/meetings"))).status).toBe(401);
+  });
+  it("rejects an otherwise valid user whose session was revoked", async () => {
+    mocks.getUser.mockResolvedValue({data:{user:{id}},error:null}); mocks.loadActor.mockResolvedValue(actor);
+    vi.mocked(hasActiveAccountSession).mockResolvedValue(false);
+    expect((await middleware(new NextRequest("https://anda.test/api/meetings"))).status).toBe(401);
+    expect((await me(new Request("https://anda.test/api/auth/me"))).status).toBe(401);
+    expect(mocks.loadActor).not.toHaveBeenCalled();
+  });
   it("redirects unauthenticated pages, denies APIs and ignores legacy master cookies", async () => {
     const page=await middleware(new NextRequest("https://anda.test/app/meetings?queue=review",{headers:{cookie:"anda_master_session=old-token"}}));
     expect(page.headers.get("location")).toContain("returnTo=%2Fapp%2Fmeetings%3Fqueue%3Dreview");
