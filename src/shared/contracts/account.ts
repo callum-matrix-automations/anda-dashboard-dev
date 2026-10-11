@@ -14,5 +14,4 @@ export const AccountRegistrationRequestSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
   displayName: z.string().trim().min(1).max(200),
   password: z.string().min(12).max(128),
-  invitationCode: z.string().trim().regex(/^[A-Za-z0-9_-]{43}$/),
 }).strict();

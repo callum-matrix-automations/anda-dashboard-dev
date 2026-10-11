@@ -14,7 +14,7 @@ export function RegisterScreen() {
     setSubmitting(true);
     try {
       const response = await fetch("/api/auth/register", { method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ displayName: fields.get("displayName"), email: fields.get("email"), password: fields.get("password"), invitationCode: fields.get("invitationCode") }) });
+        body: JSON.stringify({ displayName: fields.get("displayName"), email: fields.get("email"), password: fields.get("password") }) });
       const body = await response.json();
       if (!response.ok) { setError(body?.error?.message ?? "Account creation failed. Contact the account operator."); return; }
       setComplete(true);
@@ -26,12 +26,11 @@ export function RegisterScreen() {
       <p className="mb-3 text-sm font-semibold text-secondary">ANDA Dashboard</p>
       <h1 id="registration-title" className="text-2xl font-semibold">{complete ? "Your account is ready" : "Create your board account"}</h1>
       {complete ? <p className="mt-4 text-sm">You can now sign in with your email address and the password you chose. Your account can view meeting records; only the President can change drafts.</p> : <>
-        <p className="mt-2 text-sm text-muted-foreground">Use the email address and private invitation code sent to you by the account operator. Choose your own password.</p>
+        <p className="mt-2 text-sm text-muted-foreground">Enter your name and email address, then choose your own password. You can sign in as soon as your account is created.</p>
         <form onSubmit={submit} className="mt-6 grid gap-4">
           {[
             { name: "displayName", label: "Your name", type: "text", autoComplete: "name", maxLength: 200 },
-            { name: "email", label: "Invited email address", type: "email", autoComplete: "email", maxLength: 254 },
-            { name: "invitationCode", label: "Invitation code", type: "text", autoComplete: "off", maxLength: 43, minLength: 43 },
+            { name: "email", label: "Email address", type: "email", autoComplete: "email", maxLength: 254 },
             { name: "password", label: "Password (at least 12 characters)", type: "password", autoComplete: "new-password", minLength: 12, maxLength: 128 },
             { name: "confirmPassword", label: "Enter your password again", type: "password", autoComplete: "new-password", minLength: 12, maxLength: 128 },
           ].map(field => <label key={field.name} className="grid gap-1.5 text-sm font-medium">{field.label}<input {...field} aria-label={field.label} required disabled={submitting} className="h-11 rounded-md border border-input bg-background px-3 text-sm" /></label>)}

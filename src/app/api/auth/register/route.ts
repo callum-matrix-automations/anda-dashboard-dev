@@ -16,9 +16,9 @@ export async function POST(request: Request) {
   limiter.recordFailure(key);
   try {
     const body = await request.text();
-    if (body.length > 4096) return failure(400, "invalid_registration", "Check your name, email, invitation code and password (12–128 characters).");
+    if (body.length > 4096) return failure(400, "invalid_registration", "Check your name, email and password (12–128 characters).");
     const parsed = AccountRegistrationRequestSchema.safeParse(JSON.parse(body));
-    if (!parsed.success) return failure(400, "invalid_registration", "Check your name, email, invitation code and password (12–128 characters).");
+    if (!parsed.success) return failure(400, "invalid_registration", "Check your name, email and password (12–128 characters).");
     return NextResponse.json(await registerBoardMember(parsed.data), { status: 201, headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     if (error instanceof SyntaxError) return failure(400, "invalid_registration", "Check your registration details.");
