@@ -32,11 +32,13 @@ transcript-ingestion operation used by the backend.
 ## Accounts and roles
 
 The app uses Supabase email/password accounts with a server-verified active profile.
-Members can view, upload, edit and prepare drafts. Officers and the Treasurer can
-approve and discard; only the Treasurer can open signing sessions or reject them.
-There are no registration, account administration or Microsoft OAuth flows in this
-milestone. See [staging setup](docs/deployment/railway-staging.md) for manual account
-provisioning, the four migrations, environment changes and legacy signing requests.
+Members self-register with their name, email and chosen password and can view records.
+Only the President can upload, edit, prepare or discard drafts. The President,
+Vice President and Treasurer can approve; only the assigned Treasurer can open
+signing sessions or reject them. Authorised operators can reset passwords; there is
+no Microsoft OAuth flow. See [board accounts](#anda-025-board-accounts) and
+[staging setup](docs/deployment/railway-staging.md) for roles, migrations and legacy
+signing requests.
 
 `APP_ORIGIN` must match the browser's public origin. `SUPABASE_PUBLISHABLE_KEY`
 configures Auth; `SUPABASE_SECRET_KEY` stays on the server. Local seeded accounts
@@ -291,12 +293,13 @@ local email capture, or Edge Functions.
 
 ## ANDA-025 board accounts
 
-Invited members create their own password at `/auth/register`, then sign in normally.
-Registration requires a one-use, email-bound code privately delivered by an authorised
-operator. It creates only an active `USER` profile, never an Officer or administrative
-account. Codes expire after seven days; only their SHA-256 hashes are stored. No new
-SMTP service or automatic email delivery is introduced. Never paste invitation codes
-into URLs, tickets or shared logs.
+Members register themselves at `/auth/register` using their name, email and chosen
+password, then sign in normally. No invitation code, approved email roster, operator
+approval or email delivery is required. Registration immediately creates an active
+read-only `USER` profile, never an Officer or administrative account. Anyone who can
+reach registration can create a Member account and read board records; this is the
+client-requested self-service model. Existing accounts cannot be replaced or have
+their passwords changed through registration.
 
 `OFFICER` profiles now have an explicit nullable `board_position`: `PRESIDENT` or
 `VICE_PRESIDENT`. Only the President can upload transcripts, change draft minutes,
@@ -321,7 +324,8 @@ test fixtures only and must never be copied into hosted accounts.
 
 In hosted Supabase, disable public and anonymous signup and set the minimum password
 length to 12. Keep the email provider enabled for password login; disable signup globally,
-not the email provider itself. The server uses Auth administration for invitation-verified registration;
+not the email provider itself. The server uses Auth administration for self-service registration
+through the application endpoint (not direct Supabase signup);
 direct Auth signup cannot provision a board profile even if mistakenly enabled. Local
 `supabase/config.toml` uses these settings; restart the local stack to load changes.
 Set `APP_ORIGIN` to the exact dashboard URL, including its local port. Existing
@@ -331,16 +335,15 @@ environment variables are required by ANDA-025.
 Operator examples (run against the deliberately selected environment):
 
 ```powershell
-npm run account:manage -- --action invite --email member@example.test
 npm run account:manage -- --action position --id <confirmed-officer-uuid> --position PRESIDENT
 npm run account:manage -- --action position --id <officer-uuid> --position NONE
 ```
 
-The invitation command prints the code once for private delivery; it does not send email.
-Revoke an unused invitation by setting its `revoked_at` in the operator's Supabase console.
-An incomplete registration can safely retry the same code/email: its reserved Auth UUID
-is reused without activating an arbitrary existing email. A crashed request's lease
-expires after two minutes. If account creation already succeeded, sign in instead.
+The previous invitation table/functions remain as unused historical schema; no new
+migration is needed to remove the code requirement. Operator tools no longer issue
+invitations. If account creation already succeeded, sign in instead. Registration
+never resets an existing account. If profile creation fails, only the newly created
+Auth-only identity is eligible for cleanup; uncertain outcomes require operator review.
 
 For a password reset, verify the member's identity privately, set the temporary shell
 variable `ANDA_ACCOUNT_PASSWORD` to the new password (12–128 characters), then run:
@@ -355,9 +358,9 @@ The tool cannot read the old password, does not change roles, and revokes existi
 sessions. Protected app requests and direct database policies reject revoked session IDs,
 including still-unexpired access JWTs. Existing signed document download links retain
 their normal short expiry. Operator access requires the server-only Supabase secret;
-being President or Treasurer does not grant password-reset or invitation authority.
+being President or Treasurer does not grant password-reset authority.
 
 Run `npm run test:board-accounts` with local Supabase for registration, concurrency,
-recovery, privilege injection, password reset, revoked-session and role-matrix tests.
+duplicate protection, privilege injection, password reset, revoked-session and role-matrix tests.
 The wider local integration suite uses predefined analysis and fake signing providers;
 real OpenAI/Firma checks are separate and must not be confused with offline tests.
