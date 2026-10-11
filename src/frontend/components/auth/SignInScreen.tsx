@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/frontend/components/design-system/primitives/button";
@@ -120,6 +121,9 @@ export function SignInScreen({
             Sign in
           </Button>
         </form>
+
+        <p className="mt-4 text-sm text-muted-foreground">Invited board member? <Link href="/auth/register" className="font-semibold text-primary underline">Create account</Link></p>
+        <p className="mt-2 text-xs text-muted-foreground">Forgot your password? Contact the authorised account operator for a private reset.</p>
 
         <p className="mt-6 border-t border-border pt-4 text-xs leading-relaxed text-muted-foreground">
           This system contains private association records. Credentials should not be shared.

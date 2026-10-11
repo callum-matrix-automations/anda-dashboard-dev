@@ -124,3 +124,9 @@ update auth.users set confirmation_token='', recovery_token='', email_change_tok
 where id::text like '10000000-0000-4000-8000-00000000000%';
 update public.profiles set signing_first_name='Richard', signing_last_name='Smith'
 where id='10000000-0000-4000-8000-000000000006';
+
+-- Synthetic local fixtures only. Never infer live board positions from names.
+update public.profiles set board_position='PRESIDENT'
+where id='10000000-0000-4000-8000-000000000001';
+update public.profiles set board_position='VICE_PRESIDENT'
+where id='10000000-0000-4000-8000-000000000002';

@@ -6,12 +6,14 @@ import { createClient } from "@supabase/supabase-js";
 const { values } = parseArgs({ options: {
   email: { type: "string" }, role: { type: "string" }, name: { type: "string" },
   "first-name": { type: "string" }, "last-name": { type: "string" },
+  position: { type: "string" },
 } });
 const email = values.email?.trim().toLowerCase();
 const password = process.env.ANDA_ACCOUNT_PASSWORD;
 if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !values.name?.trim()
   || !["USER", "OFFICER", "TREASURER"].includes(values.role) || !password || password.length < 12
-  || (values.role === "TREASURER" && (!values["first-name"]?.trim() || !values["last-name"]?.trim()))) {
+  || (values.role === "TREASURER" && (!values["first-name"]?.trim() || !values["last-name"]?.trim()))
+  || (values.position && (values.role !== "OFFICER" || !["PRESIDENT", "VICE_PRESIDENT"].includes(values.position)))) {
   throw new Error("Provide --email, --name, --role USER|OFFICER|TREASURER and ANDA_ACCOUNT_PASSWORD (12+ characters). Treasurer also requires --first-name and --last-name.");
 }
 const url = process.env.SUPABASE_URL;
@@ -30,6 +32,7 @@ const { error: profileError } = await client.from("profiles").insert({
   display_name: values.name.trim(), email, account_status: "ACTIVE",
   signing_first_name: values["first-name"]?.trim() ?? null,
   signing_last_name: values["last-name"]?.trim() ?? null,
+  board_position: values.position ?? null,
 });
 if (profileError) {
   const rollback = await client.auth.admin.deleteUser(data.user.id);

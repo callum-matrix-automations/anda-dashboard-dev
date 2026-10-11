@@ -21,8 +21,10 @@ describe("verified account identity", () => {
   });
 });
 describe("basic role matrix", () => {
-  it.each([ ["USER",true,false,false,false], ["OFFICER",true,true,true,false], ["TREASURER",true,true,true,true] ] as const)("checks %s capabilities", (role,review,approve,discard,sign) => {
-    const actor={profileId,displayName:"Member",role};
+  it.each([ ["USER",null,false,false,false,false], ["OFFICER",null,false,false,false,false],
+    ["OFFICER","PRESIDENT",true,true,true,false], ["OFFICER","VICE_PRESIDENT",false,true,false,false],
+    ["TREASURER",null,false,true,false,true], ["USER","PRESIDENT",false,false,false,false] ] as const)("checks %s / %s capabilities", (role,boardPosition,review,approve,discard,sign) => {
+    const actor={profileId,displayName:"Member",role,boardPosition};
     expect(actorHasPermission(actor,"read")).toBe(true); expect(actorHasPermission(actor,"review")).toBe(review);
     expect(actorHasPermission(actor,"approve")).toBe(approve); expect(actorHasPermission(actor,"discard")).toBe(discard); expect(actorHasPermission(actor,"sign")).toBe(sign);
   });
