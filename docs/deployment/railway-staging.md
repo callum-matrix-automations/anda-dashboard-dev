@@ -43,7 +43,10 @@ The dashboard and browser-facing APIs require an active account. Read AI and
 Firma webhooks retain their signature checks; internal recovery/analysis routes
 retain their independent bearer secrets. There is no shared master-login bypass.
 
-## ANDA-024 account and migration cutover
+## ANDA-024 account and migration cutover (historical)
+
+The original cutover below is retained for context. ANDA-025 supersedes its
+upload/edit/discard permissions and adds invitation-based registration.
 
 1. Back up the staging database and apply all migrations in filename order,
    including the four `20261003100...` migrations. Keep the discard enum addition
@@ -86,6 +89,22 @@ remain outside this milestone. Client production provisioning is still undecided
 
 ## Hosted Supabase
 
+### ANDA-025 release
+
+Apply the three `20261011100...` migrations in filename order before deploying
+the ANDA-025 application. Back up staging first. Never run the local seed against
+hosted staging. Explicitly assign the client-confirmed existing Officer account
+the `PRESIDENT` position; keep the vacant Vice President seat empty and retain
+the existing Treasurer and historical signing recipients.
+
+Only the President may upload, edit, prepare or discard drafts. President,
+Vice President and Treasurer may approve; only the assigned Treasurer may sign
+or return a document for correction. Keep hosted email/password login enabled,
+disable public and anonymous signup, and require passwords of at least 12
+characters. Invited members create only USER accounts through `/auth/register`.
+Operator invitation and reset commands are documented in the README. No new
+Railway environment variables or email-delivery service are required.
+
 Apply every committed migration to the staging Supabase project in filename
 order. Provision the client-confirmed accounts separately after migrations
 have been applied. The local `supabase/seed.sql` is a development fixture and
@@ -115,15 +134,15 @@ Redeploy if the Railway domain or any build-time variable changes.
 ## Client test path
 
 1. Open the Railway application.
-2. Select **Upload transcript**.
+2. As President, select **Upload transcript**.
 3. Enter a title, date, duration, and readable plain-text transcript. Common
    speaker-labelled, timestamp-block, timestamped-line, SRT, and WebVTT formats
    are handled directly. Other readable text formats use GPT-6 Luna only to
    identify speaker turns before the existing minutes analysis begins.
 4. Select **Begin processing** and wait for the meeting to reach
    `PENDING_APPROVAL`.
-5. Review and edit minutes, attendance, and motions.
-6. As Officer or Treasurer, approve the minutes. As Treasurer, open the generated Firma signing request.
+5. As President, review and edit minutes, attendance, and motions.
+6. As President, Vice President or Treasurer, approve the minutes. As the assigned Treasurer, open the generated Firma signing request.
 7. Sign the document and confirm the Firma callback moves it through archive to
    `COMPLETED`.
 

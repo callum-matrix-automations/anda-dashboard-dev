@@ -11,7 +11,8 @@ import {
   type BoardTheme,
 } from "../../src/frontend/components/shell/theme";
 
-vi.mock("@tanstack/react-query", () => ({ useQuery: () => ({ data: { profileId: "test", displayName: "Test Member", role: "USER" } }) }));
+vi.mock("@tanstack/react-query", () => ({ useQuery: () => ({ data: { profileId: "test", displayName: "Test Member", role: "USER" } }),
+  useQueryClient: () => ({ invalidateQueries: vi.fn() }) }));
 
 const workspace = vi.hoisted(() => ({
   avatar: null as string | null,

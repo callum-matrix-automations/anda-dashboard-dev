@@ -18,7 +18,7 @@ export function createMeetingPdfPreviewHandler({
   actorResolver,
 }: MeetingPdfPreviewHandlerOptions = {}) {
   return async function meetingPdfPreview(request: Request, context: RouteContext) {
-    const auth = await requireServerActor(request, "review", actorResolver);
+    const auth = await requireServerActor(request, "read", actorResolver);
     if ("response" in auth) return auth.response;
 
     const parsedMeetingId = z.string().uuid().safeParse((await context.params).meetingId);

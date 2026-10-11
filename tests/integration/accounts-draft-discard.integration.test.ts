@@ -10,7 +10,7 @@ const configuration=localSupabaseConfiguration();
 const member="10000000-0000-4000-8000-000000000003";
 const officer="10000000-0000-4000-8000-000000000001";
 describe.skipIf(!configuration.configured)("accounts and draft discard in local Supabase", () => {
-  it("allows member drafting, denies member approval/discard, version-checks officer discard and retains frozen evidence", async () => {
+  it("denies member drafting/approval/discard, version-checks President discard and retains frozen evidence", async () => {
     const workflow=await runPreApprovalWorkflow({analyze:vi.fn().mockResolvedValue(await loadPredefinedMeetingDraft()),idPrefix:"ANDA-024-disposable-draft"});
     const meetingId=workflow.meetings[0]!.id;
     const repository=createSupabaseMeetingReviewRepository(configuration);
@@ -20,7 +20,8 @@ describe.skipIf(!configuration.configured)("accounts and draft discard in local 
     const approval=createSupabaseMeetingApprovalRepository(configuration);
     expect(await approval.approve({...identity,acknowledgeUnresolvedVotes:false})).toMatchObject({status:"invalid_actor"});
     expect(await repository.discardDraft(identity)).toMatchObject({status:"forbidden"});
-    const deferred=await repository.deferReview({...identity,note:"Local role test"});
+    expect(await repository.deferReview({...identity,note:"Denied member edit"})).toMatchObject({status:"forbidden"});
+    const deferred=await repository.deferReview({...identity,actorProfileId:officer,note:"Local role test"});
     expect(deferred.status).toBe("deferred");
     expect(await repository.discardDraft({...identity,actorProfileId:officer})).toMatchObject({status:"conflict"});
     const discarded=await repository.discardDraft({...identity,expectedVersion:deferred.version!,actorProfileId:officer});

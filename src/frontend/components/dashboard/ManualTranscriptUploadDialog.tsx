@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useUploadTranscript } from "@/frontend/hooks/useApi";
+import { useUploadTranscript, useCurrentAccount } from "@/frontend/hooks/useApi";
 import { UploadIcon } from "@/frontend/components/design-system/icons";
 import { Button } from "@/frontend/components/design-system/primitives/button";
 import {
@@ -21,6 +21,7 @@ import { normalizeKnownTranscript } from "@/shared/transcripts/normalizeKnownTra
 export function ManualTranscriptUploadDialog() {
   const router = useRouter();
   const upload = useUploadTranscript();
+  const { data: account } = useCurrentAccount();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [meetingDate, setMeetingDate] = useState(todayForInput);
@@ -88,6 +89,7 @@ export function ManualTranscriptUploadDialog() {
       ? "The transcript was saved, but AI analysis did not complete after three attempts."
       : "");
 
+  if (account?.role !== "OFFICER" || account.boardPosition !== "PRESIDENT") return null;
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
       <DialogTrigger render={<Button size="lg" />}>

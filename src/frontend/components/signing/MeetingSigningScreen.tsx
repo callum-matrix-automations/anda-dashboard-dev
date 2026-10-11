@@ -53,7 +53,7 @@ export function MeetingSigningScreen({ meetingId }: { meetingId: string }) {
         <Link href="/app/signing" className="hover:underline">Signing</Link> · Meeting
       </div>
       <h1 className="mt-0.5 text-2xl font-semibold">Treasurer signing</h1>
-      <p className="mt-0.5 text-sm text-muted-foreground">Review the locked document, sign it in Firma, or return it to the Officer with a comment.</p>
+      <p className="mt-0.5 text-sm text-muted-foreground">Review the locked document, sign it in Firma, or return it to the President with a comment.</p>
     </div>
   );
 
@@ -160,7 +160,7 @@ function RejectSigningDialog({ open, meeting, dismiss }: {
       {
         onSuccess: () => {
           dismiss();
-          notify("Meeting returned to the Officer for corrections.", "success");
+          notify("Meeting returned to the President for corrections.", "success");
           router.push(`/app/meetings/${meeting.id}`);
         },
         onError: (mutationError) => setError(meetingMutationErrorMessage(mutationError)),
@@ -173,7 +173,7 @@ function RejectSigningDialog({ open, meeting, dismiss }: {
       <DialogContent aria-labelledby="reject-signing-title">
         <DialogHeader>
           <DialogTitle id="reject-signing-title">Return this meeting for corrections?</DialogTitle>
-          <DialogDescription>The current Firma request will be cancelled, the meeting will return to Needs Review, and the Officer will need to approve a new document version.</DialogDescription>
+          <DialogDescription>The current Firma request will be cancelled and the meeting will return to Needs Review. The President can make corrections before the President, Vice President or Treasurer approves a new document version.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-1.5">
           <Label htmlFor="reject-signing-comment" className="text-xs">Required correction comment</Label>

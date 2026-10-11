@@ -40,6 +40,8 @@
     "supabase:seed:ux": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration/ux-fixtures.integration.test.ts",
     "supabase:migration:new": "supabase migration new",
     "account:create": "node --env-file-if-exists=.env.local scripts/provision-account.mjs",
+    "account:manage": "node --env-file-if-exists=.env.local scripts/manage-board-account.mjs",
+    "test:board-accounts": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run --no-file-parallelism tests/api/board-registration.test.ts tests/backend/board-registration.test.ts tests/frontend/board-registration.test.tsx tests/frontend/account-capability-refresh.test.tsx tests/backend/server-actor.test.ts tests/integration/board-registration.integration.test.ts",
     "test:accounts": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/backend/account-auth.test.ts tests/backend/server-actor.test.ts tests/api/meeting-api.test.ts tests/frontend/sign-in.test.tsx tests/frontend/meeting-review-actions.test.tsx tests/integration/accounts-draft-discard.integration.test.ts"
   },
   "dependencies": {

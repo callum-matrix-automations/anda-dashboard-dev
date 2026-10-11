@@ -34,6 +34,7 @@ const officerResolver = vi.fn().mockResolvedValue({
   profileId: officerId,
   displayName: "Ernesto",
   role: "OFFICER" as const,
+  boardPosition: "PRESIDENT" as const,
 });
 
 describe.skipIf(!configuration.configured)("local Supabase meeting controller workflow", () => {

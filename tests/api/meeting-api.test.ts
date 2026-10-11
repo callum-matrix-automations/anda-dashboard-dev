@@ -10,6 +10,7 @@ import {
   createMeetingMotionsSummaryHandler,
   createMeetingSearchHandler,
   createMeetingSigningSessionHandler,
+  createRenormalizeMeetingTranscriptHandler,
   createRejectMeetingSigningHandler,
   createResumeMeetingHandler,
   createRetryMeetingAnalysisHandler,
@@ -33,6 +34,7 @@ const officerResolver = vi.fn().mockResolvedValue({
   profileId: officerId,
   displayName: "Board Officer",
   role: "OFFICER" as const,
+  boardPosition: "PRESIDENT" as const,
 });
 const treasurerResolver = vi.fn().mockResolvedValue({
   profileId: treasurerId,
@@ -283,6 +285,23 @@ describe("meeting controller authentication and reads", () => {
 });
 
 describe("meeting review and approval controllers", () => {
+  it.each([
+    { role: "USER" as const, boardPosition: null },
+    { role: "OFFICER" as const, boardPosition: "VICE_PRESIDENT" as const },
+    { role: "OFFICER" as const, boardPosition: null },
+    { role: "TREASURER" as const, boardPosition: null },
+  ])("denies every draft mutation for $role / $boardPosition", async account => {
+    const services = servicesMock();
+    const options = { services, actorResolver: vi.fn().mockResolvedValue({ profileId: attendeeId, displayName: "Not President", ...account }) };
+    for (const handler of [createSaveMeetingDraftHandler, createDeferMeetingHandler, createResumeMeetingHandler,
+      createMarkMeetingReadyHandler, createRetryMeetingAnalysisHandler, createDiscardMeetingDraftHandler, createRenormalizeMeetingTranscriptHandler]) {
+      expect((await handler(options)(versionedRequest("denied-mutation"), context(meetingId))).status).toBe(403);
+    }
+    const detailResponse = await createMeetingDetailHandler(options)(request(`/api/meetings/${meetingId}`), context(meetingId));
+    expect((await detailResponse.json()).capabilities).toMatchObject({ canEdit: false, canDefer: false, canDiscard: false,
+      canApprove: account.role === "TREASURER" || account.boardPosition === "VICE_PRESIDENT" });
+    expect(services.saveMeetingDraft).not.toHaveBeenCalled();
+  });
   it("keeps approval and discard out of member access and uses the verified officer for discard", async () => {
     const services = servicesMock();
     const member = { services, actorResolver: userResolver };
@@ -331,15 +350,15 @@ describe("meeting review and approval controllers", () => {
     await expect(response.json()).resolves.toMatchObject({ action: "draft_saved", version: 5 });
   });
 
-  it("allows ordinary members to resume review", async () => {
+  it("denies ordinary members resuming review", async () => {
     const services = servicesMock();
     const handler = createResumeMeetingHandler({ services, actorResolver: userResolver });
     const response = await handler(jsonRequest(`/api/meetings/${meetingId}/resume`, "POST", {
       expectedVersion: 4,
     }), context(meetingId));
 
-    expect(response.status).toBe(200);
-    expect(services.resumeMeetingReview).toHaveBeenCalled();
+    expect(response.status).toBe(403);
+    expect(services.resumeMeetingReview).not.toHaveBeenCalled();
   });
 
   it("exposes defer, resume, ready, approval, and PDF retry controller actions", async () => {
@@ -397,8 +416,8 @@ describe("meeting review and approval controllers", () => {
   it("authorizes and safely maps AI retry conflicts, invalid states, and failures", async () => {
     const services = servicesMock();
     const memberHandler = createRetryMeetingAnalysisHandler({ services, actorResolver: userResolver });
-    expect((await memberHandler(versionedRequest("analysis/retry"), context(meetingId))).status).toBe(200);
-    expect(services.retryMeetingAnalysis).toHaveBeenCalled();
+    expect((await memberHandler(versionedRequest("analysis/retry"), context(meetingId))).status).toBe(403);
+    expect(services.retryMeetingAnalysis).not.toHaveBeenCalled();
 
     services.retryMeetingAnalysis = vi.fn()
       .mockResolvedValueOnce({ status: "conflict", meetingId, version: 8, attempt: null })

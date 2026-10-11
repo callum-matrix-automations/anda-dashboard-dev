@@ -1,6 +1,7 @@
 "use client";
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { ApiClientError, apiClient } from "@/frontend/api-client/client";
 import type { MeetingApiQueue } from "@/shared/contracts/meetingApi";
 import type { MeetingArchiveQuery } from "@/shared/contracts/meetingArchive";
@@ -20,7 +21,19 @@ import type {
 } from "@/shared/contracts/property";
 
 export function useCurrentAccount() {
-  return useQuery({ queryKey: ["current-account"], queryFn: apiClient.account.current, retry: false });
+  const client = useQueryClient();
+  const previous = useRef<string | null>(null);
+  const query = useQuery({ queryKey: ["current-account"], queryFn: apiClient.account.current, retry: false,
+    staleTime: 0, refetchInterval: 30_000, refetchOnWindowFocus: true });
+  const identity = query.data ? `${query.data.profileId}:${query.data.role}:${query.data.boardPosition ?? ""}` : null;
+  useEffect(() => {
+    if (previous.current && identity && previous.current !== identity) {
+      void client.invalidateQueries({ queryKey: ["meeting"] });
+      void client.invalidateQueries({ queryKey: ["meetings"] });
+    }
+    previous.current = identity;
+  }, [client, identity]);
+  return query;
 }
 
 export function useMeetings(queue: MeetingApiQueue = "all") {
@@ -38,8 +51,8 @@ export function useMeeting(id: string) {
     queryKey: ["meeting", id],
     queryFn: () => apiClient.meetings.get(id),
     retry: false,
-    refetchInterval: false,
     refetchOnWindowFocus: false,
+    refetchInterval: false,
   });
 }
 

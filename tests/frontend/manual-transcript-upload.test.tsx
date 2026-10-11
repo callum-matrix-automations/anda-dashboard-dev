@@ -21,6 +21,15 @@ afterEach(() => {
 });
 
 describe("manual transcript upload dialog", () => {
+  it.each([
+    { role: "USER", boardPosition: null },
+    { role: "OFFICER", boardPosition: "VICE_PRESIDENT" },
+    { role: "OFFICER", boardPosition: null },
+    { role: "TREASURER", boardPosition: null },
+  ])("hides upload for $role / $boardPosition", account => {
+    renderWithQuery(<ManualTranscriptUploadDialog />, account);
+    expect(screen.queryByRole("button", { name: "Upload transcript" })).toBeNull();
+  });
   it("requires a title and transcript before making an API request", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn();
@@ -88,9 +97,11 @@ function normalizationSummary() {
   };
 }
 
-function renderWithQuery(node: ReactNode) {
+function renderWithQuery(node: ReactNode, account = { role: "OFFICER", boardPosition: "PRESIDENT" } as {role: string; boardPosition: string | null}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  queryClient.setQueryData(["current-account"], { profileId: meetingId, displayName: "Local test account", ...account });
+  queryClient.setQueryDefaults(["current-account"], { enabled: false });
   return render(createElement(QueryClientProvider, { client: queryClient }, node));
 }

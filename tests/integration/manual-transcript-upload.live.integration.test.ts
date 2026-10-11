@@ -15,6 +15,7 @@ const actor: ServerActor = {
   profileId: "10000000-0000-4000-8000-000000000001",
   displayName: "Ernesto",
   role: "OFFICER",
+  boardPosition: "PRESIDENT",
 };
 
 describe.skipIf(!liveConfigured)("live manual transcript upload workflow", () => {

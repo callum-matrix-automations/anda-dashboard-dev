@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { ServerActor } from "../../auth/serverActor";
+import { actorHasPermission } from "../../auth/serverActor";
 import type { StoredTranscriptImport } from "../../repositories/transcripts/transcriptRepository";
 import {
   ManualTranscriptUploadRequestSchema,
@@ -49,6 +50,7 @@ export function createManualTranscriptUploadProcessor({
     input: ManualTranscriptUploadRequest,
     actor: ServerActor,
   ): Promise<ManualTranscriptUploadResponse> {
+    if (!actorHasPermission(actor, "review")) throw new Error("Only the President can upload transcripts.");
     const upload = ManualTranscriptUploadRequestSchema.parse(input);
     let normalization: TranscriptNormalizationResult;
     try {
