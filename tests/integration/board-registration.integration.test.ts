@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
 import { registerBoardMember } from "../../src/backend/auth/registerBoardMember";
@@ -10,47 +10,43 @@ const config = localSupabaseConfiguration();
 const ids = { president: "10000000-0000-4000-8000-000000000001", vice: "10000000-0000-4000-8000-000000000002", member: "10000000-0000-4000-8000-000000000003", treasurer: "10000000-0000-4000-8000-000000000006" };
 function admin() { return createClient(config.apiUrl, config.secretKey, { auth: { persistSession: false, autoRefreshToken: false } }); }
 function publicClient() { return createClient(config.apiUrl, process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } }); }
-async function invite(client: ReturnType<typeof admin>, extra = {}) {
-  const code = randomBytes(32).toString("base64url"), email = `anda-025-${randomUUID()}@example.test`;
-  const token_hash = createHash("sha256").update(code).digest("hex");
-  const inserted = await client.from("board_invitations").insert({ email, token_hash, expires_at: new Date(Date.now() + 3600_000).toISOString(), ...extra }).select("id,registration_profile_id").single();
-  if (inserted.error) throw inserted.error;
-  return { code, email, token_hash, ...inserted.data };
-}
 describe.skipIf(!config.configured)("ANDA-025 local registration and permissions", () => {
-  it("activates only an invitation-bound USER, handles concurrency/replay and revokes sessions on operator reset", async () => {
-    const client = admin(), invitation = await invite(client), user = publicClient();
-    const input = { email: invitation.email, invitationCode: invitation.code, displayName: "Synthetic board member", password: "local-member-password" };
+  it("self-registers only a USER, handles duplicate/concurrent signup and revokes sessions on operator reset", async () => {
+    const client = admin(), user = publicClient();
+    const input = { email: `anda-025-self-service-${randomUUID()}@example.test`, displayName: "Synthetic board member", password: "local-member-password" };
+    let profileId: string | undefined;
     try {
-      await expect(registerBoardMember({ ...input, email: "outsider@example.test" }, client)).rejects.toThrow();
       const results = await Promise.allSettled([registerBoardMember(input, client), registerBoardMember(input, client)]);
       expect(results.filter(result => result.status === "fulfilled")).toHaveLength(1);
-      const profile = await client.from("profiles").select("member_role,board_position,is_admin,account_status").eq("id", invitation.registration_profile_id).single();
-      expect(profile.data).toEqual({ member_role: "USER", board_position: null, is_admin: false, account_status: "ACTIVE" });
+      const profile = await client.from("profiles").select("id,member_role,board_position,is_admin,account_status").eq("email", input.email).single();
+      expect(profile.error).toBeNull();
+      profileId = profile.data!.id;
+      expect(profile.data).toEqual({ id: profileId, member_role: "USER", board_position: null, is_admin: false, account_status: "ACTIVE" });
       await expect(registerBoardMember(input, client)).rejects.toThrow();
-      expect((await user.auth.signInWithPassword({ email: invitation.email, password: input.password })).error).toBeNull();
-      expect(await hasActiveAccountSession(user, invitation.registration_profile_id)).toBe(true);
+      expect((await user.auth.signInWithPassword({ email: input.email, password: input.password })).error).toBeNull();
+      expect(await hasActiveAccountSession(user, profileId!)).toBe(true);
       expect((await user.from("board_invitations").select("*")).error).not.toBeNull();
-      expect((await user.rpc("claim_board_invitation", { p_token_hash: invitation.token_hash, p_email: invitation.email, p_lease_id: randomUUID() })).error).not.toBeNull();
-      expect((await user.from("profiles").update({ member_role: "OFFICER", board_position: "PRESIDENT" }).eq("id", invitation.registration_profile_id)).error).not.toBeNull();
+      expect((await user.from("profiles").update({ member_role: "OFFICER", board_position: "PRESIDENT" }).eq("id", profileId!)).error).not.toBeNull();
       const oldSession = (await user.auth.getSession()).data.session!;
       const resetPassword = "local-reset-password";
-      expect((await client.auth.admin.updateUserById(invitation.registration_profile_id, { password: resetPassword })).error).toBeNull();
-      expect((await client.rpc("revoke_board_account_sessions", { p_profile_id: invitation.registration_profile_id })).error).toBeNull();
-      expect(await hasActiveAccountSession(user, invitation.registration_profile_id)).toBe(false);
-      const staleResponse = await fetch(`${config.apiUrl}/rest/v1/profiles?select=id&id=eq.${invitation.registration_profile_id}`, { headers: {
+      expect((await client.auth.admin.updateUserById(profileId!, { password: resetPassword })).error).toBeNull();
+      expect((await client.rpc("revoke_board_account_sessions", { p_profile_id: profileId })).error).toBeNull();
+      expect(await hasActiveAccountSession(user, profileId!)).toBe(false);
+      const staleResponse = await fetch(`${config.apiUrl}/rest/v1/profiles?select=id&id=eq.${profileId}`, { headers: {
         apikey: process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, authorization: `Bearer ${oldSession.access_token}`,
       } });
       expect(await staleResponse.json()).toEqual([]);
       expect((await user.auth.refreshSession({ refresh_token: oldSession.refresh_token })).error).not.toBeNull();
-      expect((await user.auth.signInWithPassword({ email: invitation.email, password: input.password })).error).not.toBeNull();
-      expect((await user.auth.signInWithPassword({ email: invitation.email, password: resetPassword })).error).toBeNull();
-      expect(await hasActiveAccountSession(user, invitation.registration_profile_id)).toBe(true);
+      expect((await user.auth.signInWithPassword({ email: input.email, password: input.password })).error).not.toBeNull();
+      expect((await user.auth.signInWithPassword({ email: input.email, password: resetPassword })).error).toBeNull();
+      expect(await hasActiveAccountSession(user, profileId!)).toBe(true);
     } finally {
       await user.auth.signOut();
-      await client.from("profiles").delete().eq("id", invitation.registration_profile_id);
-      await client.auth.admin.deleteUser(invitation.registration_profile_id);
-      await client.from("board_invitations").delete().eq("id", invitation.id);
+      // Profiles are permanent historical identities: deactivate synthetic fixtures.
+      if (profileId) {
+        await client.from("profiles").update({ account_status: "DEACTIVATED" }).eq("id", profileId);
+        await client.rpc("revoke_board_account_sessions", { p_profile_id: profileId });
+      }
     }
   }, 30000);
   it("disables direct Auth signup independently of the app registration endpoint", async () => {
@@ -58,23 +54,20 @@ describe.skipIf(!config.configured)("ANDA-025 local registration and permissions
     expect(response.error?.code).toBe("signup_disabled");
     expect(response.data.user).toBeNull();
   });
-  it("safely recovers an Auth-only incomplete activation and denies expired/revoked invitations", async () => {
-    const client = admin(), invitation = await invite(client);
-    const input = { email: invitation.email, invitationCode: invitation.code, displayName: "Recovery member", password: "local-recovered-password" };
+  it("does not take over an existing Auth-only account or overwrite its password", async () => {
+    const client = admin(), user = publicClient();
+    const input = { email: `anda-025-existing-${randomUUID()}@example.test`, displayName: "Existing member", password: "replacement-password" };
+    const created = await client.auth.admin.createUser({ email: input.email, password: "original-member-password", email_confirm: true });
+    expect(created.error).toBeNull();
+    const id = created.data.user!.id;
     try {
-      expect((await client.auth.admin.createUser({ id: invitation.registration_profile_id, email: invitation.email, password: "old-incomplete-password", email_confirm: true })).error).toBeNull();
-      expect(await registerBoardMember(input, client)).toEqual({ ok: true });
-      expect((await client.from("profiles").select("id").eq("id", invitation.registration_profile_id)).data).toHaveLength(1);
-      for (const extra of [{ expires_at: new Date(0).toISOString() }, { revoked_at: new Date().toISOString() }]) {
-        const denied = await invite(client, extra);
-        await expect(registerBoardMember({ ...input, email: denied.email, invitationCode: denied.code }, client)).rejects.toThrow();
-        expect((await client.auth.admin.getUserById(denied.registration_profile_id)).data.user).toBeNull();
-        await client.from("board_invitations").delete().eq("id", denied.id);
-      }
+      await expect(registerBoardMember(input, client)).rejects.toThrow();
+      expect((await client.from("profiles").select("id").eq("id", id)).data).toHaveLength(0);
+      expect((await user.auth.signInWithPassword({ email: input.email, password: input.password })).error).not.toBeNull();
+      expect((await user.auth.signInWithPassword({ email: input.email, password: "original-member-password" })).error).toBeNull();
     } finally {
-      await client.from("profiles").delete().eq("id", invitation.registration_profile_id);
-      await client.auth.admin.deleteUser(invitation.registration_profile_id);
-      await client.from("board_invitations").delete().eq("id", invitation.id);
+      await user.auth.signOut();
+      await client.auth.admin.deleteUser(id);
     }
   }, 30000);
   it("enforces all draft mutations in SQL for each board position and allows eligible approvals", async () => {

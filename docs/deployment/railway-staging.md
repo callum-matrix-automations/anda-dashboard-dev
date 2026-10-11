@@ -46,7 +46,7 @@ retain their independent bearer secrets. There is no shared master-login bypass.
 ## ANDA-024 account and migration cutover (historical)
 
 The original cutover below is retained for context. ANDA-025 supersedes its
-upload/edit/discard permissions and adds invitation-based registration.
+upload/edit/discard permissions and adds self-service registration.
 
 1. Back up the staging database and apply all migrations in filename order,
    including the four `20261003100...` migrations. Keep the discard enum addition
@@ -101,8 +101,13 @@ Only the President may upload, edit, prepare or discard drafts. President,
 Vice President and Treasurer may approve; only the assigned Treasurer may sign
 or return a document for correction. Keep hosted email/password login enabled,
 disable public and anonymous signup, and require passwords of at least 12
-characters. Invited members create only USER accounts through `/auth/register`.
-Operator invitation and reset commands are documented in the README. No new
+characters. Members create active read-only USER accounts through `/auth/register`
+with their name, email and chosen password, without codes or operator approval.
+Direct Supabase signup stays disabled; application registration is server-controlled.
+This permits anyone reaching registration to gain Member read access. Existing
+privileged accounts are never modified by signup. The earlier invitation schema is
+unused and retained; this simplification needs no additional migration.
+Operator reset commands are documented in the README. No new
 Railway environment variables or email-delivery service are required.
 
 Apply every committed migration to the staging Supabase project in filename
